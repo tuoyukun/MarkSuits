@@ -1,0 +1,29 @@
+# --- Never publish ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+id_rsa*
+id_ed25519*
+.sensitive-words
+CLAUDE.local.md
+.claude/settings.local.json
+
+# --- Claude Code local state ---
+.claude/worktrees/
+.mark/locks/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# --- OS / editors ---
+.DS_Store
+.idea/
+.vscode/
+*.swp

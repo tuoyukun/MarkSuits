@@ -1,0 +1,40 @@
+# CLAUDE.md — {{ project_name }}
+
+> This file explains **what the project is and how to build it**: stack, layout,
+> module boundaries, contracts, docs and commit conventions.
+> How the agents collaborate lives in `.mark/collaboration.md`, not here.
+
+## 1. Overview
+
+TODO: one paragraph on what {{ project_name }} does.
+
+## 2. Tech stack
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Frontend (`{{ frontend_dir }}/`) | TODO | |
+| Backend (`{{ backend_dir }}/`) | TODO | |
+| Tests (`{{ tests_dir }}/`) | TODO | |
+
+## 3. Module boundaries
+
+| Module | Owns | May depend on | Must not |
+|---|---|---|---|
+| `{{ ui_dir }}` | Presentational components (designer only) | design tokens, prop types | requests, routing, global state |
+
+## 4. Red lines
+
+1. No architecture-level decision without an ADR.
+2. No reaching across module boundaries outside defined contracts.
+3. Changing a module requires updating its `CONTEXT.md`.
+
+## 5. Commit format
+
+```
+type(module): what changed
+
+Why:
+How:
+Rejected:
+Files:
+```

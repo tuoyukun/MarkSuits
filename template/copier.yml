@@ -1,0 +1,46 @@
+# Copier template for a Mark-managed project.
+# Generate:  copier copy gh:<owner>/MarkSuits <dest> --vcs-ref <tag>
+# Upgrade:   copier update        (3-way merge against the recorded answers)
+_subdirectory: project
+_answers_file: .mark/.copier-answers.yml
+_min_copier_version: "9.0.0"
+
+project_name:
+  type: str
+  help: Project name
+
+locale:
+  type: str
+  help: Language for role prompts, artifacts and hook messages
+  choices:
+    中文 (zh-CN): zh-CN
+    English (en): en
+  default: zh-CN
+
+profile:
+  type: str
+  help: Role pack
+  choices:
+    Web full-stack (designer / coder-plan / coder-impl / tester / fix-plan): web-fullstack
+  default: web-fullstack
+
+main_branch:
+  type: str
+  default: main
+
+frontend_dir:
+  type: str
+  default: frontend
+
+backend_dir:
+  type: str
+  default: backend
+
+ui_dir:
+  type: str
+  help: Presentational UI directory owned exclusively by the designer role
+  default: "{{ frontend_dir }}/src/ui"
+
+tests_dir:
+  type: str
+  default: tests

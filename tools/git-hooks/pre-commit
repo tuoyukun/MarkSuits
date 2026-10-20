@@ -1,0 +1,3 @@
+#!/bin/sh
+# Install once:  git config core.hooksPath tools/git-hooks
+exec python3 "$(git rev-parse --show-toplevel)/tools/check_sensitive.py" --staged

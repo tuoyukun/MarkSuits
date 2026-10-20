@@ -1,0 +1,14 @@
+{
+  "name": "marksuits",
+  "description": "Mark: a multi-agent development workflow for Claude Code (orchestrator + stateless role agents + human review gates + hook enforcement).",
+  "owner": {
+    "name": "MarkSuits contributors"
+  },
+  "plugins": [
+    {
+      "name": "mark",
+      "source": "./plugins/mark",
+      "description": "Core engine: ticket state machine, review gates, role write-scope enforcement, worktree isolation."
+    }
+  ]
+}

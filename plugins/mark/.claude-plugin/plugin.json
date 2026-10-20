@@ -1,0 +1,16 @@
+{
+  "name": "mark",
+  "version": "0.1.0",
+  "description": "Mark core engine: ticket state machine, human review gates, role write-scope enforcement and worktree isolation for multi-agent development.",
+  "author": {
+    "name": "MarkSuits contributors"
+  },
+  "keywords": [
+    "multi-agent",
+    "workflow",
+    "orchestrator",
+    "hooks",
+    "review-gates"
+  ],
+  "license": "MIT"
+}

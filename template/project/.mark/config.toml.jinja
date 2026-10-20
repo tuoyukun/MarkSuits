@@ -1,0 +1,76 @@
+# Mark project configuration. The engine (plugin) reads this file; it never
+# hardcodes project paths. Keep it in git.
+mark_schema = 1
+locale = "{{ locale }}"
+profile = "{{ profile }}"
+
+[project]
+name = "{{ project_name }}"
+main_branch = "{{ main_branch }}"
+
+[paths]
+state_dir = ".mark"
+frontend = "{{ frontend_dir }}"
+backend = "{{ backend_dir }}"
+ui = "{{ ui_dir }}"
+tests = "{{ tests_dir }}"
+
+# Gate file each role needs before it can be dispatched (feature chain only).
+# The bug chain has no pre-dispatch gates.
+[gates]
+designer = ""
+fix-plan = ""
+coder-plan = "design-approved"
+coder-impl = "plan-approved"
+tester = "plan-approved"
+
+# Write scopes: first matching glob wins. "main" = orchestrator (main thread).
+# Paths not matched by any rule are writable by everyone.
+# NOTE: draft for the web-fullstack profile; finalized when scope-guard lands.
+[[write_rules]]
+glob = ".claude/**"
+roles = []
+
+[[write_rules]]
+glob = ".mark/gates/**"
+roles = []
+
+[[write_rules]]
+glob = "**/review-*.md"
+roles = []
+
+[[write_rules]]
+glob = "**/design.md"
+roles = ["designer"]
+
+[[write_rules]]
+glob = "{{ ui_dir }}/**"
+roles = ["designer"]
+
+[[write_rules]]
+glob = "**/tech-plan.md"
+roles = ["coder-plan"]
+
+[[write_rules]]
+glob = "**/fix-plan.md"
+roles = ["fix-plan"]
+
+[[write_rules]]
+glob = "**/handoff.md"
+roles = ["coder-impl"]
+
+[[write_rules]]
+glob = "**/verdict.md"
+roles = ["tester"]
+
+[[write_rules]]
+glob = "{{ tests_dir }}/**"
+roles = ["tester"]
+
+[[write_rules]]
+glob = "{{ frontend_dir }}/**"
+roles = ["coder-impl"]
+
+[[write_rules]]
+glob = "{{ backend_dir }}/**"
+roles = ["coder-impl"]

@@ -1,0 +1,11 @@
+# .mark
+
+Multi-agent collaboration state for {{ project_name }}, managed by the Mark plugin.
+
+| Path | Purpose |
+|---|---|
+| `config.toml` | Engine configuration (roles, gates, write scopes) |
+| `features/<id>/`, `bugs/<id>/` | One directory per ticket: status + artifacts |
+| `gates/` | Human approval records (file exists = approved). Never delete |
+| `locks/` | Runtime dispatch locks (not committed) |
+| `.copier-answers.yml` | Template version record used by `copier update` |
