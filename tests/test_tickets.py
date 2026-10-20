@@ -146,7 +146,7 @@ class ClaimTest(unittest.TestCase):
     def test_concurrent_processes_get_unique_numbers(self):
         mark = str(PLUGIN_ROOT / "bin" / "mark")
         procs = [subprocess.Popen([sys.executable, mark, "claim", "bug", f"same text {i % 2}"],
-                                  cwd=self.root, stdout=subprocess.PIPE, text=True)
+                                  cwd=self.root, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
                  for i in range(12)]
         ids = [p.communicate()[0].strip().removeprefix("TICKET-ID: ") for p in procs]
         self.assertTrue(all(p.returncode == 0 for p in procs))

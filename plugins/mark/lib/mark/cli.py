@@ -1,6 +1,6 @@
-"""`mark` command line: ticket claim and status view.
+"""`mark` command line: tickets, status view, and the orchestration steps.
 
-Exit codes: 0 ok, 1 check found problems or claim failed, 2 usage or setup error.
+Exit codes: 0 ok, 1 refused (check failed, illegal move, missing approval...), 2 usage or setup error.
 Commands always act on the main checkout, so they give the same answer from
 any worktree.
 """
@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import states, tickets
+from . import brief, flow, states, tickets
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -92,19 +92,12 @@ def cmd_status(cfg: MarkConfig, args: list[str], out: TextIO) -> int:
 
 
 def cmd_claim(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
-    slug = None
-    if "--slug" in args:
-        i = args.index("--slug")
-        if i + 1 >= len(args):
-            err.write(t(cfg.locale, "cli.usage") + "\n")
-            return 2
-        slug = args[i + 1]
-        args = args[:i] + args[i + 2:]
-    if len(args) != 2 or args[0] not in states.KINDS or not args[1].strip():
+    opts, pos = _parse(args, {"--slug"})
+    if opts is None or len(pos) != 2 or pos[0] not in states.KINDS or not pos[1].strip():
         err.write(t(cfg.locale, "cli.usage") + "\n")
         return 2
     try:
-        ticket = tickets.claim(cfg, args[0], args[1], slug=slug)
+        ticket, approved = flow.open_ticket(cfg, pos[0], pos[1], slug=opts.get("--slug"))
     except tickets.ClaimError as exc:
         reason = t(cfg.locale, exc.key, **exc.params)
         err.write(t(cfg.locale, "claim.failed", error=reason) + "\n")
@@ -113,7 +106,162 @@ def cmd_claim(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
         err.write(t(cfg.locale, "claim.failed", error=exc) + "\n")
         return 1
     out.write(t(cfg.locale, "claim.ok", id=ticket.id) + "\n")
+    gate = f"{cfg.state_rel}/gates/{ticket.id}.{flow.TICKET_GATE}"
+    verb = "feature" if pos[0] == states.FEATURE else "fix"
+    note = t(cfg.locale, "claim.approved", verb=verb, gate=gate) if approved else \
+        t(cfg.locale, "claim.unapproved", id=ticket.id)
+    err.write(note + "\n")
     return 0
+
+
+# --------------------------------------------------------------------------
+# Orchestration commands
+# --------------------------------------------------------------------------
+
+_FLAGS = {"--json", "--retry", "--no-commit"}
+
+
+def _parse(args: list[str], valued: set[str], multi: set[str] = frozenset()
+           ) -> tuple[dict | None, list[str]]:
+    """Tiny option parser: returns ({opt: value | [values] | True}, positionals); None on error."""
+    opts: dict = {}
+    pos: list[str] = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in valued or a in multi:
+            if i + 1 >= len(args):
+                return None, pos
+            if a in multi:
+                opts.setdefault(a, []).append(args[i + 1])
+            else:
+                opts[a] = args[i + 1]
+            i += 2
+            continue
+        if a in _FLAGS:
+            opts[a] = True
+        elif a.startswith("--"):
+            return None, pos
+        else:
+            pos.append(a)
+        i += 1
+    return opts, pos
+
+
+def _say(cfg: MarkConfig, stream: TextIO, key: str, **params: object) -> None:
+    stream.write(t(cfg.locale, key, **params) + "\n")
+
+
+def _fail(cfg: MarkConfig, err: TextIO, exc: flow.FlowError) -> int:
+    params = dict(exc.params)
+    if isinstance(params.get("problems"), list):
+        params["problems"] = "\n".join("  - " + t(cfg.locale, p.key, **p.params) for p in params["problems"])
+    _say(cfg, err, exc.key, **params)
+    return 1
+
+
+def _commit(cfg: MarkConfig, ctx: flow.Ctx, message: str, opts: dict, out: TextIO) -> int:
+    if opts.get("--no-commit"):
+        return 0
+    notes = flow.commit(ctx, message)
+    for key in notes:
+        _say(cfg, out, key)
+    return 1 if "flow.push_failed" in notes else 0
+
+
+def cmd_next(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    opts, pos = _parse(args, set())
+    if opts is None or len(pos) != 1:
+        _say(cfg, err, "cli.usage")
+        return 2
+    ctx = flow.load(cfg, pos[0])
+    action = flow.next_action(ctx, retry=bool(opts.get("--retry")))
+    if opts.get("--json"):
+        data = {"id": ctx.id, "kind": ctx.kind, "status": ctx.ticket.status, **action.as_dict(),
+                "text": t(cfg.locale, action.message, **action.params)}
+        out.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    else:
+        _say(cfg, out, action.message, **action.params)
+    return 0
+
+
+def cmd_dispatch(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    opts, pos = _parse(args, {"--prev", "--trigger"})
+    if opts is None or len(pos) != 1:
+        _say(cfg, err, "cli.usage")
+        return 2
+    ctx = flow.load(cfg, pos[0])
+    action = flow.next_action(ctx, retry=bool(opts.get("--retry")))
+    if action.kind != "dispatch":
+        _say(cfg, err, action.message, **action.params)
+        return 1
+    prev, trigger = opts.get("--prev", ""), opts.get("--trigger", "")
+    brief.render(ctx, action, prev=prev, trigger=trigger)  # template errors before git side effects
+    for key, params in flow.ensure_isolation(ctx):
+        _say(cfg, err, key, **params)
+    prompt = brief.render(ctx, action, prev=prev, trigger=trigger)
+    out.write(f"subagent_type: {action.role}\n")
+    out.write(f"description: {ctx.id} {action.scenario}\n")
+    out.write("--- prompt ---\n")
+    out.write(prompt)
+    return 0
+
+
+def cmd_set(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    opts, pos = _parse(args, {"--note", "--leftover"})
+    if opts is None or len(pos) != 2:
+        _say(cfg, err, "cli.usage")
+        return 2
+    ctx = flow.load(cfg, pos[0])
+    old = flow.set_status(ctx, pos[1], note=opts.get("--note"), leftover=opts.get("--leftover"))
+    _say(cfg, out, "set.done", id=ctx.id, old=old, new=pos[1])
+    return _commit(cfg, ctx, f"{ctx.id}: {old} -> {pos[1]}", opts, out)
+
+
+def cmd_approve(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    opts, pos = _parse(args, set())
+    if opts is None or len(pos) != 1:
+        _say(cfg, err, "cli.usage")
+        return 2
+    ctx = flow.load(cfg, pos[0])
+    res = flow.approve(ctx)
+    if res.gate == flow.TICKET_GATE:
+        _say(cfg, out, "approve.ticket", id=ctx.id, gate=f"{cfg.state_rel}/gates/{ctx.id}.{res.gate}")
+        return _commit(cfg, ctx, f"{ctx.id}: opening approved", opts, out)
+    _say(cfg, out, "approve.done", id=ctx.id, old=res.old, new=res.new)
+    if res.gate:
+        _say(cfg, out, "approve.gate", gate=f"{cfg.state_rel}/gates/{ctx.id}.{res.gate}")
+    if res.rounds:
+        _say(cfg, out, "approve.rounds", rounds=", ".join(map(str, res.rounds)))
+    return _commit(cfg, ctx, f"{ctx.id}: approved {res.old} -> {res.new}", opts, out)
+
+
+def cmd_reject(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    opts, pos = _parse(args, {"--to"}, {"--item"})
+    if opts is None or len(pos) != 1:
+        _say(cfg, err, "cli.usage")
+        return 2
+    ctx = flow.load(cfg, pos[0])
+    res = flow.reject(ctx, opts.get("--item", []), to=opts.get("--to"))
+    rel = Path(res.review).relative_to(cfg.root).as_posix()
+    _say(cfg, out, "reject.done", round=res.rounds[0], refs=", ".join(res.refs), file=rel,
+         id=ctx.id, old=res.old, new=res.new)
+    return _commit(cfg, ctx, f"{ctx.id}: rejected at {res.old} ({', '.join(res.refs)})", opts, out)
+
+
+def cmd_commit(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    opts, pos = _parse(args, {"-m"})
+    if opts is None or len(pos) != 1:
+        _say(cfg, err, "cli.usage")
+        return 2
+    ctx = flow.load(cfg, pos[0])
+    return _commit(cfg, ctx, opts.get("-m") or f"{ctx.id}: update ticket state", {}, out)
+
+
+RULES_FILE = Path(__file__).resolve().parents[2] / "rules" / "orchestrator.md"
+
+COMMANDS = {"next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
+            "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim}
 
 
 def main(argv: list[str] | None = None, cwd: Path | None = None,
@@ -124,14 +272,20 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
     if not argv or argv[0] in ("-h", "--help", "help"):
         out.write(t("en", "cli.usage") + "\n")
         return 0 if argv else 2
+    if argv[0] == "rules":
+        out.write(RULES_FILE.read_text(encoding="utf-8"))
+        return 0
     cfg = _load(cwd or Path.cwd(), err)
     if cfg is None:
         return 2
     command, rest = argv[0], argv[1:]
     if command == "status":
         return cmd_status(cfg, rest, out)
-    if command == "claim":
-        return cmd_claim(cfg, rest, out, err)
+    if command in COMMANDS:
+        try:
+            return COMMANDS[command](cfg, rest, out, err)
+        except flow.FlowError as exc:
+            return _fail(cfg, err, exc)
     if command == "unlock" and len(rest) == 2:
         lock = cfg.state_dir / "locks" / f"{rest[0]}.{rest[1]}.lock"
         if not lock.exists():

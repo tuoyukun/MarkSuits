@@ -35,6 +35,12 @@ fix-plan = ["fix-plan.md"]
 coder-impl = ["handoff.md"]
 tester = ["verdict.md"]
 
+# A feature that has design.md and whose branch changes these paths goes through
+# design QA (designer checks the integrated UI) before testing.
+[design_qa]
+paths = ["{{ frontend_dir }}/**"]
+exclude = ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"]
+
 [worktree]
 dir = ".claude/worktrees"
 # The main checkout is a state lane: only ticket dirs, gates and locks change there.

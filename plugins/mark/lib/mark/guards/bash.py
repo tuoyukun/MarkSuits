@@ -97,4 +97,28 @@ def git_guard(env: Env) -> str | None:
     return None
 
 
-PRE_BASH = [git_guard]
+# `mark` subcommands that change ticket state. Subagents report outcomes in
+# their result; the orchestrator records them.
+MARK_WRITES = frozenset({"set", "approve", "reject", "claim", "commit", "dispatch", "unlock"})
+
+
+def mark_guard(env: Env) -> str | None:
+    command = str(env.tool_input.get("command") or "")
+    tokens = f"{env.cfg.state_rel}/locks/human"
+    if tokens in command or "locks/human" in command:
+        return env.t("guard.bash.human_tokens", dir=tokens)
+    if env.role is None or "mark" not in command:
+        return None
+    for segment in _SEGMENT_SPLIT.split(_strip_heredocs(command)):
+        try:
+            words = shlex.split(segment)
+        except ValueError:
+            continue
+        while words and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[0]):
+            words = words[1:]
+        if len(words) > 1 and os.path.basename(words[0]) == "mark" and words[1] in MARK_WRITES:
+            return env.t("guard.bash.mark_cli", who=env.role, sub=words[1])
+    return None
+
+
+PRE_BASH = [mark_guard, git_guard]

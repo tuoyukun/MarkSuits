@@ -94,15 +94,68 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 |---|---|---|
 | `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **status** (main checkout on the main branch, valid fields, legal move) |
 | `pre-dispatch` | PreToolUse `Agent\|Task` | **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **gate** (feature roles need `[gates]`; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
-| `pre-bash` | PreToolUse `Bash` | subagents never commit or push on main; nobody checks out a ticket branch in the main checkout |
+| `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock |
 | `post-write` | PostToolUse writes | reminds to commit ticket state on main (feedback only) |
+| `user-prompt` | UserPromptSubmit | records a token when a human types `/mark:approve`, `/mark:reject`, `/mark:feature` or `/mark:fix` (never blocks) |
 | `subagent-stop` | SubagentStop | required outputs (`[outputs]`, or `mark:outputs` in the prompt) must exist in the ticket dir of some checkout; otherwise the subagent keeps running. Result goes to `.mark/locks/<id>.<role>.result.json` |
 
 Engine-fixed rules (no config can loosen them): `.claude/**`, `.mark/config.toml`, gates, locks,
-ticket `status.md` and `review-*.md` are main-thread only. Locks bound to a live agent are never
+ticket `status.md` and `review-*.md` are main-thread only; `locks/human/**` is writable by nobody. Locks bound to a live agent are never
 reclaimed by age; a human releases a dead one with `mark unlock <id> <role>`.
 Set `MARK_DEBUG_LOG=<file>` to record raw hook payloads.
+
+### Orchestration (v0.4)
+
+The orchestrator is the main thread, driven by plugin skills. The skills stay thin: every
+decision that can be computed is computed by the `mark` CLI and tested.
+
+| skill | does | continues until |
+|---|---|---|
+| `/mark:feature <id \| text>` | new: pre-start review with the human, `mark claim`, `requirement.md`; existing: one step | one step |
+| `/mark:fix <id \| text>` | same for bugs (`bug.md`) | `pending-merge` or a stop (no review gates) |
+| `/mark:approve <id>` | `mark approve`, then continues | next human gate or stop |
+| `/mark:reject <id> <text>` | splits comments into items, `mark reject`, dispatches the rework | next human gate or stop |
+| `/mark:status` | board summary | — |
+
+Each skill injects `mark rules` (the shared orchestrator rulebook, `plugins/mark/rules/orchestrator.md`)
+and the live board with `!` commands. `approve` and `reject` set `disable-model-invocation`.
+
+The loop: `mark next <id>` returns one of dispatch · wait · record · stop · done.
+
+- **dispatch**: `mark dispatch <id> --prev "<conclusion>"` creates or reuses the branch, worktree and
+  remote branch (refusing while the worktree has uncommitted work), then prints `subagent_type` and
+  a prompt: the `mark:ticket` anchor, `mark:outputs` when the template overrides outputs, and the
+  project's template for the scenario filled with verified facts (worktree, branch, artifacts in the
+  worktree and on main, required outputs, trigger, previous conclusion, open review rounds).
+- **wait**: a dispatch lock exists for the ticket.
+- **record**: a SubagentStop result newer than `status.md` exists; the orchestrator runs
+  `mark set <id> <status>`, choosing among the legal moves listed.
+
+Scenario (template) selection, from status plus artifacts: `designing` → `designer-initial`, or
+`designer-review-rework` (pending rounds in `review-design.md`), or `designer-rework` (after a
+verdict or design QA) · `planning` → `coder-plan` / `coder-plan-rework`, bugs `fix-plan-initial` /
+`fix-plan-rework` · `developing` → `coder-impl` · `design-qa` → `designer-integration-qa` · `testing`
+→ `tester-initial` / `tester-reverify` · `failed-impl` → `coder-impl-fix` / `coder-impl-merge-rework`.
+Templates live in `[paths] prompts` (default `.mark/prompts/<scenario>.md`), declare `role:` (checked)
+and optional `outputs:`, and use `{{placeholders}}`; unknown placeholders are an error.
+
+Moves (`mark set`, `approve`, `reject`) validate, write `status.md` (owner derived from status), then
+commit the ticket dir and its gates on main and push. `mark set` additionally refuses:
+leaving `review-design`/`review-plan` (human gates) · `testing` for a feature whose design exists and
+whose branch touches `[design_qa] paths`, until `design-qa.md` carries `<!-- mark:qa passed -->` ·
+`passed` while the ticket branch has commits not on main.
+
+**Human tokens.** `mark approve`, `mark reject` and the opening approval in `mark claim` consume a token
+written by the `user-prompt` hook when a person typed the matching command (12 h TTL, ticket id must
+match). Models cannot fire UserPromptSubmit, so an orchestrator cannot approve on its own. `mark claim`
+without a token creates the ticket unapproved; `/mark:approve <id>` approves the opening.
+
+Review files: each round is `## Round N · <time> · pending <!-- mark:round N pending -->` followed by
+`- R-K: …` items; ids run across rounds; approve flips pending rounds to done; text is never edited.
+
+Merging is manual in this version: at `pending-merge` the human merges and pushes, then
+`mark set <id> passed` (Phase 2 automates it).
 
 ## 5. Distribution and versioning
 
@@ -117,7 +170,8 @@ Set `MARK_DEBUG_LOG=<file>` to record raw hook payloads.
 **Phase 1 — core chain (web full-stack profile)**
 config loader ✅ · hook plumbing ✅ · ticket claim + `status` CLI ✅ (v0.2) · guards ✅ (v0.3: scope · worktree · ticket · status ·
 target · gate · branch · status-commit · dedup/output · git-in-bash) ·
-`/mark:feature` `/mark:fix` `/mark:approve` `/mark:reject` · role agents + prompt templates
+orchestration ✅ (v0.4: `/mark:feature` `/mark:fix` `/mark:approve` `/mark:reject` `/mark:status`,
+`mark next|dispatch|set|approve|reject|commit`, human tokens) · role agents + prompt templates
 (zh-CN, en) · example project walkthrough.
 
 **Phase 2 — merge and hygiene**

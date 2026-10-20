@@ -13,9 +13,9 @@ locale:
   type: str
   help: Language for role prompts, artifacts and hook messages
   choices:
-    中文 (zh-CN): zh-CN
     English (en): en
-  default: zh-CN
+    中文 (zh-CN): zh-CN
+  default: en
 
 profile:
   type: str

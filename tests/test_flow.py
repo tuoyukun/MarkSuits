@@ -1,0 +1,420 @@
+"""Orchestration: review rounds, human tokens, next action, status moves, approve/reject, dispatch."""
+import io
+import json
+import os
+import time
+import unittest
+
+from tests._support import (FULL_CONFIG, add_origin, add_templates, add_ticket, add_worktree, hook,
+                            human_typed, make_project, make_repo, sh)
+
+from mark import cli, flow, human, reviews
+from mark.config import load_config
+
+ALL_GATES = ["ticket-approved", "design-approved", "plan-approved"]
+
+
+def run(root, *argv):
+    out, err = io.StringIO(), io.StringIO()
+    code = cli.main(list(argv), cwd=root, out=out, err=err)
+    return code, out.getvalue(), err.getvalue()
+
+
+def ctx_of(root, ref):
+    return flow.load(load_config(root), ref)
+
+
+def write(path, text=""):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+class ReviewsTest(unittest.TestCase):
+    def test_rounds_number_across_rounds_and_settle(self):
+        p = make_project() / "review-design.md"
+        self.assertEqual(reviews.append_round(p, "en", "0001-a", "design", ["too slow", "no label"],
+                                              now="T1"), (1, ["R-1", "R-2"]))
+        self.assertEqual(reviews.settle(p, "en"), [1])
+        n, refs = reviews.append_round(p, "en", "0001-a", "design", ["drop R-1"], now="T2")
+        self.assertEqual((n, refs), (2, ["R-3"]))
+        rounds = reviews.read(p)
+        self.assertEqual([(r.number, r.pending, r.refs) for r in rounds],
+                         [(1, False, ["R-1", "R-2"]), (2, True, ["R-3"])])
+        text = p.read_text()
+        self.assertIn("## Round 1 · T1 · done <!-- mark:round 1 done -->", text)
+        self.assertIn("- R-1: too slow", text)
+
+    def test_localized_heading(self):
+        p = make_project() / "review-plan.md"
+        reviews.append_round(p, "zh-CN", "0001-a", "plan", ["x"], now="T")
+        self.assertIn("## 第 1 轮 · T · 待处理 <!-- mark:round 1 pending -->", p.read_text())
+        reviews.settle(p, "zh-CN")
+        self.assertIn("## 第 1 轮 · T · 已处理 <!-- mark:round 1 done -->", p.read_text())
+
+
+class HumanTokenTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_project()
+        self.cfg = load_config(self.root)
+
+    def test_parse(self):
+        self.assertEqual(human.parse_prompt("/mark:approve 0012"), ("approve", "0012"))
+        self.assertEqual(human.parse_prompt("  /reject b0003 too slow"), ("reject", "b0003"))
+        self.assertIsNone(human.parse_prompt("please approve 0012"))
+        self.assertIsNone(human.parse_prompt("/mark:status"))
+
+    def test_resuming_a_ticket_opens_nothing(self):
+        self.assertIsNone(human.record(self.cfg, "/mark:feature 0012"))
+        self.assertIsNotNone(human.record(self.cfg, "/mark:feature add dark mode"))
+
+    def test_consume_matches_ticket_once(self):
+        human.record(self.cfg, "/mark:approve 0012")
+        self.assertFalse(human.consume(self.cfg, ("approve",), "0013-x"))
+        self.assertFalse(human.consume(self.cfg, ("reject",), "0012-x"))
+        self.assertTrue(human.consume(self.cfg, ("approve",), "0012-x"))
+        self.assertFalse(human.consume(self.cfg, ("approve",), "0012-x"))
+
+    def test_tokens_expire(self):
+        human.record(self.cfg, "/mark:approve", now=time.time() - human.TOKEN_TTL - 1)
+        self.assertFalse(human.consume(self.cfg, ("approve",), "0012-x"))
+
+    def test_hook_records_token(self):
+        self.assertEqual(human_typed(self.root, "/mark:reject 0012 nope")[0], 0)
+        self.assertTrue(human.consume(self.cfg, ("reject",), "0012-a"))
+
+
+class NextActionTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_repo()
+
+    def next(self, ref, **kw):
+        return flow.next_action(ctx_of(self.root, ref), **kw)
+
+    def test_feature_initial_needs_requirement(self):
+        d = add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"])
+        self.assertEqual(self.next("0001").message, "next.no_brief")
+        write(d / "requirement.md", "AC-1")
+        a = self.next("0001")
+        self.assertEqual((a.kind, a.role, a.scenario), ("dispatch", "designer", "designer-initial"))
+
+    def test_unapproved_ticket_stops(self):
+        add_ticket(self.root, "feature", "0001-a", "designing")
+        self.assertEqual(self.next("0001").message, "next.ticket_gate")
+
+    def test_review_rework_carries_pending_rounds(self):
+        d = add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"])
+        reviews.append_round(d / "review-design.md", "en", "0001-a", "design", ["a", "b"])
+        reviews.settle(d / "review-design.md", "en")
+        reviews.append_round(d / "review-design.md", "en", "0001-a", "design", ["c"])
+        a = self.next("0001")
+        self.assertEqual(a.scenario, "designer-review-rework")
+        self.assertEqual((a.pending_rounds, a.pending_refs), ([2], ["R-3"]))
+
+    def test_designer_rework_after_test_failure(self):
+        d = add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"])
+        write(d / "verdict.md", "FAIL-2 and FAIL-10")
+        a = self.next("0001")
+        self.assertEqual(a.scenario, "designer-rework")
+        self.assertEqual(a.trigger, "FAIL-2, FAIL-10 (verdict.md)")
+
+    def test_artifacts_found_in_worktree(self):
+        add_ticket(self.root, "feature", "0001-a", "testing", gates=ALL_GATES)
+        self.assertEqual(self.next("0001").scenario, "tester-initial")
+        wt = add_worktree(self.root, "feature", "0001-a")
+        write(wt / ".mark/features/0001-a/verdict.md", "FAIL-1")
+        self.assertEqual(self.next("0001").scenario, "tester-reverify")
+
+    def test_failed_impl_routes_by_trigger(self):
+        d = add_ticket(self.root, "feature", "0001-a", "failed-impl", gates=ALL_GATES)
+        write(d / "design-qa.md", "D-1 <!-- mark:qa blocked -->")
+        a = self.next("0001")
+        self.assertEqual((a.scenario, a.trigger), ("coder-impl-fix", "D-1 (design-qa.md)"))
+        reviews.append_round(d / "review-merge.md", "en", "0001-a", "merge", ["rename it"])
+        self.assertEqual(self.next("0001").scenario, "coder-impl-merge-rework")
+
+    def test_bug_chain_scenarios(self):
+        d = add_ticket(self.root, "bug", "b0001-crash", "planning", gates=["ticket-approved"])
+        write(d / "bug.md", "crash")
+        self.assertEqual(self.next("b0001").scenario, "fix-plan-initial")
+        write(d / "fix-plan.md", "plan")
+        self.assertEqual(self.next("b0001").scenario, "fix-plan-rework")
+
+    def test_human_and_terminal_statuses(self):
+        cases = [("0001-r", "review-plan", "next.review"), ("0002-m", "pending-merge", "next.merge"),
+                 ("0003-b", "blocked-plan", "next.blocked_plan")]
+        for ticket_id, status, key in cases:
+            add_ticket(self.root, "feature", ticket_id, status, gates=ALL_GATES)
+            self.assertEqual(self.next(ticket_id).message, key)
+        p = add_ticket(self.root, "feature", "0009-done", "passed") / "status.md"
+        p.write_text(p.read_text().replace("desc:", "leftover: 0\ndesc:"))
+        self.assertEqual(self.next("0009").kind, "done")
+
+    def test_lock_means_wait_and_result_means_record(self):
+        d = add_ticket(self.root, "feature", "0001-a", "planning", gates=ALL_GATES)
+        locks = self.root / ".mark" / "locks"
+        write(locks / "0001-a.coder-plan.lock", "{}")
+        self.assertEqual(self.next("0001").kind, "wait")
+        (locks / "0001-a.coder-plan.lock").unlink()
+        result = locks / "0001-a.coder-plan.result.json"
+        write(result, json.dumps({"result": "PASSED", "reason": "outputs present",
+                                  "at": (d / "status.md").stat().st_mtime + 5}))
+        a = self.next("0001")
+        self.assertEqual((a.kind, a.options), ("record", ["blocked-unclear", "review-plan"]))
+        write(result, json.dumps({"result": "FAILED", "reason": "missing", "at": time.time() + 5}))
+        self.assertEqual(self.next("0001").message, "next.output_failed")
+        self.assertEqual(self.next("0001", retry=True).kind, "dispatch")
+
+    def test_stale_result_is_ignored(self):
+        d = add_ticket(self.root, "feature", "0001-a", "planning", gates=ALL_GATES)
+        write(self.root / ".mark/locks/0001-a.coder-plan.result.json",
+              json.dumps({"result": "PASSED", "at": (d / "status.md").stat().st_mtime - 5}))
+        self.assertEqual(self.next("0001").kind, "dispatch")
+
+
+class MovesTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_repo()
+        self.origin = add_origin(self.root)
+
+    def status(self, kind_dir, ticket_id):
+        return (self.root / ".mark" / kind_dir / ticket_id / "status.md").read_text()
+
+    def test_set_validates_commits_and_pushes(self):
+        add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"])
+        code, out, err = run(self.root, "set", "0001", "review-design", "--note", "design ready")
+        self.assertEqual(code, 0, err)
+        self.assertIn("`designing` -> `review-design`", out)
+        text = self.status("features", "0001-a")
+        self.assertIn("status: review-design\nowner: human", text)
+        self.assertIn("design ready", text)
+        self.assertEqual(sh(self.root, "git", "status", "--porcelain"), "")
+        self.assertEqual(sh(self.root, "git", "rev-parse", "main"), sh(self.root, "git", "rev-parse", "origin/main"))
+
+    def test_set_refuses_illegal_and_gate_moves(self):
+        add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"])
+        code, _, err = run(self.root, "set", "0001", "developing")
+        self.assertEqual(code, 1)
+        self.assertIn("Illegal move", err)
+        run(self.root, "set", "0001", "review-design")
+        code, _, err = run(self.root, "set", "0001", "planning")
+        self.assertEqual(code, 1)
+        self.assertIn("human review gate", err)
+
+    def test_pending_merge_needs_leftover(self):
+        add_ticket(self.root, "feature", "0001-a", "testing", gates=ALL_GATES)
+        self.assertIn("leftover", run(self.root, "set", "0001", "pending-merge")[2])
+        self.assertEqual(run(self.root, "set", "0001", "pending-merge", "--leftover", "0")[0], 0)
+
+    def test_design_qa_required_for_ui_changes(self):
+        cfg_path = self.root / ".mark" / "config.toml"
+        cfg_path.write_text(cfg_path.read_text() + '\n[design_qa]\npaths = ["frontend/**"]\n'
+                            'exclude = ["**/__tests__/**"]\n')
+        sh(self.root, "git", "commit", "-qam", "qa config")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        add_ticket(self.root, "feature", "0001-a", "developing", gates=ALL_GATES)
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        wt = add_worktree(self.root, "feature", "0001-a", base="origin/main")
+        write(wt / ".mark/features/0001-a/design.md", "d")
+        write(wt / "frontend/__tests__/a.test.ts", "t")
+        sh(wt, "git", "add", ".")
+        sh(wt, "git", "commit", "-qm", "tests only")
+        self.assertEqual(run(self.root, "set", "0001", "testing", "--no-commit")[0], 0)
+
+        run(self.root, "set", "0001", "failed-impl", "--no-commit")
+        write(wt / "frontend/src/page.tsx", "x")
+        sh(wt, "git", "add", ".")
+        sh(wt, "git", "commit", "-qm", "ui")
+        code, _, err = run(self.root, "set", "0001", "testing", "--no-commit")
+        self.assertEqual(code, 1)
+        self.assertIn("mark set 0001-a design-qa", err)
+        write(wt / ".mark/features/0001-a/design-qa.md", "<!-- mark:qa passed -->")
+        self.assertEqual(run(self.root, "set", "0001", "testing", "--no-commit")[0], 0)
+
+    def test_passed_requires_merged_branch(self):
+        add_ticket(self.root, "bug", "b0001-x", "pending-merge", gates=["ticket-approved"])
+        p = self.root / ".mark/bugs/b0001-x/status.md"
+        p.write_text(p.read_text().replace("desc:", "leftover: 0\ndesc:"))
+        sh(self.root, "git", "commit", "-qam", "leftover")
+        wt = add_worktree(self.root, "bug", "b0001-x")
+        write(wt / "fix.txt", "fix")
+        sh(wt, "git", "add", ".")
+        sh(wt, "git", "commit", "-qm", "fix")
+        code, _, err = run(self.root, "set", "b0001", "passed")
+        self.assertEqual(code, 1)
+        self.assertIn("1 commit(s) not on main", err)
+        sh(self.root, "git", "merge", "-q", "--ff-only", "bug/b0001-x")
+        self.assertEqual(run(self.root, "set", "b0001", "passed")[0], 0)
+
+
+class HumanDecisionTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_repo()
+
+    def test_approve_requires_a_human(self):
+        add_ticket(self.root, "feature", "0001-a", "review-design", gates=["ticket-approved"])
+        code, _, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 1)
+        self.assertIn("/mark:approve 0001-a", err)
+        self.assertFalse((self.root / ".mark/gates/0001-a.design-approved").exists())
+
+    def test_approve_design_settles_rounds_and_writes_gate(self):
+        d = add_ticket(self.root, "feature", "0001-a", "review-design", gates=["ticket-approved"])
+        reviews.append_round(d / "review-design.md", "en", "0001-a", "design", ["x"])
+        human_typed(self.root, "/mark:approve 0001")
+        code, out, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("`review-design` -> `planning`", out)
+        self.assertIn("approved_by: human", (self.root / ".mark/gates/0001-a.design-approved").read_text())
+        self.assertEqual(reviews.pending(d / "review-design.md"), [])
+        self.assertIn("status: planning\nowner: coder-plan", (d / "status.md").read_text())
+        self.assertEqual(sh(self.root, "git", "status", "--porcelain"), "")
+
+    def test_approve_opening_first(self):
+        d = add_ticket(self.root, "feature", "0001-a", "review-design")
+        human_typed(self.root, "/mark:approve 0001-a")
+        code, out, _ = run(self.root, "approve", "0001")
+        self.assertIn("Opening 0001-a approved", out)
+        self.assertTrue((self.root / ".mark/gates/0001-a.ticket-approved").exists())
+        self.assertIn("status: review-design", (d / "status.md").read_text())
+
+    def test_blocked_spec_goes_back_to_design_without_gate(self):
+        add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES)
+        human_typed(self.root, "/mark:approve 0001")
+        self.assertIn("`blocked-spec` -> `designing`", run(self.root, "approve", "0001")[1])
+
+    def test_nothing_to_approve(self):
+        add_ticket(self.root, "feature", "0001-a", "developing", gates=ALL_GATES)
+        human_typed(self.root, "/mark:approve 0001")
+        self.assertIn("nothing to approve", run(self.root, "approve", "0001")[2])
+
+    def test_reject_appends_round_and_routes(self):
+        d = add_ticket(self.root, "feature", "0001-a", "review-plan", gates=["ticket-approved", "design-approved"])
+        human_typed(self.root, "/mark:reject 0001 split T-2; add rollback")
+        code, out, err = run(self.root, "reject", "0001", "--item", "split T-2", "--item", "add rollback")
+        self.assertEqual(code, 0, err)
+        self.assertIn("round 1 (R-1, R-2)", out)
+        self.assertIn("`review-plan` -> `planning`", out)
+        self.assertEqual([r.refs for r in reviews.pending(d / "review-plan.md")], [["R-1", "R-2"]])
+        a = flow.next_action(ctx_of(self.root, "0001"))
+        self.assertEqual((a.scenario, a.pending_refs), ("coder-plan-rework", ["R-1", "R-2"]))
+
+    def test_reject_rules(self):
+        add_ticket(self.root, "feature", "0001-a", "testing", gates=ALL_GATES)
+        human_typed(self.root, "/mark:reject 0001 x")
+        self.assertIn("not at a human gate", run(self.root, "reject", "0001", "--item", "x")[2])
+        add_ticket(self.root, "feature", "0002-b", "review-design", gates=["ticket-approved"])
+        human_typed(self.root, "/mark:reject 0002 x")
+        self.assertIn("--to planning", run(self.root, "reject", "0002", "--item", "x", "--to", "planning")[2])
+        self.assertIn("--item", run(self.root, "reject", "0002")[2])
+
+    def test_reject_merge_back_to_planning(self):
+        d = add_ticket(self.root, "bug", "b0001-x", "pending-merge", gates=["ticket-approved"])
+        p = d / "status.md"
+        p.write_text(p.read_text().replace("desc:", "leftover: 0\ndesc:"))
+        human_typed(self.root, "/mark:reject b0001 wrong approach")
+        code, out, _ = run(self.root, "reject", "b0001", "--item", "wrong approach", "--to", "planning")
+        self.assertEqual(code, 0)
+        self.assertEqual(flow.next_action(ctx_of(self.root, "b0001")).scenario, "fix-plan-rework")
+
+    def test_claim_approval_follows_human_command(self):
+        code, out, err = run(self.root, "claim", "bug", "crash on save")
+        self.assertIn("not approved", err)
+        self.assertFalse((self.root / ".mark/gates/b0001-crash-on-save.ticket-approved").exists())
+        human_typed(self.root, "/mark:fix crash on load")
+        code, out, err = run(self.root, "claim", "bug", "crash on load")
+        self.assertEqual(out, "TICKET-ID: b0002-crash-on-load\n")
+        self.assertIn("approved", err)
+        self.assertTrue((self.root / ".mark/gates/b0002-crash-on-load.ticket-approved").exists())
+
+
+class DispatchTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_repo()
+        self.origin = add_origin(self.root)
+        add_templates(self.root)
+        self.dir = add_ticket(self.root, "feature", "0001-a", "planning", gates=["ticket-approved", "design-approved"])
+        sh(self.root, "git", "push", "-q", "origin", "main")
+
+    def test_dispatch_sets_up_isolation_and_passes_guards(self):
+        code, out, err = run(self.root, "dispatch", "0001", "--prev", "design approved")
+        self.assertEqual(code, 0, err)
+        self.assertIn("Created branch feature/0001-a from origin/main", err)
+        head, prompt = out.split("--- prompt ---\n")
+        self.assertIn("subagent_type: coder-plan", head)
+        self.assertTrue(prompt.startswith("<!-- mark:ticket features/0001-a -->"))
+        wt = self.root / ".claude/worktrees/feature-0001-a"
+        self.assertIn(f"Work on 0001-a in {wt}/.mark/features/0001-a.", prompt)
+        self.assertIn("Previous step reported: design approved", prompt)
+        self.assertIn("tech-plan.md", prompt)
+        self.assertTrue(wt.is_dir())
+        self.assertIn("feature/0001-a", sh(self.root, "git", "ls-remote", "--heads", "origin"))
+        # The prompt as printed passes every pre-dispatch guard.
+        code, err = hook("pre-dispatch", {"hook_event_name": "PreToolUse", "tool_name": "Agent",
+                                          "cwd": str(self.root),
+                                          "tool_input": {"subagent_type": "coder-plan", "prompt": prompt}})
+        self.assertEqual(code, 0, err)
+        # Idempotent: a second dispatch reuses everything (the lock now says wait).
+        self.assertIn("still working", run(self.root, "dispatch", "0001")[2])
+
+    def test_uncommitted_worktree_blocks_next_dispatch(self):
+        self.assertEqual(run(self.root, "dispatch", "0001")[0], 0)
+        for lock in (self.root / ".mark/locks").glob("*.lock"):
+            lock.unlink()
+        wt = self.root / ".claude/worktrees/feature-0001-a"
+        write(wt / ".mark/features/0001-a/tech-plan.md", "plan")
+        code, _, err = run(self.root, "dispatch", "0001")
+        self.assertEqual(code, 1)
+        self.assertIn("uncommitted changes", err)
+        self.assertIn(".mark/features/0001-a/tech-plan.md", err)
+        sh(wt, "git", "add", "-A")
+        sh(wt, "git", "commit", "-qm", "plan")
+        self.assertEqual(run(self.root, "dispatch", "0001")[0], 0)
+        self.assertEqual(sh(wt, "git", "rev-parse", "HEAD"),
+                         sh(self.root, "git", "rev-parse", "origin/feature/0001-a"))
+
+    def test_outputs_override_and_template_errors(self):
+        (self.root / ".mark/prompts/coder-plan.md").write_text("---\nrole: designer\n---\nx\n")
+        self.assertIn("declares role `designer`", run(self.root, "dispatch", "0001")[2])
+        (self.root / ".mark/prompts/coder-plan.md").write_text("---\nrole: coder-plan\n---\n{{nope}}\n")
+        self.assertIn("unknown placeholder(s): nope", run(self.root, "dispatch", "0001")[2])
+        (self.root / ".mark/prompts/coder-plan.md").unlink()
+        self.assertIn("No prompt template `.mark/prompts/coder-plan.md`", run(self.root, "dispatch", "0001")[2])
+        self.assertFalse((self.root / ".claude/worktrees/feature-0001-a").exists())
+
+    def test_scenario_outputs_anchor(self):
+        add_ticket(self.root, "feature", "0002-b", "design-qa", gates=ALL_GATES)
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        code, out, err = run(self.root, "dispatch", "0002")
+        self.assertEqual(code, 0, err)
+        self.assertIn("<!-- mark:outputs design-qa.md -->", out)
+
+
+class GuardTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_repo()
+
+    def bash(self, command, agent_type=None):
+        payload = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(self.root),
+                   "tool_input": {"command": command}}
+        if agent_type:
+            payload["agent_type"] = agent_type
+        return hook("pre-bash", payload)
+
+    def test_subagents_cannot_change_state_through_cli(self):
+        code, err = self.bash("cd /tmp && mark set 0001 testing", "coder-impl")
+        self.assertEqual(code, 2)
+        self.assertIn("mark set", err)
+        self.assertEqual(self.bash("mark next 0001", "coder-impl")[0], 0)
+        self.assertEqual(self.bash("mark set 0001 testing")[0], 0)
+
+    def test_nobody_touches_human_tokens(self):
+        self.assertEqual(self.bash("touch .mark/locks/human/approve-1.json")[0], 2)
+        code, _ = hook("pre-write", {"hook_event_name": "PreToolUse", "tool_name": "Write",
+                                     "cwd": str(self.root),
+                                     "tool_input": {"file_path": str(self.root / ".mark/locks/human/x.json"),
+                                                    "content": "{}"}})
+        self.assertEqual(code, 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

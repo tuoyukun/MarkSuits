@@ -102,6 +102,21 @@ class MarkConfig:
         """Extra globs writable in the main checkout, beyond the state lanes."""
         return [str(g) for g in self._section("worktree").get("main_writable", [])]
 
+    @property
+    def prompts_dir(self) -> Path:
+        """Dispatch prompt templates (`<scenario>.md`), owned by the project."""
+        rel = str(self._section("paths").get("prompts", f"{self.state_rel}/prompts")).strip("/")
+        return self.root / rel
+
+    @property
+    def design_qa_paths(self) -> list[str]:
+        """Globs that make a feature with design.md go through design-qa. Empty: never."""
+        return [str(g) for g in self._section("design_qa").get("paths", [])]
+
+    @property
+    def design_qa_exclude(self) -> list[str]:
+        return [str(g) for g in self._section("design_qa").get("exclude", [])]
+
     def branch_for(self, kind: str, ticket_id: str) -> str:
         return f"{kind}/{ticket_id}"
 

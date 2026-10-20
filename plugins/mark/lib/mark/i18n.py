@@ -298,3 +298,241 @@ MESSAGES["zh-CN"].update({
     "cli.unlock.ok": "已释放锁 {id}.{role}。",
     "cli.unlock.none": "没有锁 {id}.{role}。",
 })
+
+
+# --------------------------------------------------------------------------
+# Orchestration: mark next | dispatch | set | approve | reject | commit
+# --------------------------------------------------------------------------
+_USAGE_EN = (
+    "usage: mark <command> [options]\n"
+    "  mark status [--active | --json | --check]      ticket board\n"
+    "  mark next <id> [--json]                        what happens next for a ticket\n"
+    "  mark dispatch <id> [--prev \"<text>\"] [--trigger \"<text>\"] [--retry]\n"
+    "                                                 prepare the worktree, print the dispatch prompt\n"
+    "  mark set <id> <status> [--note \"<text>\"] [--leftover N] [--no-commit]\n"
+    "  mark approve <id> [--no-commit]                human only (/mark:approve)\n"
+    "  mark reject <id> --item \"<text>\"... [--to planning] [--no-commit]   human only (/mark:reject)\n"
+    "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
+    "  mark commit <id> [-m \"<message>\"]             commit + push the ticket's state on main\n"
+    "  mark unlock <id> <role>                        release a dead agent's lock (human)\n"
+    "  mark rules                                     print the orchestrator rules"
+)
+_USAGE_ZH = (
+    "用法：mark <命令> [选项]\n"
+    "  mark status [--active | --json | --check]      工单看板\n"
+    "  mark next <编号> [--json]                      这张工单下一步做什么\n"
+    "  mark dispatch <编号> [--prev \"<文本>\"] [--trigger \"<文本>\"] [--retry]\n"
+    "                                                 备好 worktree，输出派活 prompt\n"
+    "  mark set <编号> <状态> [--note \"<文本>\"] [--leftover N] [--no-commit]\n"
+    "  mark approve <编号> [--no-commit]              仅限人（/mark:approve）\n"
+    "  mark reject <编号> --item \"<文本>\"... [--to planning] [--no-commit]   仅限人（/mark:reject）\n"
+    "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
+    "  mark commit <编号> [-m \"<说明>\"]               在 main 上提交并推送工单状态\n"
+    "  mark unlock <编号> <角色>                      释放已死 agent 的锁（由人执行）\n"
+    "  mark rules                                     打印 orchestrator 规则"
+)
+
+MESSAGES["en"].update({
+    "cli.usage": _USAGE_EN,
+    # next
+    "next.dispatch": "Next for {id}: dispatch `{role}` (template `{scenario}`).\n  mark dispatch {id} --prev \"<the previous step's conclusion, verbatim>\"",
+    "next.record": (
+        "`{role}` finished {id} ({reason}). Record its outcome before anything else; pick from its conclusion:\n"
+        "  mark set {id} <{options}> --note \"<one line>\""
+    ),
+    "next.wait": "{roles} is still working on {id}. Wait for its completion notice; never dispatch a second one.",
+    "next.review": (
+        "{id} is at `{status}`, a human review gate. Report what the last step produced in plain words, then stop.\n"
+        "The human answers with /mark:approve {id} or /mark:reject {id} <comments>."
+    ),
+    "next.merge": (
+        "{id} passed testing and waits for merge. This version has no automatic merge: the human merges the\n"
+        "ticket branch into main and pushes, then `mark set {id} passed`. To send it back: /mark:reject {id} <comments>."
+    ),
+    "next.blocked_spec": "{id} is `blocked-spec`: the design contract has a problem. Report it to the human and stop. /mark:approve {id} sends it back to the designer.",
+    "next.blocked_plan": "{id} is `blocked-plan`: the plan has a hole. Report it to the human and stop. /mark:approve {id} sends it back to planning.",
+    "next.blocked_unclear": (
+        "{id} is `blocked-unclear`: the requirement is not clear enough. Clarify with the human, update the\n"
+        "requirement/bug file, then move it where the human decides: `mark set {id} <status>`."
+    ),
+    "next.done": "{id} is `{status}`. Nothing to do.",
+    "next.invalid": "{id}: status `{status}` is not valid. Run `mark status --check`.",
+    "next.ticket_gate": "Opening {id} has not been approved by a human. Ask them; they approve with /mark:approve {id}.",
+    "next.no_brief": "{id} has no `{file}` yet. Write it with the human before the first dispatch, then `mark commit {id}`.",
+    "next.output_failed": (
+        "`{role}` stopped on {id} without its required output ({reason}). Re-dispatch once:\n"
+        "  mark dispatch {id} --retry --prev \"<its conclusion>\"\nIf that fails too, report to the human."
+    ),
+    # flow errors and notes
+    "flow.no_ticket": "No ticket `{ref}`. See `mark status`.",
+    "flow.ambiguous": "`{ref}` matches several tickets: {hits}. Use the full id.",
+    "flow.not_main": "Ticket state only changes on `{main}`, but the main checkout is on `{branch}`.\n  git checkout {main}",
+    "flow.commit_failed": "Commit of {paths} failed. Check `git status` in the main checkout.",
+    "flow.committed": "Committed ticket state on main.",
+    "flow.pushed": "Pushed main.",
+    "flow.push_failed": "Pushing main failed. Push it before the next dispatch: git push origin main",
+    "flow.iso.in_main": "Branch `{branch}` is checked out in the main checkout. Switch the main checkout back to main first.",
+    "flow.iso.branch": "Created branch {branch} from {base}.",
+    "flow.iso.dirty": (
+        "The worktree of {id} has uncommitted changes, so the previous step's work is not saved on its branch:\n"
+        "{files}\nCommit them on the ticket branch, then dispatch again:\n"
+        "  cd \"{wt}\" && git add -A && git commit -m \"{id}: <role> output\""
+    ),
+    "flow.iso.worktree": "Created worktree {wt}.",
+    "flow.iso.branch_failed": "Could not create branch {branch} from {base}.",
+    "flow.iso.worktree_failed": "Could not create worktree {wt} for {branch}.",
+    "flow.iso.push_failed": "Could not push {branch} to origin. Fix the remote and retry; the work must not live on one machine only.",
+    "flow.invalid_status": "The new status.md would be invalid:\n{problems}",
+    "flow.illegal": "Illegal move `{old}` -> `{new}`. Allowed from `{old}`: {allowed}.",
+    "flow.human_gate": "{id} is at `{status}`, a human review gate. Only /mark:approve or /mark:reject move it.",
+    "flow.need_design_qa": "{id} has a design and its branch changes UI paths, so it goes through design QA before testing:\n  mark set {id} design-qa",
+    "flow.unmerged": "`{branch}` has {n} commit(s) not on {main}. `passed` means the work is on {main}: merge and push first.",
+    "flow.no_human": (
+        "`mark {verb}` needs a human decision, and nobody typed `/mark:{verb} {id}` in the last 12 hours.\n"
+        "Ask the human to type it. Never approve or reject on their behalf."
+    ),
+    "flow.approve_nothing": "{id} is at `{status}`; there is nothing to approve here.",
+    "flow.reject_nothing": (
+        "{id} is at `{status}`, not at a human gate. /mark:reject works at review-design, review-plan and\n"
+        "pending-merge. Test failures are routed from the tester's verdict, not by rejecting."
+    ),
+    "flow.reject_empty": "No comments given. Pass each one as --item \"<text>\".",
+    "flow.reject_to": "`--to {to}` is not valid from `{status}`; only pending-merge may go back to planning.",
+    "set.done": "{id}: `{old}` -> `{new}`.",
+    "approve.ticket": "Opening {id} approved (wrote {gate}).",
+    "approve.done": "Approved {id}: `{old}` -> `{new}`.",
+    "approve.gate": "Gate written: {gate}",
+    "approve.rounds": "Review rounds settled: {rounds}",
+    "reject.done": "Recorded round {round} ({refs}) in {file}. {id}: `{old}` -> `{new}`.",
+    "claim.approved": "Opening approved by the human's /mark:{verb}; wrote {gate}.",
+    "claim.unapproved": "No /mark:feature or /mark:fix was typed, so opening {id} is not approved yet: artifacts stay blocked until the human runs /mark:approve {id}.",
+    # brief
+    "brief.no_template": "No prompt template `{path}` for scenario `{scenario}`. The project's templates live in [paths] prompts.",
+    "brief.not_dispatch": "{id}: the next step is `{kind}`, not a dispatch. Run `mark next {id}`.",
+    "brief.role_mismatch": "Template `{scenario}` declares role `{got}`, but this step needs `{want}`. Fix the template's frontmatter.",
+    "brief.unknown_placeholder": "Template `{scenario}` uses unknown placeholder(s): {names}.",
+    "brief.title": "[Brief · verified by the orchestrator; do not re-check these with commands]",
+    "brief.worktree": "- Worktree: `{wt}`. You are NOT inside it: use absolute paths under it for file tools, and `cd \"{wt}\" && ...` for every Bash command.",
+    "brief.branch": "- Branch: `{branch}` (checked before dispatch: cut from main, pushed to origin).",
+    "brief.work_dir": "- Ticket artifacts (write here): `{dir}` — present: {files}",
+    "brief.state_dir": "- Ticket state on main (read only): `{dir}` — present: {files}",
+    "brief.outputs": "- You must leave before stopping: {files}",
+    "brief.trigger": "- Trigger: {trigger}",
+    "brief.prev": "- Previous step reported: {prev}",
+    "brief.review": "- Human review: `{file}`. Only round(s) {rounds} are open ({refs}); earlier rounds are history, do not redo them.",
+    "brief.none": "(none)",
+    "brief.first": "first dispatch for this step",
+    "brief.no_prev": "(first step)",
+    # review files
+    "review.header": (
+        "# Review · {id} · {gate}\n\n"
+        "> Human review comments. /mark:reject appends a round; /mark:approve marks pending rounds done.\n"
+        "> R-N numbers run across rounds. Only /mark:approve and /mark:reject write this file; subagents only read it."
+    ),
+    "review.round": "Round {n}",
+    "review.state.pending": "pending",
+    "review.state.done": "done",
+    # bash guard
+    "guard.bash.mark_cli": "`{who}` may not run `mark {sub}`: ticket state belongs to the orchestrator. Put the outcome in your result.",
+    "guard.bash.human_tokens": "Commands may not touch `{dir}`: it holds proof that a human typed a command.",
+})
+
+MESSAGES["zh-CN"].update({
+    "cli.usage": _USAGE_ZH,
+    "next.dispatch": "{id} 下一步：派 `{role}`（模板 `{scenario}`）。\n  mark dispatch {id} --prev \"<上一环交回的结论原话>\"",
+    "next.record": (
+        "`{role}` 已交回 {id}（{reason}）。先记录结果，再做别的；按它的结论选一个：\n"
+        "  mark set {id} <{options}> --note \"<一句话>\""
+    ),
+    "next.wait": "{roles} 还在处理 {id}。等它的完成通知，绝不派第二个。",
+    "next.review": (
+        "{id} 停在 `{status}`，这是人审闸门。用人话报告上一步的产出，然后停下。\n"
+        "由 Human 用 /mark:approve {id} 或 /mark:reject {id} <意见> 答复。"
+    ),
+    "next.merge": (
+        "{id} 已测试通过，等待合并。当前版本没有自动合并：由 Human 把工单分支合进 main 并推送，\n"
+        "再执行 `mark set {id} passed`。要打回：/mark:reject {id} <意见>。"
+    ),
+    "next.blocked_spec": "{id} 是 `blocked-spec`：设计契约有问题。报告 Human 后停下。/mark:approve {id} 会退回 designer 返工。",
+    "next.blocked_plan": "{id} 是 `blocked-plan`：方案有洞。报告 Human 后停下。/mark:approve {id} 会退回出方案的环节。",
+    "next.blocked_unclear": (
+        "{id} 是 `blocked-unclear`：需求不够清楚。和 Human 澄清并更新需求/bug 文件，\n"
+        "再按 Human 的决定推进：`mark set {id} <状态>`。"
+    ),
+    "next.done": "{id} 已是 `{status}`，无事可做。",
+    "next.invalid": "{id}：状态 `{status}` 不合法。请跑 `mark status --check`。",
+    "next.ticket_gate": "{id} 的建单还没经过人同意。问 Human；同意后由 Human 执行 /mark:approve {id}。",
+    "next.no_brief": "{id} 还没有 `{file}`。第一次派活前先和 Human 一起写好它，再 `mark commit {id}`。",
+    "next.output_failed": (
+        "`{role}` 在 {id} 上结束时没留下必交产物（{reason}）。重派一次：\n"
+        "  mark dispatch {id} --retry --prev \"<它的结论>\"\n再失败就报告 Human。"
+    ),
+    "flow.no_ticket": "没有工单 `{ref}`。见 `mark status`。",
+    "flow.ambiguous": "`{ref}` 匹配到多张工单：{hits}。请写完整编号。",
+    "flow.not_main": "工单状态只能在 `{main}` 上改，但主仓现在在 `{branch}` 上。\n  git checkout {main}",
+    "flow.commit_failed": "提交 {paths} 失败。请在主仓查看 `git status`。",
+    "flow.committed": "已在 main 上提交工单状态。",
+    "flow.pushed": "已推送 main。",
+    "flow.push_failed": "推送 main 失败。下次派活前先推送：git push origin main",
+    "flow.iso.in_main": "分支 `{branch}` 被检出在主仓里。先把主仓切回 main。",
+    "flow.iso.branch": "已从 {base} 建分支 {branch}。",
+    "flow.iso.dirty": (
+        "{id} 的 worktree 有未提交的改动，上一步的产出还没存进工单分支：\n"
+        "{files}\n先在工单分支上提交，再派活：\n"
+        "  cd \"{wt}\" && git add -A && git commit -m \"{id}: <角色> 产出\""
+    ),
+    "flow.iso.worktree": "已建 worktree {wt}。",
+    "flow.iso.branch_failed": "无法从 {base} 建分支 {branch}。",
+    "flow.iso.worktree_failed": "无法为 {branch} 建 worktree {wt}。",
+    "flow.iso.push_failed": "无法把 {branch} 推到 origin。修好远端后重试；产出不能只存在一台机器上。",
+    "flow.invalid_status": "新的 status.md 不合规：\n{problems}",
+    "flow.illegal": "非法跳转 `{old}` -> `{new}`。从 `{old}` 只能到：{allowed}。",
+    "flow.human_gate": "{id} 停在 `{status}`，这是人审闸门。只有 /mark:approve 或 /mark:reject 能推动它。",
+    "flow.need_design_qa": "{id} 有设计稿，且分支改到了 UI 路径，测试前要先过集成态设计验收：\n  mark set {id} design-qa",
+    "flow.unmerged": "`{branch}` 还有 {n} 个提交不在 {main} 上。`passed` 意味着代码已在 {main}：先合并并推送。",
+    "flow.no_human": (
+        "`mark {verb}` 需要人的决定，但最近 12 小时内没有人输入 `/mark:{verb} {id}`。\n"
+        "请 Human 亲自输入。绝不能替人批准或打回。"
+    ),
+    "flow.approve_nothing": "{id} 停在 `{status}`，这里没有可批准的东西。",
+    "flow.reject_nothing": (
+        "{id} 停在 `{status}`，不在人审闸门上。/mark:reject 只在 review-design、review-plan、pending-merge 生效。\n"
+        "测试失败按 tester 的结论路由，不走打回。"
+    ),
+    "flow.reject_empty": "没有意见。每条意见用 --item \"<文本>\" 传入。",
+    "flow.reject_to": "从 `{status}` 不能 `--to {to}`；只有 pending-merge 可以退回 planning。",
+    "set.done": "{id}：`{old}` -> `{new}`。",
+    "approve.ticket": "已批准建单 {id}（写入 {gate}）。",
+    "approve.done": "已放行 {id}：`{old}` -> `{new}`。",
+    "approve.gate": "已写闸门：{gate}",
+    "approve.rounds": "已结清人审轮次：{rounds}",
+    "reject.done": "已在 {file} 记下第 {round} 轮（{refs}）。{id}：`{old}` -> `{new}`。",
+    "claim.approved": "Human 输入了 /mark:{verb}，建单已获同意；已写 {gate}。",
+    "claim.unapproved": "没有人输入 /mark:feature 或 /mark:fix，所以 {id} 的建单还没获同意：在 Human 执行 /mark:approve {id} 之前，制品写入都会被拦。",
+    "brief.no_template": "场景 `{scenario}` 缺少派活模板 `{path}`。项目的模板放在 [paths] prompts 指定的目录。",
+    "brief.not_dispatch": "{id}：下一步是 `{kind}`，不是派活。请跑 `mark next {id}`。",
+    "brief.role_mismatch": "模板 `{scenario}` 声明的角色是 `{got}`，这一步需要 `{want}`。请修正模板头部。",
+    "brief.unknown_placeholder": "模板 `{scenario}` 用了未知占位符：{names}。",
+    "brief.title": "【开工简报 · orchestrator 已核实，不要再用命令确认】",
+    "brief.worktree": "- 工作目录：`{wt}`。你**不在**里面：文件工具一律用它下面的绝对路径，Bash 每条命令都写 `cd \"{wt}\" && ...`。",
+    "brief.branch": "- 分支：`{branch}`（派发前已验：从 main 拉出、已推到 origin）。",
+    "brief.work_dir": "- 工单制品（写在这里）：`{dir}` —— 现有：{files}",
+    "brief.state_dir": "- main 上的工单状态（只读）：`{dir}` —— 现有：{files}",
+    "brief.outputs": "- 结束前必须留下：{files}",
+    "brief.trigger": "- 本次触发源：{trigger}",
+    "brief.prev": "- 上一环结论：{prev}",
+    "brief.review": "- 人审意见：`{file}`。只有第 {rounds} 轮是待办（{refs}）；更早的轮次是历史，不要重做。",
+    "brief.none": "（无）",
+    "brief.first": "本环首次派活",
+    "brief.no_prev": "（首次派活，无上一环）",
+    "review.header": (
+        "# 人审意见 · {id} · {gate}\n\n"
+        "> 人审意见落盘。每次 /mark:reject 追加一轮；/mark:approve 把全部待处理轮次标为已处理。\n"
+        "> R-N 编号跨轮连续，不按轮次重置。本文件只由 /mark:approve 和 /mark:reject 写入，subagent 只读。"
+    ),
+    "review.round": "第 {n} 轮",
+    "review.state.pending": "待处理",
+    "review.state.done": "已处理",
+    "guard.bash.mark_cli": "`{who}` 不能执行 `mark {sub}`：工单状态归 orchestrator 管。把结果写进你的结论。",
+    "guard.bash.human_tokens": "命令不能碰 `{dir}`：那里存放的是「人亲手输入过命令」的凭证。",
+})

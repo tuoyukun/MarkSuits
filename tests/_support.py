@@ -75,6 +75,8 @@ roles = ["coder-impl"]
 GIT_ENV = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.com",
            "PYTHONDONTWRITEBYTECODE": "1"}
+# CLI tests run git in-process (mark set / approve commit on main).
+os.environ.update({k: v for k, v in GIT_ENV.items() if k.startswith("GIT_")})
 
 
 def sh(cwd, *args: str) -> str:
@@ -130,3 +132,24 @@ def hook(group: str, payload: dict) -> tuple[int, str]:
     p = subprocess.run([sys.executable, str(HOOK), group], input=json.dumps(payload),
                        capture_output=True, text=True, env=GIT_ENV)
     return p.returncode, p.stderr
+
+
+SCENARIO_ROLES = {
+    "designer-initial": "designer", "designer-review-rework": "designer", "designer-rework": "designer",
+    "designer-integration-qa": "designer", "coder-plan": "coder-plan", "coder-plan-rework": "coder-plan",
+    "coder-impl": "coder-impl", "coder-impl-fix": "coder-impl", "coder-impl-merge-rework": "coder-impl",
+    "tester-initial": "tester", "tester-reverify": "tester", "fix-plan-initial": "fix-plan",
+    "fix-plan-rework": "fix-plan",
+}
+
+
+def add_templates(root: Path, body: str = "Work on {{id}} in {{ticket_dir}}.\n{{brief}}\n") -> None:
+    d = root / ".mark" / "prompts"
+    d.mkdir(parents=True, exist_ok=True)
+    for scenario, role in SCENARIO_ROLES.items():
+        extra = "outputs: design-qa.md\n" if scenario == "designer-integration-qa" else ""
+        (d / f"{scenario}.md").write_text(f"---\nrole: {role}\n{extra}---\n{body}", encoding="utf-8")
+
+
+def human_typed(root: Path, prompt: str) -> tuple[int, str]:
+    return hook("user-prompt", {"hook_event_name": "UserPromptSubmit", "cwd": str(root), "prompt": prompt})

@@ -30,6 +30,7 @@ def builtin_rules(env: Env) -> list[tuple[str, frozenset[str]]]:
     return [
         (".claude/**", main_only),
         (".mark/config.toml", main_only),
+        (f"{state}/locks/human/**", frozenset()),   # proof of human commands: nobody
         (f"{state}/gates/**", main_only),
         (f"{state}/locks/**", main_only),
         (f"{state}/features/*/{STATUS_FILE}", main_only),

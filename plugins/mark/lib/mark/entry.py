@@ -9,6 +9,7 @@ Groups (registered in hooks/hooks.json):
   post-dispatch  PostToolUse Agent|Task                         -> bind lock, never blocks
   post-write     PostToolUse Edit|Write|MultiEdit               -> reminder (exit 2 = feedback only)
   subagent-stop  SubagentStop                                   -> keep subagent running (exit 2)
+  user-prompt    UserPromptSubmit                               -> record human commands, never blocks
 
 A guard that crashes fails open: the tool call proceeds and stderr says why.
 """
@@ -21,6 +22,7 @@ import time
 import traceback
 from typing import NoReturn
 
+from . import human
 from .guards import bash, dispatch, locks, write
 from .guards.common import Env, first_block
 from .hookio import EXIT_ALLOW, EXIT_BLOCK, HookContext, block, run
@@ -59,6 +61,9 @@ def handler_for(group: str):
             if group == "post-dispatch":
                 locks.bind(env)
                 return
+            if group == "user-prompt":
+                human.record(env.cfg, str(ctx.payload.get("prompt") or ""))
+                return
             message = first_block(env, GROUPS[group])
         except Exception:  # noqa: BLE001 - fail open, but say so
             print(f"[mark] internal error in {group}; allowing.\n{traceback.format_exc(limit=3)}",
@@ -72,7 +77,7 @@ def handler_for(group: str):
 def main(argv: list[str] | None = None) -> NoReturn:
     argv = sys.argv[1:] if argv is None else argv
     group = argv[0] if argv else ""
-    if group != "post-dispatch" and group not in GROUPS:
+    if group not in ("post-dispatch", "user-prompt") and group not in GROUPS:
         print(f"[mark] unknown hook group {group!r}", file=sys.stderr)
         sys.exit(EXIT_ALLOW)
     run(handler_for(group))
