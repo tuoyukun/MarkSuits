@@ -85,6 +85,25 @@ Failure routing is decided by the orchestrator from the tester's `failureType`
   give the same answer from any worktree.
 - Legal moves live in `lib/mark/states.py` (`TRANSITIONS`), used by the status guard in M2.
 
+### Guards (v0.3)
+
+All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure functions in
+`lib/mark/guards/` returning a message or None. A crashing guard fails open and says so.
+
+| group | event / matcher | guards, in order |
+|---|---|---|
+| `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **status** (main checkout on the main branch, valid fields, legal move) |
+| `pre-dispatch` | PreToolUse `Agent\|Task` | **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **gate** (feature roles need `[gates]`; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
+| `pre-bash` | PreToolUse `Bash` | subagents never commit or push on main; nobody checks out a ticket branch in the main checkout |
+| `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock |
+| `post-write` | PostToolUse writes | reminds to commit ticket state on main (feedback only) |
+| `subagent-stop` | SubagentStop | required outputs (`[outputs]`, or `mark:outputs` in the prompt) must exist in the ticket dir of some checkout; otherwise the subagent keeps running. Result goes to `.mark/locks/<id>.<role>.result.json` |
+
+Engine-fixed rules (no config can loosen them): `.claude/**`, `.mark/config.toml`, gates, locks,
+ticket `status.md` and `review-*.md` are main-thread only. Locks bound to a live agent are never
+reclaimed by age; a human releases a dead one with `mark unlock <id> <role>`.
+Set `MARK_DEBUG_LOG=<file>` to record raw hook payloads.
+
 ## 5. Distribution and versioning
 
 - This repo is the marketplace (`.claude-plugin/marketplace.json`, name `marksuits`).
@@ -96,8 +115,8 @@ Failure routing is decided by the orchestrator from the tester's `failureType`
 ## 6. Roadmap
 
 **Phase 1 — core chain (web full-stack profile)**
-config loader ✅ · hook plumbing ✅ · ticket claim + `status` CLI ✅ (v0.2) · scope-guard · gate-guard ·
-ticket-guard · dedup/output guards · branch/worktree guards · status-commit guard ·
+config loader ✅ · hook plumbing ✅ · ticket claim + `status` CLI ✅ (v0.2) · guards ✅ (v0.3: scope · worktree · ticket · status ·
+target · gate · branch · status-commit · dedup/output · git-in-bash) ·
 `/mark:feature` `/mark:fix` `/mark:approve` `/mark:reject` · role agents + prompt templates
 (zh-CN, en) · example project walkthrough.
 

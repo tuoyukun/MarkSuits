@@ -15,32 +15,50 @@ backend = "{{ backend_dir }}"
 ui = "{{ ui_dir }}"
 tests = "{{ tests_dir }}"
 
-# Gate file each role needs before it can be dispatched (feature chain only).
-# The bug chain has no pre-dispatch gates.
+# Pipeline roles (file names of the agents in .claude/agents/, without ".md").
+roles = ["designer", "coder-plan", "coder-impl", "tester", "fix-plan"]
+
+# Gate each role needs before dispatch, as `.mark/gates/<id>.<gate>` (feature tickets only;
+# the bug chain has no review gates). A human may waive a gate that has nothing to
+# review by creating `<id>.<gate>.waived` instead.
 [gates]
-designer = ""
-fix-plan = ""
 coder-plan = "design-approved"
 coder-impl = "plan-approved"
 tester = "plan-approved"
 
-# Write scopes: first matching glob wins. "main" = orchestrator (main thread).
-# Paths not matched by any rule are writable by everyone.
-# NOTE: draft for the web-fullstack profile; finalized when scope-guard lands.
+# Files a role must leave in the ticket directory before it may stop.
+# A prompt can override this per dispatch with `<!-- mark:outputs a.md,b.md -->`.
+[outputs]
+designer = ["design.md"]
+coder-plan = ["tech-plan.md"]
+fix-plan = ["fix-plan.md"]
+coder-impl = ["handoff.md"]
+tester = ["verdict.md"]
+
+[worktree]
+dir = ".claude/worktrees"
+# The main checkout is a state lane: only ticket dirs, gates and locks change there.
+# List extra globs here if your team edits them directly on main.
+main_writable = []
+
+# Write scopes. First matching glob wins; paths that match nothing are open to all.
+# "main" is the orchestrator (main thread). The engine adds fixed rules before these
+# that no project can loosen: .claude/**, .mark/config.toml, gates, locks, status.md
+# and review-*.md are main-thread only.
 [[write_rules]]
-glob = ".claude/**"
-roles = []
+glob = "**/requirement.md"
+roles = ["main"]
 
 [[write_rules]]
-glob = ".mark/gates/**"
-roles = []
-
-[[write_rules]]
-glob = "**/review-*.md"
-roles = []
+glob = "**/bug.md"
+roles = ["main", "fix-plan"]
 
 [[write_rules]]
 glob = "**/design.md"
+roles = ["designer"]
+
+[[write_rules]]
+glob = "**/design-qa.md"
 roles = ["designer"]
 
 [[write_rules]]

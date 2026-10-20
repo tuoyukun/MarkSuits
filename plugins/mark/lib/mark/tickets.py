@@ -31,13 +31,13 @@ import json
 import os
 import re
 import socket
-import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import states
 from .config import MarkConfig
+from .gitutil import main_root  # noqa: F401  (re-exported for callers)
 
 STATUS_FILENAME = "status.md"
 NUMBERS_DIRNAME = ".numbers"
@@ -99,31 +99,6 @@ def parse_merge_after(raw: str) -> list[str] | None:
 # --------------------------------------------------------------------------
 # Locating tickets
 # --------------------------------------------------------------------------
-
-def main_root(root: Path) -> Path:
-    """The main checkout for `root`, even when `root` is a git worktree.
-
-    Ticket state, claim markers and gates are global to the repository, so
-    they must be read from the main checkout. Each worktree has its own copy
-    of the state dir; resolving to it would give every worktree its own
-    number space. Falls back to `root` outside git or if the main checkout is
-    not a Mark project.
-    """
-    try:
-        out = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            capture_output=True, text=True, timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return root
-    common = out.stdout.strip()
-    if out.returncode != 0 or not common:
-        return root
-    candidate = Path(common).resolve().parent
-    if (candidate / ".mark" / "config.toml").is_file():
-        return candidate
-    return root
-
 
 def kind_dir(cfg: MarkConfig, kind: str) -> Path:
     return cfg.state_dir / states.KIND_DIRS[kind]

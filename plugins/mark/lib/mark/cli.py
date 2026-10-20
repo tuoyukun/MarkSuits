@@ -132,5 +132,13 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
         return cmd_status(cfg, rest, out)
     if command == "claim":
         return cmd_claim(cfg, rest, out, err)
+    if command == "unlock" and len(rest) == 2:
+        lock = cfg.state_dir / "locks" / f"{rest[0]}.{rest[1]}.lock"
+        if not lock.exists():
+            out.write(t(cfg.locale, "cli.unlock.none", id=rest[0], role=rest[1]) + "\n")
+            return 1
+        lock.unlink()
+        out.write(t(cfg.locale, "cli.unlock.ok", id=rest[0], role=rest[1]) + "\n")
+        return 0
     err.write(t(cfg.locale, "cli.usage") + "\n")
     return 2

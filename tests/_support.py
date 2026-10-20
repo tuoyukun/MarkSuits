@@ -19,3 +19,114 @@ def make_project(config_text: str | None = MINIMAL_CONFIG) -> Path:
         (root / ".mark").mkdir()
         (root / ".mark" / "config.toml").write_text(config_text, encoding="utf-8")
     return root
+
+
+# --------------------------------------------------------------------------
+# Git-backed fixtures for guard tests
+# --------------------------------------------------------------------------
+import json  # noqa: E402
+import os  # noqa: E402
+import subprocess  # noqa: E402
+
+HOOK = PLUGIN_ROOT / "hooks" / "mark_hook.py"
+
+FULL_CONFIG = '''mark_schema = 1
+locale = "en"
+roles = ["designer", "coder-plan", "coder-impl", "tester", "fix-plan"]
+
+[project]
+main_branch = "main"
+
+[gates]
+coder-plan = "design-approved"
+coder-impl = "plan-approved"
+tester = "plan-approved"
+
+[outputs]
+designer = ["design.md"]
+coder-plan = ["tech-plan.md"]
+fix-plan = ["fix-plan.md"]
+coder-impl = ["handoff.md"]
+tester = ["verdict.md"]
+
+[[write_rules]]
+glob = "**/requirement.md"
+roles = ["main"]
+[[write_rules]]
+glob = "**/design.md"
+roles = ["designer"]
+[[write_rules]]
+glob = "**/tech-plan.md"
+roles = ["coder-plan"]
+[[write_rules]]
+glob = "**/handoff.md"
+roles = ["coder-impl"]
+[[write_rules]]
+glob = "**/verdict.md"
+roles = ["tester"]
+[[write_rules]]
+glob = "tests/**"
+roles = ["tester"]
+[[write_rules]]
+glob = "frontend/**"
+roles = ["coder-impl"]
+'''
+
+GIT_ENV = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com",
+           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.com",
+           "PYTHONDONTWRITEBYTECODE": "1"}
+
+
+def sh(cwd, *args: str) -> str:
+    out = subprocess.run(list(args), cwd=cwd, env=GIT_ENV, capture_output=True, text=True)
+    if out.returncode != 0:
+        raise RuntimeError(f"{args}: {out.stderr}")
+    return out.stdout.strip()
+
+
+def make_repo(config_text: str = FULL_CONFIG) -> Path:
+    root = make_project(config_text).resolve()
+    sh(root, "git", "init", "-q", "-b", "main")
+    sh(root, "git", "add", ".")
+    sh(root, "git", "commit", "-q", "-m", "init")
+    return root
+
+
+def status_text(status: str, **extra: str) -> str:
+    fields = {"status": status, "owner": "x", "updated": "2026-01-01",
+              "updater": "orchestrator", "desc": "d", **extra}
+    return "---\n" + "".join(f"{k}: {v}\n" for k, v in fields.items()) + "---\n"
+
+
+def add_ticket(root: Path, kind: str, ticket_id: str, status: str, gates=(), commit=True) -> Path:
+    d = root / ".mark" / ("features" if kind == "feature" else "bugs") / ticket_id
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "status.md").write_text(status_text(status), encoding="utf-8")
+    for g in gates:
+        gd = root / ".mark" / "gates"
+        gd.mkdir(exist_ok=True)
+        (gd / f"{ticket_id}.{g}").write_text("ok\n")
+    if commit:
+        sh(root, "git", "add", ".")
+        sh(root, "git", "commit", "-q", "-m", f"ticket {ticket_id}")
+    return d
+
+
+def add_worktree(root: Path, kind: str, ticket_id: str, base: str = "main") -> Path:
+    wt = root / ".claude" / "worktrees" / f"{kind}-{ticket_id}"
+    sh(root, "git", "worktree", "add", "-q", "-b", f"{kind}/{ticket_id}", str(wt), base)
+    return wt
+
+
+def add_origin(root: Path) -> Path:
+    bare = Path(tempfile.mkdtemp(prefix="mark-origin-")).resolve()
+    sh(bare, "git", "init", "-q", "--bare", "-b", "main")
+    sh(root, "git", "remote", "add", "origin", str(bare))
+    sh(root, "git", "push", "-q", "-u", "origin", "main")
+    return bare
+
+
+def hook(group: str, payload: dict) -> tuple[int, str]:
+    p = subprocess.run([sys.executable, str(HOOK), group], input=json.dumps(payload),
+                       capture_output=True, text=True, env=GIT_ENV)
+    return p.returncode, p.stderr

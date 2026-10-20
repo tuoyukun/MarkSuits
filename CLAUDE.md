@@ -46,6 +46,7 @@ python3 -m unittest discover -s tests -t .     # engine tests
 claude plugin validate .                       # marketplace + plugin manifests
 claude --plugin-dir ./plugins/mark             # load the plugin for one session
 python3 tools/check_sensitive.py               # sensitive-data scan
+MARK_DEBUG_LOG=/tmp/mark.log claude --plugin-dir ./plugins/mark   # record raw hook payloads
 ```
 
 ## This repository is public

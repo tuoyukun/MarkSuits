@@ -3,6 +3,9 @@
 A directory is a Mark project only if `.mark/config.toml` exists at or above it.
 Hooks use this to stay silent in every other project, because a plugin's hooks
 fire in every session where the plugin is enabled.
+
+Every knob has an engine default here, so a minimal config (`mark_schema` only)
+still yields a working, strict setup. The project template writes the full set.
 """
 from __future__ import annotations
 
@@ -17,15 +20,35 @@ CONFIG_RELPATH = Path(".mark") / "config.toml"
 # ship a migration note; the engine refuses (exit 2) on unknown versions.
 SUPPORTED_SCHEMAS = frozenset({1})
 
+# The orchestrator (main thread) in role lists.
+MAIN = "main"
+
+DEFAULT_ROLES = ("designer", "coder-plan", "coder-impl", "tester", "fix-plan")
+DEFAULT_GATES = {"coder-plan": "design-approved", "coder-impl": "plan-approved",
+                 "tester": "plan-approved"}
+DEFAULT_OUTPUTS = {"designer": ["design.md"], "coder-plan": ["tech-plan.md"],
+                   "fix-plan": ["fix-plan.md"], "coder-impl": ["handoff.md"],
+                   "tester": ["verdict.md"]}
+
 
 class ConfigError(Exception):
     """Config exists but is unreadable or incompatible with this engine."""
 
 
 @dataclass(frozen=True)
+class WriteRule:
+    glob: str
+    roles: frozenset[str]
+
+
+@dataclass(frozen=True)
 class MarkConfig:
     root: Path
     data: dict[str, Any]
+
+    def _section(self, name: str) -> dict[str, Any]:
+        value = self.data.get(name, {})
+        return value if isinstance(value, dict) else {}
 
     @property
     def schema(self) -> int:
@@ -36,9 +59,54 @@ class MarkConfig:
         return str(self.data.get("locale", "en"))
 
     @property
+    def main_branch(self) -> str:
+        return str(self._section("project").get("main_branch", "main"))
+
+    @property
+    def state_rel(self) -> str:
+        """State dir relative to the project root, POSIX style (default `.mark`)."""
+        return str(self._section("paths").get("state_dir", ".mark")).strip("/")
+
+    @property
     def state_dir(self) -> Path:
-        rel = self.data.get("paths", {}).get("state_dir", ".mark")
-        return self.root / rel
+        return self.root / self.state_rel
+
+    @property
+    def roles(self) -> frozenset[str]:
+        """Pipeline role names (bare, without plugin prefix)."""
+        return frozenset(self.data.get("roles", DEFAULT_ROLES))
+
+    @property
+    def gates(self) -> dict[str, str]:
+        """role -> gate name required before dispatch (feature tickets only)."""
+        raw = self.data.get("gates", DEFAULT_GATES)
+        return {k: str(v) for k, v in raw.items() if v}
+
+    @property
+    def outputs(self) -> dict[str, list[str]]:
+        """role -> files the role must leave in the ticket dir before it may stop."""
+        raw = self.data.get("outputs", DEFAULT_OUTPUTS)
+        return {k: [str(f) for f in v] for k, v in raw.items()}
+
+    @property
+    def write_rules(self) -> list[WriteRule]:
+        return [WriteRule(str(r["glob"]), frozenset(r.get("roles", [])))
+                for r in self.data.get("write_rules", []) if "glob" in r]
+
+    @property
+    def worktree_dir(self) -> str:
+        return str(self._section("worktree").get("dir", ".claude/worktrees")).strip("/")
+
+    @property
+    def main_writable(self) -> list[str]:
+        """Extra globs writable in the main checkout, beyond the state lanes."""
+        return [str(g) for g in self._section("worktree").get("main_writable", [])]
+
+    def branch_for(self, kind: str, ticket_id: str) -> str:
+        return f"{kind}/{ticket_id}"
+
+    def worktree_for(self, kind: str, ticket_id: str) -> str:
+        return f"{self.worktree_dir}/{kind}-{ticket_id}"
 
 
 def find_project_root(start: str | Path | None) -> Path | None:
