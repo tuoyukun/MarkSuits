@@ -18,8 +18,9 @@ Design: `docs/architecture.md`.
 |---|---|---|
 | `.claude-plugin/marketplace.json` | Marketplace catalog (repo root = marketplace) | marketplace |
 | `plugins/mark/` | The engine plugin: hooks, skills, CLI, `lib/mark/` | plugin (upgradable) |
-| `template/` | Copier template: roles, prompts, artifact formats, `.mark/config.toml` | generated once, owned by the project |
-| `tests/` | Engine tests (`unittest`, stdlib) | dev only |
+| `copier.yml`, `template/project/` | Copier template: roles, prompts, artifact formats, `.mark/config.toml`; localized dirs are named `{% if locale == '<loc>' %}<name>{% endif %}` | generated once, owned by the project |
+| `tests/` | Engine and template tests (`unittest`, stdlib; template generation needs Copier) | dev only |
+| `.github/workflows/` | CI: tests on 3.11/3.13, template per locale, manifests, sensitive scan | dev only |
 | `tools/` | Repo tooling (sensitive-data check, git hooks) | dev only |
 | `docs/` | Architecture and decisions | dev only |
 
@@ -43,6 +44,7 @@ Design: `docs/architecture.md`.
 
 ```bash
 python3 -m unittest discover -s tests -t .     # engine tests
+MARK_COPIER=copier python3 -m unittest tests.test_template   # + generate the template per locale
 claude plugin validate .                       # marketplace + plugin manifests
 claude --plugin-dir ./plugins/mark             # load the plugin for one session
 python3 tools/check_sensitive.py               # sensitive-data scan

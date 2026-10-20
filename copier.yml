@@ -1,7 +1,7 @@
 # Copier template for a Mark-managed project.
 # Generate:  copier copy gh:<owner>/MarkSuits <dest> --vcs-ref <tag>
-# Upgrade:   copier update        (3-way merge against the recorded answers)
-_subdirectory: project
+# Upgrade:   copier update -a .mark/.copier-answers.yml   (3-way merge against the recorded answers)
+_subdirectory: template/project
 _answers_file: .mark/.copier-answers.yml
 _min_copier_version: "9.0.0"
 

@@ -4,7 +4,9 @@
 packaged as a plugin plus a project template — a "starter" for teams that want several
 specialized agents to build software together without stepping on each other.
 
-> Status: early skeleton (v0.1.0). Not ready for use yet.
+> Status: v0.5.0. The engine and the project template (role agents, prompts, artifact
+> formats in `en` and `zh-CN`) are complete; end-to-end validation on an example project
+> comes next. Not ready for production use yet.
 
 [中文说明](README.zh-CN.md)
 
@@ -25,15 +27,26 @@ specialized agents to build software together without stepping on each other.
 ```
 .claude-plugin/marketplace.json   marketplace catalog (this repo)
 plugins/mark/                     the engine plugin (upgradable)
-template/                         Copier template for a Mark project (generated once)
+copier.yml, template/project/     Copier template for a Mark project (generated once)
 docs/architecture.md              design
+```
+
+A generated project gets:
+
+```
+CLAUDE.md                         stack, module boundaries, commands (fill in the TODOs)
+.claude/agents/                   designer, coder-plan, coder-impl, tester, fix-plan
+.mark/config.toml                 roles, gates, write scopes, paths
+.mark/collaboration.md            how humans and agents work together
+.mark/prompts/                    one dispatch template per scenario (13)
+.mark/formats/                    artifact formats with language-neutral anchors
 ```
 
 ## Install (once released)
 
 ```bash
 # 1. Generate project files (roles, prompts, .mark/config.toml)
-copier copy gh:<owner>/MarkSuits . --vcs-ref <tag>
+copier copy gh:<owner>/MarkSuits . --vcs-ref <tag>     # asks for locale: en | zh-CN
 
 # 2. Enable the engine for everyone in the repo
 claude plugin marketplace add <owner>/MarkSuits --scope project
@@ -41,12 +54,13 @@ claude plugin install mark@marksuits --scope project
 ```
 
 Upgrade the engine with `claude plugin update mark@marksuits`; upgrade generated files with
-`copier update`.
+`copier update -a .mark/.copier-answers.yml` (a 3-way merge that keeps your edits).
 
 ## Development
 
 ```bash
 python3 -m unittest discover -s tests -t .
+MARK_COPIER=copier python3 -m unittest tests.test_template   # also generate + render the template
 claude plugin validate .
 claude --plugin-dir ./plugins/mark
 git config core.hooksPath tools/git-hooks   # sensitive-data pre-commit check

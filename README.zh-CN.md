@@ -2,7 +2,8 @@
 
 **Mark** 是一套给 [Claude Code](https://code.claude.com) 用的多 agent 研发流程，由一个插件和一份项目模板组成，类似 starter：新工程装上就有完整的多 agent 协作架构。
 
-> 状态：早期骨架（v0.1.0），尚不可用。
+> 状态：v0.5.0。引擎和项目模板（角色 agent、派活模板、制品格式，`en` 与 `zh-CN` 两套）已完成；
+> 下一步是在示例工程上做端到端验证。尚不可用于生产。
 
 ## 核心机制
 
@@ -17,7 +18,7 @@
 | 层 | 内容 | 升级方式 |
 |---|---|---|
 | 插件 `plugins/mark/` | hooks、编排 skills、CLI | `claude plugin update` |
-| 模板 `template/` | 角色定义、派活模板、制品格式、`.mark/config.toml` | `copier update`（三方合并） |
+| 模板 `copier.yml` + `template/project/` | 角色定义、派活模板、制品格式、`.mark/config.toml` | `copier update -a .mark/.copier-answers.yml`（三方合并） |
 | 项目内容 | 模块边界、写域、契约 | 不升级 |
 
 模板提供 `zh-CN` 与 `en` 两套文本，生成项目时选择。

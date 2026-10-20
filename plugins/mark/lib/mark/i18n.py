@@ -315,7 +315,7 @@ _USAGE_EN = (
     "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
     "  mark commit <id> [-m \"<message>\"]             commit + push the ticket's state on main\n"
     "  mark unlock <id> <role>                        release a dead agent's lock (human)\n"
-    "  mark rules                                     print the orchestrator rules"
+    "  mark rules [orchestrator | role]               print a rulebook (orchestrator by default)"
 )
 _USAGE_ZH = (
     "用法：mark <命令> [选项]\n"
@@ -329,7 +329,7 @@ _USAGE_ZH = (
     "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
     "  mark commit <编号> [-m \"<说明>\"]               在 main 上提交并推送工单状态\n"
     "  mark unlock <编号> <角色>                      释放已死 agent 的锁（由人执行）\n"
-    "  mark rules                                     打印 orchestrator 规则"
+    "  mark rules [orchestrator | role]               打印规则（默认 orchestrator）"
 )
 
 MESSAGES["en"].update({

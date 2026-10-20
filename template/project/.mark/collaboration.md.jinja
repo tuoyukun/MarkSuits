@@ -1,0 +1,151 @@
+{% if locale == 'en' -%}
+# How {{ project_name }} is built with Mark
+
+One orchestrator (the main Claude Code session) moves tickets forward one step at a time.
+Each step is done by a fresh **role agent** that reads files, writes files, and ends. The
+human opens tickets, approves or rejects at two review gates, and merges.
+
+## Commands
+
+| You type | What happens |
+|---|---|
+| `/mark:feature <description>` | The orchestrator reviews the request with you, opens a ticket once you agree, and runs the first step |
+| `/mark:feature <id>` | One more step of that feature |
+| `/mark:fix <description or id>` | Opens or continues a bug and runs it to `pending-merge` (no review gates) |
+| `/mark:approve <id>` | Approves the opening of a ticket, the design, the plan, or a blocked ticket's way back; then continues |
+| `/mark:reject <id> <comments>` | Sends a design, plan or finished branch back with your comments; then continues |
+| `/mark:status` | The board: what waits on you, what is in progress |
+
+Approvals count only when a person types them. An agent cannot approve anything.
+
+## The chains
+
+```
+feature: designing → review-design → planning → review-plan → developing
+         → (design-qa) → testing → pending-merge → passed
+bug:     planning → developing → testing → pending-merge → passed
+```
+
+| Status | Who acts | Artifact |
+|---|---|---|
+| `designing` | designer | `design.md` + UI components + preview |
+| `review-design` | **you** | approve, or reject with comments |
+| `planning` | coder-plan (feature) / fix-plan (bug) | `tech-plan.md` / `fix-plan.md` |
+| `review-plan` | **you** | approve, or reject with comments |
+| `developing` | coder-impl | code, unit tests, `handoff.md` |
+| `design-qa` | designer | `design-qa.md` (real app vs design; only when UI changed) |
+| `testing` | tester | end-to-end tests, `verdict.md` |
+| `failed-impl` | coder-impl | fixes for `FAIL-N` / `D-N` / your merge comments |
+| `pending-merge` | **you** | merge the branch into main, or reject |
+| `blocked-*` | **you** | read the reason; `/mark:approve` sends it back the way it came |
+
+## Where things live
+
+- `.mark/features/<id>/`, `.mark/bugs/<id>/` on main: `status.md`, `requirement.md` or
+  `bug.md`, your reviews (`review-*.md`), `log.md`.
+- Each ticket has a branch `feature/<id>` or `bug/<id>` and a worktree under
+  `.claude/worktrees/`. Role agents write only there; their artifacts sit in the same
+  ticket path inside the worktree.
+- Formats of every artifact: `.mark/formats/`. Dispatch prompts: `.mark/prompts/`. Role
+  definitions: `.claude/agents/`.
+
+## Ids
+
+| Id | Where | Meaning |
+|---|---|---|
+| `AC-N` | requirement / fix plan | acceptance criterion |
+| `S-N` | design | a UI state |
+| `T-N`, `SD-N` | tech plan | task, sequence diagram |
+| `R-N` | review files | one of your review comments (numbered across rounds) |
+| `D-N` | design QA | a defect between the real app and the design |
+| `FAIL-N` | verdict | a test failure |
+
+Ids are never reused, so a comment like "R-4 withdraws R-1" stays unambiguous.
+
+## Merging
+
+At `pending-merge` the branch has passed its tests against the latest main. Review it,
+merge it into main and push, then tell the orchestrator `mark set <id> passed`. To send it
+back instead: `/mark:reject <id> <comments>`.
+
+## Rules everyone works by
+
+1. Agents never talk to each other; files on disk are the only channel.
+2. Information flows downstream: requirement → design → plan → code → tests.
+3. Opening a ticket, passing a review gate and lowering an acceptance criterion are human
+   decisions.
+4. Enforcement comes from hooks that block (exit 2). A rule that is only written down is a
+   wish.
+{% elif locale == 'zh-CN' -%}
+# {{ project_name }} 如何用 Mark 协作开发
+
+一个 orchestrator（Claude Code 主会话）每次把工单往前推一步。每一步由一个全新的**角色 agent**
+完成：读文件、写文件、结束。人负责开单、在两道人审闸门上放行或打回、以及合并。
+
+## 命令
+
+| 你输入 | 会发生什么 |
+|---|---|
+| `/mark:feature <描述>` | orchestrator 先和你评审需求，你同意后开单，并跑第一步 |
+| `/mark:feature <编号>` | 把该 feature 再推进一步 |
+| `/mark:fix <描述或编号>` | 开 bug 单或继续推进，一路跑到 `pending-merge`（无人审闸门） |
+| `/mark:approve <编号>` | 放行开单、设计、方案，或让阻塞的工单原路退回；随后继续推进 |
+| `/mark:reject <编号> <意见>` | 带着你的意见把设计、方案或已完成的分支打回；随后继续推进 |
+| `/mark:status` | 看板：哪些在等你、哪些在进行中 |
+
+只有人亲手输入的放行才算数。agent 无法放行任何东西。
+
+## 两条链
+
+```
+feature: designing → review-design → planning → review-plan → developing
+         → (design-qa) → testing → pending-merge → passed
+bug:     planning → developing → testing → pending-merge → passed
+```
+
+| 状态 | 谁来做 | 制品 |
+|---|---|---|
+| `designing` | designer | `design.md` + UI 组件 + 预览 |
+| `review-design` | **你** | 放行，或带意见打回 |
+| `planning` | coder-plan（feature）/ fix-plan（bug） | `tech-plan.md` / `fix-plan.md` |
+| `review-plan` | **你** | 放行，或带意见打回 |
+| `developing` | coder-impl | 代码、单元测试、`handoff.md` |
+| `design-qa` | designer | `design-qa.md`（真实应用对照设计；仅 UI 有改动时） |
+| `testing` | tester | 端到端测试、`verdict.md` |
+| `failed-impl` | coder-impl | 修复 `FAIL-N` / `D-N` / 你的合并意见 |
+| `pending-merge` | **你** | 把分支合进 main，或打回 |
+| `blocked-*` | **你** | 看原因；`/mark:approve` 让它原路退回 |
+
+## 东西放在哪
+
+- main 上的 `.mark/features/<id>/`、`.mark/bugs/<id>/`：`status.md`、`requirement.md` 或
+  `bug.md`、你的审阅意见（`review-*.md`）、`log.md`。
+- 每单有一个分支 `feature/<id>` 或 `bug/<id>`，以及 `.claude/worktrees/` 下的一个 worktree。
+  角色 agent 只在那里写；它们的制品放在 worktree 里同一个工单路径下。
+- 各制品格式：`.mark/formats/`。派活模板：`.mark/prompts/`。角色定义：`.claude/agents/`。
+
+## 编号
+
+| 编号 | 出处 | 含义 |
+|---|---|---|
+| `AC-N` | 需求 / 修复方案 | 验收标准 |
+| `S-N` | 设计 | 一个 UI 状态 |
+| `T-N`、`SD-N` | 技术方案 | 任务、时序图 |
+| `R-N` | 审阅文件 | 你的一条审阅意见（跨轮连续编号） |
+| `D-N` | 设计验收 | 真实应用与设计之间的一处缺陷 |
+| `FAIL-N` | 验收报告 | 一条测试失败 |
+
+编号永不复用，所以「R-4 撤回 R-1」这样的意见始终不会有歧义。
+
+## 合并
+
+到 `pending-merge` 时，分支已基于最新 main 通过测试。你审阅后把它合进 main 并推送，然后让
+orchestrator 执行 `mark set <id> passed`。要打回则用 `/mark:reject <id> <意见>`。
+
+## 所有人遵守的规则
+
+1. agent 之间从不直接对话；落盘的文件是唯一通道。
+2. 信息只向下游流动：需求 → 设计 → 方案 → 代码 → 测试。
+3. 开单、通过人审闸门、降低验收标准，都是人的决定。
+4. 约束来自会拦截（exit 2）的 hook。只写在纸上的规则只是愿望。
+{% endif %}

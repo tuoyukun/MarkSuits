@@ -4,6 +4,9 @@ mark_schema = 1
 locale = "{{ locale }}"
 profile = "{{ profile }}"
 
+# Pipeline roles (file names of the agents in .claude/agents/, without ".md").
+roles = ["designer", "coder-plan", "coder-impl", "tester", "fix-plan"]
+
 [project]
 name = "{{ project_name }}"
 main_branch = "{{ main_branch }}"
@@ -14,9 +17,6 @@ frontend = "{{ frontend_dir }}"
 backend = "{{ backend_dir }}"
 ui = "{{ ui_dir }}"
 tests = "{{ tests_dir }}"
-
-# Pipeline roles (file names of the agents in .claude/agents/, without ".md").
-roles = ["designer", "coder-plan", "coder-impl", "tester", "fix-plan"]
 
 # Gate each role needs before dispatch, as `.mark/gates/<id>.<gate>` (feature tickets only;
 # the bug chain has no review gates). A human may waive a gate that has nothing to
@@ -57,7 +57,7 @@ roles = ["main"]
 
 [[write_rules]]
 glob = "**/bug.md"
-roles = ["main", "fix-plan"]
+roles = ["main"]
 
 [[write_rules]]
 glob = "**/design.md"

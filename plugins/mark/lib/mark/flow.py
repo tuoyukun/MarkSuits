@@ -207,6 +207,25 @@ def _failure_trigger(ctx: Ctx) -> str:
     return f"{', '.join(refs) or 'FAIL-?'} (verdict.md)"
 
 
+# Every prompt template `_dispatch` can ask for, with the role it must declare.
+# The project template ships one file per entry (`[paths] prompts/<scenario>.md`).
+SCENARIOS: dict[str, str] = {
+    "designer-initial": "designer",
+    "designer-review-rework": "designer",
+    "designer-rework": "designer",
+    "designer-integration-qa": "designer",
+    "coder-plan": "coder-plan",
+    "coder-plan-rework": "coder-plan",
+    "fix-plan-initial": "fix-plan",
+    "fix-plan-rework": "fix-plan",
+    "coder-impl": "coder-impl",
+    "coder-impl-fix": "coder-impl",
+    "coder-impl-merge-rework": "coder-impl",
+    "tester-initial": "tester",
+    "tester-reverify": "tester",
+}
+
+
 def _dispatch(ctx: Ctx, status: str) -> Action:
     kind = ctx.kind
     role = states.ROLE_FOR_STATUS[kind][status]

@@ -24,7 +24,7 @@ Invariants:
 
 | Layer | Contents | Owner | Upgrade |
 |---|---|---|---|
-| **Engine** (`plugins/mark`) | hooks, orchestration skills, CLI (`bin/`), shared agent rules, `lib/mark` | Mark | plugin version bump → `claude plugin update` |
+| **Engine** (`plugins/mark`) | hooks, orchestration skills, CLI (`bin/`), shared role rules (`skills/role-rules`), `lib/mark` | Mark | plugin version bump → `claude plugin update` |
 | **Scaffold** (`template/`) | `CLAUDE.md`, `.mark/collaboration.md`, role agents, prompt templates, artifact formats, `.mark/config.toml` | the project, after generation | `copier update` (3-way merge) |
 | **Project content** | module boundaries, contracts, write-scope exceptions, domain scripts | the project | — |
 
@@ -157,6 +157,57 @@ Review files: each round is `## Round N · <time> · pending <!-- mark:round N p
 Merging is manual in this version: at `pending-merge` the human merges and pushes, then
 `mark set <id> passed` (Phase 2 automates it).
 
+### Project template (v0.5)
+
+`copier.yml` sits at the repo root (Copier only looks there) with `_subdirectory: template/project`.
+Answers are recorded in `.mark/.copier-answers.yml`, so upgrades run
+`copier update -a .mark/.copier-answers.yml`.
+
+| generated path | what | read by |
+|---|---|---|
+| `.claude/agents/<role>.md` | role definition: what it owns, rules, self-check, outcomes | the role (system prompt) |
+| `.mark/prompts/<scenario>.md` | one dispatch template per entry of `flow.SCENARIOS` (13) | `mark dispatch` |
+| `.mark/formats/<artifact>.md` | artifact formats: requirement, bug, design, design-qa, tech-plan, fix-plan, handoff, verdict | the producing and consuming roles |
+| `.mark/collaboration.md`, `CLAUDE.md` | workflow for humans; project facts and commands for every role | humans, every role |
+
+Three layers of instructions reach a role, from durable to specific:
+
+1. **Role rules** (engine): `skills/role-rules/SKILL.md`, preloaded into every role agent through
+   `skills: [mark:role-rules]` in its frontmatter (`mark rules role` prints it as a fallback). Brief
+   trust, worktree anchoring, what roles never do, inline-fix criteria, finish (commit, push the
+   ticket branch, clean worktree), report shape. Upgrades with the plugin.
+2. **Role file** (template): durable, project-shaped rules for one role, with project paths filled in
+   at generation.
+3. **Scenario template** (template): why this dispatch happens, done-when, what to read, what to write.
+   Only `{{placeholders}}` from `brief.PLACEHOLDERS`; never how to do the work.
+
+**Locales.** Every localized set exists once per locale under a directory whose name renders empty
+for the other locale, e.g. `.mark/{% if locale == 'en' %}prompts{% endif %}/`. Files without the
+`.jinja` suffix are copied verbatim, which keeps the prompts' `{{placeholders}}` away from Jinja.
+Short shared docs (`CLAUDE.md`, `.mark/README.md`, `.mark/collaboration.md`) switch on `locale`
+inside the file. English is written first; `zh-CN` is its translation.
+
+**Anchors in artifacts** (language-neutral, so formats can be localized):
+
+| artifact | anchors | used by |
+|---|---|---|
+| `requirement.md`, `fix-plan.md` | `<!-- mark:ac -->` + `AC-N` | tester, coder-impl self-check |
+| `design.md` | `<!-- mark:states -->` + `S-N` | coder-impl, tester, design QA |
+| `tech-plan.md` | `<!-- mark:tasks -->` + `T-N`, `SD-N` | coder-impl |
+| `handoff.md` | `<!-- mark:ac-table -->`, `<!-- mark:blocked -->` | tester, designer |
+| `design-qa.md` | `<!-- mark:qa-round N -->`, `<!-- mark:qa passed\|blocked -->`, `D-N` | engine (`mark set testing`, triggers) |
+| `verdict.md` | `<!-- mark:verdict PASSED\|FAILED -->`, `FAIL-N`, `failureType:`, `routeTo:` | engine (triggers), orchestrator |
+| all | `<!-- mark:open-questions -->` | blocked outcomes |
+
+`verdict.md` and `design-qa.md` are rewritten per run; ids continue from the previous highest and
+are never reused, and only open items carry ids, because the engine hands every `FAIL-N` / `D-N`
+it finds to the next role.
+
+**Tests.** `tests/test_template.py` checks the sources (every scenario in every locale, role
+declared, placeholders known, anchors present, locales ship the same files) and, when Copier is
+available (`MARK_COPIER` or PATH; always in CI), generates a project per locale and renders every
+scenario through `brief.render`.
+
 ## 5. Distribution and versioning
 
 - This repo is the marketplace (`.claude-plugin/marketplace.json`, name `marksuits`).
@@ -171,8 +222,8 @@ Merging is manual in this version: at `pending-merge` the human merges and pushe
 config loader ✅ · hook plumbing ✅ · ticket claim + `status` CLI ✅ (v0.2) · guards ✅ (v0.3: scope · worktree · ticket · status ·
 target · gate · branch · status-commit · dedup/output · git-in-bash) ·
 orchestration ✅ (v0.4: `/mark:feature` `/mark:fix` `/mark:approve` `/mark:reject` `/mark:status`,
-`mark next|dispatch|set|approve|reject|commit`, human tokens) · role agents + prompt templates
-(zh-CN, en) · example project walkthrough.
+`mark next|dispatch|set|approve|reject|commit`, human tokens) · project template ✅ (v0.5: role
+agents, role rules, 13 prompt templates, artifact formats, en + zh-CN, CI) · example project walkthrough.
 
 **Phase 2 — merge and hygiene**
 auto-merge with pluggable regression contract · merge-order · doc-budget · general-mode lane ·

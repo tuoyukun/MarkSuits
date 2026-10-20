@@ -258,7 +258,26 @@ def cmd_commit(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> in
     return _commit(cfg, ctx, opts.get("-m") or f"{ctx.id}: update ticket state", {}, out)
 
 
-RULES_FILE = Path(__file__).resolve().parents[2] / "rules" / "orchestrator.md"
+_PLUGIN = Path(__file__).resolve().parents[2]
+RULES = {
+    "orchestrator": _PLUGIN / "rules" / "orchestrator.md",
+    "role": _PLUGIN / "skills" / "role-rules" / "SKILL.md",
+}
+
+
+def cmd_rules(args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark rules [orchestrator|role]`: print a rulebook (frontmatter stripped)."""
+    name = args[0] if args else "orchestrator"
+    if name not in RULES or len(args) > 1:
+        err.write(t("en", "cli.usage") + "\n")
+        return 2
+    text = RULES[name].read_text(encoding="utf-8")
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end != -1:
+            text = text[end + 4:].lstrip("\n")
+    out.write(text)
+    return 0
 
 COMMANDS = {"next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
             "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim}
@@ -273,8 +292,7 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
         out.write(t("en", "cli.usage") + "\n")
         return 0 if argv else 2
     if argv[0] == "rules":
-        out.write(RULES_FILE.read_text(encoding="utf-8"))
-        return 0
+        return cmd_rules(argv[1:], out, err)
     cfg = _load(cwd or Path.cwd(), err)
     if cfg is None:
         return 2

@@ -30,6 +30,11 @@ from .flow import Action, Ctx, FlowError
 from .i18n import t
 
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-z_]+)\s*\}\}")
+PLACEHOLDERS = frozenset({
+    "id", "kind", "desc", "status", "role", "scenario", "worktree", "branch",
+    "ticket_dir", "state_ticket_dir", "outputs", "trigger", "prev",
+    "review_file", "pending_rounds", "pending_refs", "brief",
+})
 _FIELD_RE = re.compile(r"^([a-z_]+):\s*(.*)$")
 
 
@@ -53,6 +58,11 @@ def parse_template(text: str) -> Template:
             body = text[end + 4:].lstrip("\n")
     outputs = [f.strip() for f in fields["outputs"].split(",") if f.strip()] if "outputs" in fields else None
     return Template(fields.get("role", ""), outputs, body)
+
+
+def placeholders(body: str) -> list[str]:
+    """Placeholder names used in a template body, in order of appearance."""
+    return _PLACEHOLDER_RE.findall(body)
 
 
 def load_template(ctx: Ctx, scenario: str) -> Template:
@@ -112,7 +122,8 @@ def render(ctx: Ctx, action: Action, prev: str = "", trigger: str = "") -> str:
         "pending_refs": ", ".join(action.pending_refs),
         "brief": facts(ctx, action, outputs, prev, trigger),
     }
-    unknown = sorted({m for m in _PLACEHOLDER_RE.findall(tpl.body) if m not in values})
+    assert set(values) == PLACEHOLDERS, sorted(set(values) ^ PLACEHOLDERS)
+    unknown = sorted(set(placeholders(tpl.body)) - PLACEHOLDERS)
     if unknown:
         raise FlowError("brief.unknown_placeholder", scenario=action.scenario, names=", ".join(unknown))
     body = _PLACEHOLDER_RE.sub(lambda m: values[m.group(1)], tpl.body)

@@ -1,11 +1,33 @@
+{% if locale == 'en' -%}
 # .mark
 
 Multi-agent collaboration state for {{ project_name }}, managed by the Mark plugin.
+How the workflow runs: [collaboration.md](collaboration.md).
 
 | Path | Purpose |
 |---|---|
 | `config.toml` | Engine configuration (roles, gates, write scopes) |
+| `collaboration.md` | How humans and agents work together here |
+| `prompts/` | Dispatch prompt templates, one per scenario |
+| `formats/` | Artifact formats (requirement, design, plan, handoff, verdict …) |
 | `features/<id>/`, `bugs/<id>/` | One directory per ticket: status + artifacts |
 | `gates/` | Human approval records (file exists = approved). Never delete |
 | `locks/` | Runtime dispatch locks (not committed) |
-| `.copier-answers.yml` | Template version record used by `copier update` |
+| `.copier-answers.yml` | Template version record for `copier update -a .mark/.copier-answers.yml` |
+{% elif locale == 'zh-CN' -%}
+# .mark
+
+{{ project_name }} 的多 agent 协作状态，由 Mark 插件管理。
+流程怎么跑：[collaboration.md](collaboration.md)。
+
+| 路径 | 用途 |
+|---|---|
+| `config.toml` | 引擎配置（角色、闸门、写域） |
+| `collaboration.md` | 人和 agent 在这里怎么协作 |
+| `prompts/` | 派活模板，每个场景一份 |
+| `formats/` | 制品格式（需求、设计、方案、交接、验收报告……） |
+| `features/<id>/`、`bugs/<id>/` | 每单一个目录：状态 + 制品 |
+| `gates/` | 人审放行记录（文件存在即放行）。不要删除 |
+| `locks/` | 运行时派活锁（不入库） |
+| `.copier-answers.yml` | 模板版本记录，供 `copier update -a .mark/.copier-answers.yml` 使用 |
+{% endif %}

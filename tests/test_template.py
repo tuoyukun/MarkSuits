@@ -1,29 +1,91 @@
-"""The project template must render into a config the engine accepts."""
+"""The project template must produce files the engine accepts, in every locale.
+
+Two layers:
+
+- Source checks (always run): config, role agents, prompt templates and artifact
+  formats under `template/project/`, per locale, against what the engine expects.
+- Generated checks (need Copier): generate a project per locale with the real
+  `copier copy`, then render every dispatch scenario through `mark.brief`.
+  Copier is found via `$MARK_COPIER` or on PATH; CI installs it.
+"""
+import os
 import re
+import shutil
+import subprocess
+import tempfile
 import tomllib
 import unittest
 from pathlib import Path
 
-from tests._support import REPO_ROOT
+from tests._support import PLUGIN_ROOT, REPO_ROOT
 
-from mark.config import MAIN, MarkConfig
+from mark import brief, tickets
+from mark.config import MAIN, MarkConfig, load_config
+from mark.flow import SCENARIOS, Action, Ctx
+from mark.i18n import t
 
-ANSWERS = {"locale": "zh-CN", "profile": "web-fullstack", "project_name": "demo", "main_branch": "main",
+TEMPLATE = REPO_ROOT / "template" / "project"
+LOCALES = ("en", "zh-CN")
+ANSWERS = {"locale": "en", "profile": "web-fullstack", "project_name": "demo", "main_branch": "main",
            "frontend_dir": "frontend", "backend_dir": "backend", "ui_dir": "frontend/src/ui",
            "tests_dir": "tests"}
 
+# Anchors each artifact format must show (language-neutral, see CLAUDE.md rule 7).
+FORMAT_ANCHORS = {
+    "requirement.md": ["<!-- mark:ac -->", "AC-1", "<!-- mark:open-questions -->"],
+    "bug.md": [],
+    "design.md": ["<!-- mark:states -->", "S-1", "<!-- mark:open-questions -->"],
+    "design-qa.md": ["<!-- mark:qa-round 1 -->", "<!-- mark:qa passed -->", "<!-- mark:qa blocked -->", "D-1"],
+    "tech-plan.md": ["<!-- mark:tasks -->", "T-1", "SD-1", "sequenceDiagram", "<!-- mark:open-questions -->"],
+    "fix-plan.md": ["<!-- mark:ac -->", "AC-1", "[inline]", "<!-- mark:open-questions -->"],
+    "handoff.md": ["<!-- mark:ac-table -->", "<!-- mark:blocked -->"],
+    "verdict.md": ["<!-- mark:verdict FAILED -->", "FAIL-3", "failureType:", "routeTo:"],
+}
+FAILURE_TYPES = ("impl-bug", "needs-unit-test", "design-flaw", "unclear")
+_JINJA_VAR = re.compile(r"\{\{\s*(\w+)\s*\}\}")
+_FORMAT_REF = re.compile(r"\.mark/formats/([a-z-]+\.md)")
 
-def render(text: str) -> str:
-    return re.sub(r"\{\{\s*(\w+)\s*\}\}", lambda m: ANSWERS[m.group(1)], text)
+
+def render(text: str, **overrides: str) -> str:
+    answers = {**ANSWERS, **overrides}
+    return _JINJA_VAR.sub(lambda m: answers[m.group(1)], text)
+
+
+def localized(parent: Path, name: str, locale: str) -> Path:
+    """Source dir that Copier renders to `name` only for `locale`."""
+    return parent / f"{{% if locale == '{locale}' %}}{name}{{% endif %}}"
+
+
+def frontmatter(text: str) -> dict[str, object]:
+    """Tiny YAML subset: `key: value` and `key:` followed by `  - item` lines."""
+    assert text.startswith("---\n"), "missing frontmatter"
+    block = text[4:text.index("\n---", 4)]
+    out: dict[str, object] = {}
+    key = None
+    for line in block.splitlines():
+        if line.startswith("  - ") and key:
+            out.setdefault(key, [])
+            out[key].append(line[4:].strip())  # type: ignore[union-attr]
+        elif ":" in line:
+            key, _, value = line.partition(":")
+            key = key.strip()
+            if value.strip():
+                out[key] = value.strip()
+    return out
 
 
 class TemplateConfigTest(unittest.TestCase):
     def setUp(self):
-        src = (REPO_ROOT / "template/project/.mark/config.toml.jinja").read_text(encoding="utf-8")
+        src = (TEMPLATE / ".mark/config.toml.jinja").read_text(encoding="utf-8")
         self.cfg = MarkConfig(Path("."), tomllib.loads(render(src)))
 
     def test_schema_supported(self):
         self.assertEqual(self.cfg.schema, 1)
+
+    def test_roles_are_top_level(self):
+        # A `roles` line below a [table] header would silently become e.g. paths.roles.
+        self.assertIn("roles", self.cfg.data)
+        self.assertEqual(self.cfg.roles, {"designer", "coder-plan", "coder-impl", "tester", "fix-plan"})
 
     def test_rules_only_name_known_roles(self):
         known = self.cfg.roles | {MAIN}
@@ -37,6 +99,184 @@ class TemplateConfigTest(unittest.TestCase):
     def test_ui_rule_precedes_frontend_rule(self):
         globs = [r.glob for r in self.cfg.write_rules]
         self.assertLess(globs.index("frontend/src/ui/**"), globs.index("frontend/**"))
+
+    def test_ticket_briefs_are_main_only(self):
+        for name in ("requirement.md", "bug.md"):
+            self.assertEqual(self.cfg.write_rules[[r.glob for r in self.cfg.write_rules]
+                                                  .index(f"**/{name}")].roles, {MAIN}, name)
+
+    def test_copier_file_at_repo_root(self):
+        text = (REPO_ROOT / "copier.yml").read_text(encoding="utf-8")
+        self.assertIn("_subdirectory: template/project", text)
+        self.assertIn("_answers_file: .mark/.copier-answers.yml", text)
+        self.assertTrue((TEMPLATE / "{{ _copier_conf.answers_file }}.jinja").is_file())
+
+
+class TemplatePromptsTest(unittest.TestCase):
+    def test_every_scenario_in_every_locale(self):
+        for loc in LOCALES:
+            names = {p.stem for p in localized(TEMPLATE / ".mark", "prompts", loc).glob("*.md")} - {"README"}
+            self.assertEqual(names, set(SCENARIOS), loc)
+
+    def test_role_placeholders_and_outputs(self):
+        for loc in LOCALES:
+            for path in sorted(localized(TEMPLATE / ".mark", "prompts", loc).glob("*.md")):
+                if path.stem == "README":
+                    continue
+                with self.subTest(locale=loc, scenario=path.stem):
+                    tpl = brief.parse_template(path.read_text(encoding="utf-8"))
+                    self.assertEqual(tpl.role, SCENARIOS[path.stem])
+                    used = set(brief.placeholders(tpl.body))
+                    self.assertLessEqual(used, brief.PLACEHOLDERS)
+                    self.assertIn("brief", used)
+                    for out in tpl.outputs or []:
+                        self.assertIn(out, FORMAT_ANCHORS)
+
+    def test_review_scenarios_name_the_open_rounds(self):
+        for loc in LOCALES:
+            folder = localized(TEMPLATE / ".mark", "prompts", loc)
+            for name in ("designer-review-rework", "coder-plan-rework", "coder-impl-merge-rework"):
+                body = (folder / f"{name}.md").read_text(encoding="utf-8")
+                for ph in ("{{review_file}}", "{{pending_rounds}}", "{{pending_refs}}"):
+                    self.assertIn(ph, body, f"{loc}/{name}")
+
+    def test_integration_qa_overrides_outputs(self):
+        for loc in LOCALES:
+            path = localized(TEMPLATE / ".mark", "prompts", loc) / "designer-integration-qa.md"
+            tpl = brief.parse_template(path.read_text(encoding="utf-8"))
+            self.assertEqual(tpl.outputs, ["design-qa.md"])
+            self.assertIn("<!-- mark:qa passed -->", tpl.body)
+
+
+class TemplateAgentsTest(unittest.TestCase):
+    def setUp(self):
+        src = (TEMPLATE / ".mark/config.toml.jinja").read_text(encoding="utf-8")
+        self.roles = set(tomllib.loads(render(src))["roles"])
+
+    def test_one_agent_per_role_with_role_rules(self):
+        for loc in LOCALES:
+            folder = localized(TEMPLATE / ".claude", "agents", loc)
+            files = {p.name for p in folder.iterdir()}
+            self.assertEqual(files, {f"{r}.md.jinja" for r in self.roles}, loc)
+            for role in self.roles:
+                with self.subTest(locale=loc, role=role):
+                    text = render((folder / f"{role}.md.jinja").read_text(encoding="utf-8"))
+                    meta = frontmatter(text)
+                    self.assertEqual(meta["name"], role)
+                    self.assertIn("mark:role-rules", meta.get("skills", []))
+                    self.assertNotIn("Agent", str(meta.get("tools", "")))
+                    self.assertNotIn("{%", text)
+                    self.assertIn("mark rules role", text)
+
+    def test_agents_name_failure_types_and_outcomes(self):
+        for loc in LOCALES:
+            tester = (localized(TEMPLATE / ".claude", "agents", loc) / "tester.md.jinja").read_text(encoding="utf-8")
+            for ft in FAILURE_TYPES:
+                self.assertIn(f"`{ft}`", tester, loc)
+
+
+class TemplateFormatsTest(unittest.TestCase):
+    def test_same_formats_and_anchors_in_every_locale(self):
+        for loc in LOCALES:
+            folder = localized(TEMPLATE / ".mark", "formats", loc)
+            self.assertEqual({p.name for p in folder.glob("*.md")}, set(FORMAT_ANCHORS), loc)
+            for name, anchors in FORMAT_ANCHORS.items():
+                text = (folder / name).read_text(encoding="utf-8")
+                for anchor in anchors:
+                    self.assertIn(anchor, text, f"{loc}/{name}")
+
+    def test_referenced_formats_exist(self):
+        for loc in LOCALES:
+            texts = [p.read_text(encoding="utf-8")
+                     for d in (localized(TEMPLATE / ".mark", "prompts", loc),
+                               localized(TEMPLATE / ".claude", "agents", loc))
+                     for p in d.iterdir()]
+            refs = {m for text in texts for m in _FORMAT_REF.findall(text)}
+            self.assertTrue(refs)
+            self.assertLessEqual(refs, set(FORMAT_ANCHORS), loc)
+
+    def test_locales_ship_the_same_files(self):
+        for name, parent in (("agents", ".claude"), ("prompts", ".mark"), ("formats", ".mark")):
+            sets = [{p.name for p in localized(TEMPLATE / parent, name, loc).iterdir()} for loc in LOCALES]
+            self.assertEqual(sets[0], sets[1], name)
+
+
+class RoleRulesTest(unittest.TestCase):
+    def test_skill_is_hidden_and_printable(self):
+        text = (PLUGIN_ROOT / "skills/role-rules/SKILL.md").read_text(encoding="utf-8")
+        meta = frontmatter(text)
+        self.assertEqual(meta["name"], "role-rules")
+        self.assertEqual(meta["user-invocable"], "false")
+        out = subprocess.run([str(PLUGIN_ROOT / "bin/mark"), "rules", "role"],
+                             capture_output=True, text=True, check=True).stdout
+        self.assertTrue(out.startswith("# Mark role rules"))
+
+
+def _copier() -> str | None:
+    return os.environ.get("MARK_COPIER") or shutil.which("copier")
+
+
+@unittest.skipUnless(_copier(), "copier not installed (set MARK_COPIER or put copier on PATH)")
+class GeneratedProjectTest(unittest.TestCase):
+    """`copier copy` per locale, then render every scenario with the real engine."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp(prefix="mark-gen-"))
+        cls.projects: dict[str, Path] = {}
+        for loc in LOCALES:
+            dest = cls.tmp / loc
+            subprocess.run([_copier(), "copy", "--defaults", "--quiet", "--vcs-ref", "HEAD",
+                            "-d", f"locale={loc}", "-d", "project_name=demo", str(REPO_ROOT), str(dest)],
+                           check=True, capture_output=True, text=True)
+            cls.projects[loc] = dest
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_layout(self):
+        for loc, root in self.projects.items():
+            paths = [p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()]
+            for p in paths:
+                self.assertNotIn("{", p, f"{loc}: unrendered path {p}")
+            for want in ["CLAUDE.md", ".mark/config.toml", ".mark/collaboration.md", ".mark/README.md",
+                         ".mark/.copier-answers.yml", ".mark/prompts/README.md",
+                         *(f".claude/agents/{r}.md" for r in ("designer", "coder-plan", "coder-impl", "tester", "fix-plan")),
+                         *(f".mark/prompts/{s}.md" for s in SCENARIOS),
+                         *(f".mark/formats/{f}" for f in FORMAT_ANCHORS)]:
+                self.assertIn(want, paths, loc)
+            answers = (root / ".mark/.copier-answers.yml").read_text(encoding="utf-8")
+            self.assertIn(f"locale: {loc}", answers)
+
+    def test_rendered_docs_have_no_jinja_left(self):
+        for loc, root in self.projects.items():
+            for rel in ("CLAUDE.md", ".mark/collaboration.md", ".mark/README.md", ".claude/agents/designer.md"):
+                text = (root / rel).read_text(encoding="utf-8")
+                self.assertNotIn("{%", text, f"{loc}/{rel}")
+                self.assertNotIn("{{ ", text, f"{loc}/{rel}")
+            self.assertTrue((root / "CLAUDE.md").read_text(encoding="utf-8").startswith("# CLAUDE.md — demo"))
+            self.assertEqual(load_config(root).locale, loc)
+
+    def test_every_scenario_renders(self):
+        for loc, root in self.projects.items():
+            cfg = load_config(root)
+            feature = Ctx(cfg, tickets.claim(cfg, "feature", "demo feature", slug="demo"))
+            bug = Ctx(cfg, tickets.claim(cfg, "bug", "demo bug", slug="crash"))
+            for scenario, role in SCENARIOS.items():
+                ctxs = [bug] if role == "fix-plan" else [feature] if role in ("designer", "coder-plan") else [feature, bug]
+                for ctx in ctxs:
+                    with self.subTest(locale=loc, scenario=scenario, kind=ctx.kind):
+                        review = ctx.state_dir / "review-design.md"
+                        action = Action("dispatch", role=role, scenario=scenario, trigger="FAIL-1 (verdict.md)",
+                                        review=str(review), pending_rounds=[1], pending_refs=["R-1"])
+                        out = brief.render(ctx, action, prev="previous step done")
+                        self.assertTrue(out.startswith("<!-- mark:ticket "), out[:80])
+                        self.assertNotIn("{{", out)
+                        self.assertIn(t(loc, "brief.title"), out)
+                        self.assertIn(str(ctx.worktree), out)
+                        if scenario == "designer-integration-qa":
+                            self.assertIn("<!-- mark:outputs design-qa.md -->", out)
 
 
 if __name__ == "__main__":
