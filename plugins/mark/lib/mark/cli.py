@@ -36,7 +36,7 @@ def _cell(text: str) -> str:
 def render(cfg: MarkConfig, items: list[tickets.Ticket], active_only: bool = False) -> str:
     loc = cfg.locale
     if not items:
-        return t(loc, "status.empty")
+        return t(loc, "status.empty") + "\n"
     groups: dict[str, list[tickets.Ticket]] = {"human": [], "agent": [], "unknown": [], "terminal": []}
     for item in items:
         groups[item.side].append(item)
@@ -195,7 +195,9 @@ def cmd_dispatch(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
     if action.kind != "dispatch":
         _say(cfg, err, action.message, **action.params)
         return 1
-    prev, trigger = opts.get("--prev", ""), opts.get("--trigger", "")
+    # Default: the previous agent's own final report, recorded at SubagentStop.
+    prev = opts["--prev"] if "--prev" in opts else flow.previous_conclusion(ctx)
+    trigger = opts.get("--trigger", "")
     brief.render(ctx, action, prev=prev, trigger=trigger)  # template errors before git side effects
     for key, params in flow.ensure_isolation(ctx):
         _say(cfg, err, key, **params)

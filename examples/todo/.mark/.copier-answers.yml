@@ -1,0 +1,11 @@
+# Changes here will be overwritten by Copier; do not edit by hand.
+_commit: 1d1f045
+_src_path: ../..
+backend_dir: backend
+frontend_dir: frontend
+locale: en
+main_branch: main
+profile: web-fullstack
+project_name: todo
+tests_dir: tests
+ui_dir: frontend/src/ui

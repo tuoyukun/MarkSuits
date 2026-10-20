@@ -160,9 +160,29 @@ class NextActionTest(unittest.TestCase):
                                   "at": (d / "status.md").stat().st_mtime + 5}))
         a = self.next("0001")
         self.assertEqual((a.kind, a.options), ("record", ["blocked-unclear", "review-plan"]))
+        self.assertEqual(a.params["wrapup"], "")
         write(result, json.dumps({"result": "FAILED", "reason": "missing", "at": time.time() + 5}))
         self.assertEqual(self.next("0001").message, "next.output_failed")
         self.assertEqual(self.next("0001", retry=True).kind, "dispatch")
+
+    def test_record_before_pending_merge_mentions_wrap_up(self):
+        d = add_ticket(self.root, "bug", "b0001-a", "testing", gates=ALL_GATES)
+        write(self.root / ".mark/locks/b0001-a.tester.result.json",
+              json.dumps({"result": "PASSED", "at": (d / "status.md").stat().st_mtime + 5}))
+        a = self.next("b0001")
+        self.assertIn("pending-merge", a.options)
+        self.assertIn("log.md", a.params["wrapup"])
+        self.assertIn("mark commit b0001-a", a.params["wrapup"])
+
+    def test_previous_conclusion_is_the_newest_result(self):
+        add_ticket(self.root, "feature", "0001-a", "planning", gates=ALL_GATES)
+        ctx = ctx_of(self.root, "0001")
+        self.assertEqual(flow.previous_conclusion(ctx), "")
+        locks = self.root / ".mark/locks"
+        write(locks / "0001-a.designer.result.json", json.dumps({"at": 10, "conclusion": "design done"}))
+        write(locks / "0001-a.coder-plan.result.json", json.dumps({"at": 20, "conclusion": "plan done"}))
+        write(locks / "0002-b.tester.result.json", json.dumps({"at": 30, "conclusion": "other ticket"}))
+        self.assertEqual(flow.previous_conclusion(ctx), "plan done")
 
     def test_stale_result_is_ignored(self):
         d = add_ticket(self.root, "feature", "0001-a", "planning", gates=ALL_GATES)

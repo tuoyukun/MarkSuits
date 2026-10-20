@@ -1,0 +1,12 @@
+# Mark runtime state (never commit)
+.mark/locks/
+.mark/*/.numbers/
+.claude/worktrees/
+.claude/settings.local.json
+.env
+
+# Tooling
+node_modules/
+test-results/
+playwright-report/
+__pycache__/

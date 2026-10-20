@@ -337,9 +337,10 @@ MESSAGES["en"].update({
     # next
     "next.dispatch": "Next for {id}: dispatch `{role}` (template `{scenario}`).\n  mark dispatch {id} --prev \"<the previous step's conclusion, verbatim>\"",
     "next.record": (
-        "`{role}` finished {id} ({reason}). Record its outcome before anything else; pick from its conclusion:\n"
-        "  mark set {id} <{options}> --note \"<one line>\""
+        "`{role}` finished {id} ({reason}). Record its outcome next (dispatch nothing else first); pick from its conclusion:\n"
+        "  mark set {id} <{options}> --note \"<one line>\"{wrapup}"
     ),
+    "next.record.wrapup": "\nBefore `pending-merge`: write the wrap-up table in the ticket's log.md and run `mark commit {id}`.",
     "next.wait": "{roles} is still working on {id}. Wait for its completion notice; never dispatch a second one.",
     "next.review": (
         "{id} is at `{status}`, a human review gate. Report what the last step produced in plain words, then stop.\n"
@@ -441,9 +442,10 @@ MESSAGES["zh-CN"].update({
     "cli.usage": _USAGE_ZH,
     "next.dispatch": "{id} 下一步：派 `{role}`（模板 `{scenario}`）。\n  mark dispatch {id} --prev \"<上一环交回的结论原话>\"",
     "next.record": (
-        "`{role}` 已交回 {id}（{reason}）。先记录结果，再做别的；按它的结论选一个：\n"
-        "  mark set {id} <{options}> --note \"<一句话>\""
+        "`{role}` 已交回 {id}（{reason}）。接下来记录结果（在此之前不要派其他活）；按它的结论选一个：\n"
+        "  mark set {id} <{options}> --note \"<一句话>\"{wrapup}"
     ),
+    "next.record.wrapup": "\n进入 `pending-merge` 之前：先在本单 log.md 写好收尾表，再运行 `mark commit {id}`。",
     "next.wait": "{roles} 还在处理 {id}。等它的完成通知，绝不派第二个。",
     "next.review": (
         "{id} 停在 `{status}`，这是人审闸门。用人话报告上一步的产出，然后停下。\n"

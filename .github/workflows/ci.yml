@@ -46,7 +46,7 @@ jobs:
           git config --global user.email ci@example.com
           git config --global init.defaultBranch main
       - name: generate a project per locale and render every scenario
-        run: python -m unittest tests.test_template -v
+        run: python -m unittest tests.test_template tests.test_example -v
         env:
           MARK_COPIER: copier
 

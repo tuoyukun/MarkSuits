@@ -172,10 +172,12 @@ class LifecycleTest(unittest.TestCase):
                                "tool_input": {"subagent_type": "coder-impl", "prompt": prompt},
                                "tool_response": {"agentId": "agent-1"}})
 
-    def stop(self, active=False):
-        return hook("subagent-stop", {"hook_event_name": "SubagentStop", "cwd": str(self.root),
-                                      "agent_id": "agent-1", "agent_type": "coder-impl",
-                                      "stop_hook_active": active})
+    def stop(self, active=False, message=None):
+        payload = {"hook_event_name": "SubagentStop", "cwd": str(self.root), "agent_id": "agent-1",
+                   "agent_type": "coder-impl", "stop_hook_active": active}
+        if message is not None:
+            payload["last_assistant_message"] = message
+        return hook("subagent-stop", payload)
 
     def test_bound_lock_blocks_duplicates(self):
         self.start()
@@ -196,6 +198,14 @@ class LifecycleTest(unittest.TestCase):
         self.assertFalse(self.lock.exists())
         result = json.loads((self.root / ".mark/locks/0001-a.coder-impl.result.json").read_text())
         self.assertEqual(result["result"], "PASSED")
+        self.assertEqual(result["conclusion"], "")
+
+    def test_result_keeps_the_final_report(self):
+        self.start()
+        (self.wt / ".mark/features/0001-a/handoff.md").write_text("done")
+        self.assertEqual(self.stop(message="0001-a · coder-impl · outcome: testing\n")[0], 0)
+        result = json.loads((self.root / ".mark/locks/0001-a.coder-impl.result.json").read_text())
+        self.assertEqual(result["conclusion"], "0001-a · coder-impl · outcome: testing")
 
     def test_second_stop_attempt_releases_with_failure(self):
         self.start()

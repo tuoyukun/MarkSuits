@@ -18,6 +18,7 @@ from pathlib import Path
 
 from . import globs, human, reviews, states, tickets
 from .config import MarkConfig
+from .i18n import t as _msg
 from .gitutil import current_branch, dirty_paths, git, has_remote, patch_unique, ref_exists, worktrees
 
 TICKET_GATE = "ticket-approved"
@@ -143,6 +144,19 @@ def last_result(ctx: Ctx, role: str) -> dict | None:
     if not isinstance(data, dict) or float(data.get("at", 0)) <= changed:
         return None
     return data
+
+
+def previous_conclusion(ctx: Ctx) -> str:
+    """Final report of the ticket's most recently finished agent, any role ("" if none)."""
+    best: tuple[float, str] = (0.0, "")
+    for path in _locks(ctx).glob(f"{ctx.id}.*.result.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict) and float(data.get("at", 0)) > best[0]:
+            best = (float(data.get("at", 0)), str(data.get("conclusion") or ""))
+    return best[1]
 
 
 # --------------------------------------------------------------------------
@@ -295,7 +309,9 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
     if result is not None:
         options = sorted(states.TRANSITIONS[kind][status] - {"superseded"})
         params = {**base, "role": action.role, "options": " | ".join(options),
-                  "reason": result.get("reason", "")}
+                  "reason": result.get("reason", ""), "wrapup": ""}
+        if "pending-merge" in options:
+            params["wrapup"] = _msg(ctx.cfg.locale, "next.record.wrapup", id=ctx.id)
         if result.get("result") == "PASSED":
             return Action("record", "next.record", params, role=action.role, options=options)
         return Action("stop", "next.output_failed", params, role=action.role)

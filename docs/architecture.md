@@ -98,7 +98,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock |
 | `post-write` | PostToolUse writes | reminds to commit ticket state on main (feedback only) |
 | `user-prompt` | UserPromptSubmit | records a token when a human types `/mark:approve`, `/mark:reject`, `/mark:feature` or `/mark:fix` (never blocks) |
-| `subagent-stop` | SubagentStop | required outputs (`[outputs]`, or `mark:outputs` in the prompt) must exist in the ticket dir of some checkout; otherwise the subagent keeps running. Result goes to `.mark/locks/<id>.<role>.result.json` |
+| `subagent-stop` | SubagentStop | required outputs (`[outputs]`, or `mark:outputs` in the prompt) must exist in the ticket dir of some checkout; otherwise the subagent keeps running. Result goes to `.mark/locks/<id>.<role>.result.json`, with the agent's final report (`conclusion`, the default `--prev` of the next dispatch) |
 
 Engine-fixed rules (no config can loosen them): `.claude/**`, `.mark/config.toml`, gates, locks,
 ticket `status.md` and `review-*.md` are main-thread only; `locks/human/**` is writable by nobody. Locks bound to a live agent are never
@@ -123,7 +123,7 @@ and the live board with `!` commands. `approve` and `reject` set `disable-model-
 
 The loop: `mark next <id>` returns one of dispatch · wait · record · stop · done.
 
-- **dispatch**: `mark dispatch <id> --prev "<conclusion>"` creates or reuses the branch, worktree and
+- **dispatch**: `mark dispatch <id> [--prev "<conclusion>"]` creates or reuses the branch, worktree and
   remote branch (refusing while the worktree has uncommitted work), then prints `subagent_type` and
   a prompt: the `mark:ticket` anchor, `mark:outputs` when the template overrides outputs, and the
   project's template for the scenario filled with verified facts (worktree, branch, artifacts in the
@@ -223,7 +223,8 @@ config loader ✅ · hook plumbing ✅ · ticket claim + `status` CLI ✅ (v0.2)
 target · gate · branch · status-commit · dedup/output · git-in-bash) ·
 orchestration ✅ (v0.4: `/mark:feature` `/mark:fix` `/mark:approve` `/mark:reject` `/mark:status`,
 `mark next|dispatch|set|approve|reject|commit`, human tokens) · project template ✅ (v0.5: role
-agents, role rules, 13 prompt templates, artifact formats, en + zh-CN, CI) · example project walkthrough.
+agents, role rules, 13 prompt templates, artifact formats, en + zh-CN, CI) · example project ✅ (v0.6:
+`examples/todo`, sandbox script, feature + bug chains run live, recorded in `examples/README.md`).
 
 **Phase 2 — merge and hygiene**
 auto-merge with pluggable regression contract · merge-order · doc-budget · general-mode lane ·

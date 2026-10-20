@@ -4,9 +4,9 @@
 packaged as a plugin plus a project template — a "starter" for teams that want several
 specialized agents to build software together without stepping on each other.
 
-> Status: v0.5.0. The engine and the project template (role agents, prompts, artifact
-> formats in `en` and `zh-CN`) are complete; end-to-end validation on an example project
-> comes next. Not ready for production use yet.
+> Status: v0.6.0. The engine, the project template (`en` and `zh-CN`) and an example
+> project are complete, and both chains (bug and feature) have run end to end on the
+> example: see [examples/](examples/). Merging is still manual. Not ready for production use yet.
 
 [中文说明](README.zh-CN.md)
 
@@ -28,6 +28,7 @@ specialized agents to build software together without stepping on each other.
 .claude-plugin/marketplace.json   marketplace catalog (this repo)
 plugins/mark/                     the engine plugin (upgradable)
 copier.yml, template/project/     Copier template for a Mark project (generated once)
+examples/todo/, examples/sandbox.py   example project and a script to run it in a sandbox
 docs/architecture.md              design
 ```
 

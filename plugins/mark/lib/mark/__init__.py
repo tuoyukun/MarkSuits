@@ -6,4 +6,4 @@ Constraints for everything under this package:
   update). Project state lives in the project's `.mark/` directory.
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"

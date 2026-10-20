@@ -137,10 +137,15 @@ def candidate_dirs(env: Env, meta: dict) -> list[Path]:
     return [r / rel for r in roots]
 
 
-def record(path: Path, agent_id: str, result: str, reason: str) -> None:
+CONCLUSION_MAX = 4000
+
+
+def record(path: Path, agent_id: str, result: str, reason: str, conclusion: str = "") -> None:
+    """Result of a finished dispatch. `conclusion` is the agent's final report, kept so a
+    later session can hand it to the next role verbatim (`mark dispatch` default `--prev`)."""
     result_path = path.with_name(path.name.removesuffix(".lock") + ".result.json")
     _write(result_path, {"agent_id": agent_id, "result": result, "reason": reason,
-                         "at": time.time()})
+                         "conclusion": conclusion[:CONCLUSION_MAX], "at": time.time()})
 
 
 def verify(env: Env) -> str | None:
@@ -150,15 +155,16 @@ def verify(env: Env) -> str | None:
     if found is None:
         return None
     path, meta = found
+    conclusion = str(env.ctx.payload.get("last_assistant_message") or "").strip()
     required = [f for f in meta.get("required", []) if f]
     dirs = candidate_dirs(env, meta)
     if not required or any(all((d / f).is_file() for f in required) for d in dirs):
-        record(path, agent_id, "PASSED", "outputs present")
+        record(path, agent_id, "PASSED", "outputs present", conclusion)
         path.unlink(missing_ok=True)
         return None
     if env.ctx.payload.get("stop_hook_active"):
         # Already asked once; blocking again would loop. Release and report.
-        record(path, agent_id, "FAILED", "missing outputs: " + ", ".join(required))
+        record(path, agent_id, "FAILED", "missing outputs: " + ", ".join(required), conclusion)
         path.unlink(missing_ok=True)
         return None
     _write(path, meta)  # keep the agent_id bound while it fixes its output

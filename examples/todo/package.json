@@ -1,0 +1,15 @@
+{
+  "name": "mark-example-todo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "python3 backend/server.py",
+    "check": "node scripts/check.mjs",
+    "test:unit": "cd backend && python3 -m unittest -q",
+    "test:e2e": "playwright test",
+    "test": "npm run check && npm run test:unit && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1"
+  }
+}

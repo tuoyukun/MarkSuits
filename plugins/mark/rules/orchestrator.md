@@ -11,7 +11,10 @@ already answers in it).
 ## The loop
 
 1. **`mark next <id>`** answers with exactly one of:
-   - **dispatch**: run `mark dispatch <id> --prev "<previous step's conclusion, verbatim>"`.
+   - **dispatch**: run `mark dispatch <id>`. It passes the previous agent's final report
+     on verbatim (recorded when that agent stopped, so it survives `/clear`). Add
+     `--prev "<text>"` only when the step before was not an agent, e.g. the output of
+     `mark reject`.
      It creates or reuses the ticket's branch and worktree, then prints `subagent_type`,
      `description` and the prompt. Call the Agent tool with exactly that `subagent_type`
      and everything after `--- prompt ---` as the prompt, unchanged. Do not summarize,
@@ -80,7 +83,7 @@ is ready. They merge it into main and push, then `mark set <id> passed`.
    mid-flow, stop and explain what you found and why. `mark claim` without the human's
    `/mark:feature` or `/mark:fix` leaves the new ticket unapproved.
 5. **One agent per ticket and role at a time.** A `wait` means wait.
-6. **Facts only.** `--prev` is the previous agent's conclusion, verbatim. Do not add your
+6. **Facts only.** `--prev`, when you pass it, is a conclusion verbatim. Do not add your
    own diagnosis or tell a role how to do its job.
 7. **Stay in the main checkout.** Agents work in the ticket's worktree; their brief has the
    absolute paths.
