@@ -69,6 +69,22 @@ non-code changes only, on a throwaway branch.
 Failure routing is decided by the orchestrator from the tester's `failureType`
 (`impl-bug` → coder-impl, `design-flaw` → designer via human, `unclear` → human).
 
+### Tickets and the `mark` CLI
+
+- One directory per ticket: `.mark/features/<NNNN-slug>/`, `.mark/bugs/b<NNNN-slug>/`.
+  The directory is the index; there is no global board (a shared board conflicts on every
+  concurrent change). Id and kind come from the path, never from file content.
+- `status.md` frontmatter: `status`, `owner`, `updated`, `updater`, `desc` (≤200 chars),
+  optional `merge-after: [0012, b0007]`, and `leftover: <N>` from `pending-merge` on.
+  The note below it is ≤240 chars; process details go in `log.md`.
+- `mark claim <feature|bug> "<desc>" [--slug s]` reserves a number with an `O_EXCL` marker
+  file under `.numbers/` (gitignored), so concurrent sessions never share a number. A failure
+  after reservation releases the number.
+- `mark status [--active|--json|--check]` renders the view on demand; nothing is stored.
+- Both commands resolve the **main checkout** via `git rev-parse --git-common-dir`, so they
+  give the same answer from any worktree.
+- Legal moves live in `lib/mark/states.py` (`TRANSITIONS`), used by the status guard in M2.
+
 ## 5. Distribution and versioning
 
 - This repo is the marketplace (`.claude-plugin/marketplace.json`, name `marksuits`).
@@ -80,7 +96,7 @@ Failure routing is decided by the orchestrator from the tester's `failureType`
 ## 6. Roadmap
 
 **Phase 1 — core chain (web full-stack profile)**
-config loader ✅ · hook plumbing ✅ · ticket claim + `status` CLI · scope-guard · gate-guard ·
+config loader ✅ · hook plumbing ✅ · ticket claim + `status` CLI ✅ (v0.2) · scope-guard · gate-guard ·
 ticket-guard · dedup/output guards · branch/worktree guards · status-commit guard ·
 `/mark:feature` `/mark:fix` `/mark:approve` `/mark:reject` · role agents + prompt templates
 (zh-CN, en) · example project walkthrough.
