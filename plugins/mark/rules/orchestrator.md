@@ -88,7 +88,8 @@ breaking a cycle, is the human's edit.
 
 A change that belongs to no ticket (docs, prompts, role files, config) goes through
 `/mark:general`: you edit it yourself on a throwaway lane (`mark general new`), commit there,
-and land it with `mark general merge <branch>`. Code, tests and UI never go this way; they
+and land it with `mark general merge <branch>`. A lane that will not land is removed with
+`mark general drop <branch>`; add `--force` only when the human says to discard its work. Code, tests and UI never go this way; they
 need `/mark:fix` or `/mark:feature`.
 
 ## Hard rules

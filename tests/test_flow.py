@@ -455,6 +455,41 @@ class GeneralLaneTest(unittest.TestCase):
         self.assertIn("no worktree", err)
         self.assertEqual(run(self.root, "general")[0], 2)
 
+    def test_drop_removes_an_empty_lane(self):
+        branch, wt = self.new_lane()
+        sh(wt, "git", "push", "-q", "-u", "origin", branch)
+        code, out, err = run(self.root, "general", "drop", branch)
+        self.assertEqual(code, 0, err + out)
+        self.assertIn("dropped", out)
+        self.assertFalse(wt.exists())
+        self.assertEqual(sh(self.root, "git", "branch", "--list", "chore/*"), "")
+        self.assertEqual(sh(self.root, "git", "ls-remote", "--heads", "origin", branch), "")
+
+    def test_drop_refuses_to_lose_work_without_force(self):
+        branch, wt = self.new_lane()
+        write(wt / "notes.md", "x")
+        code, _, err = run(self.root, "general", "drop", branch)
+        self.assertEqual(code, 1)
+        self.assertIn("1 uncommitted", err)
+        self.commit(wt, "notes.md", "x")
+        code, _, err = run(self.root, "general", "drop", branch)
+        self.assertIn("1 commit(s)", err)
+        self.assertTrue(wt.is_dir())
+        before = sh(self.root, "git", "rev-parse", "main")
+        write(wt / "more.md", "y")
+        code, out, err = run(self.root, "general", "drop", branch, "--force")
+        self.assertEqual(code, 0, err + out)
+        self.assertFalse(wt.exists())
+        self.assertEqual(sh(self.root, "git", "branch", "--list", "chore/*"), "")
+        self.assertEqual(sh(self.root, "git", "rev-parse", "main"), before)
+
+    def test_drop_refusals(self):
+        code, _, err = run(self.root, "general", "drop", "feature/0001-a")
+        self.assertIn("not a general lane", err)
+        code, _, err = run(self.root, "general", "drop", "chore/general-19990101-000000")
+        self.assertIn("no branch", err)
+        self.assertEqual(run(self.root, "general", "drop", "chore/general-x", "--now")[0], 2)
+
 
 class MergeOrderTest(unittest.TestCase):
     def setUp(self):

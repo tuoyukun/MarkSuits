@@ -4,7 +4,8 @@
 thread edits there (write scopes still keep code paths to coder-impl), commits, then
 `mark general merge <branch>` lands it through the same regression and fast-forward as a
 ticket and removes the lane. No ticket, no status, no subagents. A failed merge keeps the
-lane, so the work and the regression log stay where the human can look.
+lane, so the work and the regression log stay where the human can look. `mark general drop
+<branch>` removes a lane that will not land; it refuses to discard work unless `--force`.
 """
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ from pathlib import Path
 from . import merge
 from .config import MarkConfig
 from .flow import FlowError, provision
-from .gitutil import current_branch, dirty_paths, git, has_remote, worktrees
+from .gitutil import current_branch, dirty_paths, git, has_remote, ref_exists, worktrees
 
 PREFIX = "chore/general-"
 
@@ -67,3 +68,19 @@ def merge_lane(cfg: MarkConfig, branch: str) -> Notes:
     conflict = FlowError("general.conflict", branch=branch, wt=str(wt))
     notes = merge.land(cfg, wt, branch, branch.removeprefix("chore/"), conflict)
     return notes + merge.cleanup(cfg, wt, branch)
+
+
+def drop(cfg: MarkConfig, branch: str, force: bool = False) -> Notes:
+    """Remove a lane (worktree, local and remote branch) without landing it."""
+    _require_git(cfg)
+    if not branch.startswith(PREFIX):
+        raise FlowError("general.not_lane", branch=branch, prefix=PREFIX)
+    if not ref_exists(cfg.root, f"refs/heads/{branch}"):
+        raise FlowError("general.no_branch", branch=branch)
+    wt = next((p for p, b in worktrees(cfg.root) if b == branch), None)
+    if not force:
+        dirty = len(dirty_paths(wt, ".")) if wt else 0
+        ahead = git(["rev-list", "--count", f"{cfg.main_branch}..{branch}"], cfg.root)[1] or "0"
+        if dirty or ahead != "0":
+            raise FlowError("general.unsaved", branch=branch, commits=ahead, files=dirty)
+    return merge.cleanup(cfg, wt, branch, force=True)

@@ -26,3 +26,7 @@ ticket, no subagents, no review gates. You edit the files yourself, on a throwaw
    the regression is slow.
 7. **Report** what changed in plain words. If the merge failed, main was not changed and the
    lane is kept: report the reason and stop; do not merge by hand.
+8. **Abandoning a lane.** When the change is dropped (the human cancels, or nothing was
+   committed), remove the lane with `mark general drop <branch>`. It refuses while the lane
+   holds work that is not on main; add `--force` only when the human says to discard it.
+   Never remove lanes with raw `git worktree remove` / `git branch -D`.

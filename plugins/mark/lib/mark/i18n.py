@@ -340,7 +340,8 @@ _USAGE_EN = (
     "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
     "  mark commit <id> [-m \"<message>\"]             commit + push the ticket's state on main\n"
     "  mark merge <id>                                pending-merge -> passed: merge main in, regression, ff-only, push\n"
-    "  mark general new | merge <branch>              no-ticket lane for docs/config (/mark:general)\n"
+    "  mark general new | merge <branch> | drop <branch> [--force]\n"
+    "                                                 no-ticket lane for docs/config (/mark:general)\n"
     "  mark unlock <id> <role>                        release a dead agent's lock (human)\n"
     "  mark rules [orchestrator | role]               print a rulebook (orchestrator by default)"
 )
@@ -356,7 +357,8 @@ _USAGE_ZH = (
     "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
     "  mark commit <编号> [-m \"<说明>\"]               在 main 上提交并推送工单状态\n"
     "  mark merge <编号>                              pending-merge -> passed：合入 main、回归、ff-only、推送\n"
-    "  mark general new | merge <分支>                不属于任何工单的文档/配置改动车道（/mark:general）\n"
+    "  mark general new | merge <分支> | drop <分支> [--force]\n"
+    "                                                 不属于任何工单的文档/配置改动车道（/mark:general）\n"
     "  mark unlock <编号> <角色>                      释放已死 agent 的锁（由人执行）\n"
     "  mark rules [orchestrator | role]               打印规则（默认 orchestrator）"
 )
@@ -423,7 +425,14 @@ MESSAGES["en"].update({
     "general.not_lane": "`{branch}` is not a general lane (lanes are `{prefix}<stamp>`). Tickets merge with `mark merge <id>`.",
     "general.no_lane": "`{branch}` has no worktree. Lanes are created by `mark general new`.",
     "general.dirty": "The lane {wt} has uncommitted changes:\n{files}\nCommit them first:\n  git -C \"{wt}\" add -A && git -C \"{wt}\" commit -m \"<message>\"",
-    "general.empty": "`{branch}` has no commits beyond main; nothing to merge. Commit in the lane first, or drop it:\n  git worktree remove <lane> && git branch -d {branch}",
+    "general.empty": "`{branch}` has no commits beyond main; nothing to merge. Commit in the lane first, or drop it:\n  mark general drop {branch}",
+    "general.no_branch": "There is no branch `{branch}`. `git branch --list 'chore/general-*'` lists the lanes.",
+    "general.unsaved": (
+        "`{branch}` has work that is not on main ({commits} commit(s), {files} uncommitted file(s)); "
+        "dropping it would lose that work. Land it with `mark general merge {branch}`, or, only if the "
+        "human says to discard it:\n  mark general drop {branch} --force"
+    ),
+    "general.dropped": "`{branch}` was dropped: its worktree and branch are gone, main is unchanged.",
     "general.conflict": (
         "Merging {base} into `{branch}` conflicts; the merge was aborted and nothing changed.\n"
         "Report it to the human. The lane is kept at {wt}."
@@ -588,7 +597,13 @@ MESSAGES["zh-CN"].update({
     "general.not_lane": "`{branch}` 不是通用车道（车道一律是 `{prefix}<时间戳>`）。工单用 `mark merge <编号>` 合并。",
     "general.no_lane": "`{branch}` 没有 worktree。车道由 `mark general new` 创建。",
     "general.dirty": "车道 {wt} 有未提交的改动：\n{files}\n先提交：\n  git -C \"{wt}\" add -A && git -C \"{wt}\" commit -m \"<说明>\"",
-    "general.empty": "`{branch}` 相对 main 没有新提交，没有可合并的东西。先在车道里提交，或者丢弃：\n  git worktree remove <车道> && git branch -d {branch}",
+    "general.empty": "`{branch}` 相对 main 没有新提交，没有可合并的东西。先在车道里提交，或者丢弃：\n  mark general drop {branch}",
+    "general.no_branch": "没有分支 `{branch}`。`git branch --list 'chore/general-*'` 可列出所有车道。",
+    "general.unsaved": (
+        "`{branch}` 有尚未进入 main 的工作（{commits} 个提交，{files} 个未提交文件），丢弃会丢掉这些工作。"
+        "用 `mark general merge {branch}` 合入；只有人明确说要丢弃时才执行：\n  mark general drop {branch} --force"
+    ),
+    "general.dropped": "`{branch}` 已丢弃：worktree 和分支已删除，main 未改动。",
     "general.conflict": (
         "把 {base} 合进 `{branch}` 时冲突；已中止合并，什么都没改。\n"
         "报告给人。车道保留在 {wt}。"

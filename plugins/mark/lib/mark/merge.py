@@ -118,17 +118,19 @@ def land(cfg, worktree: Path, branch: str, log_name: str, conflict: FlowError) -
     return notes
 
 
-def cleanup(cfg, worktree: Path, branch: str) -> Notes:
-    """Remove the remote branch, worktree and local branch. Never fails: the work is on main."""
+def cleanup(cfg, worktree: Path | None, branch: str, force: bool = False) -> Notes:
+    """Remove the remote branch, worktree and local branch. Never fails: the work is on main
+    (or, with `force`, the caller has decided to discard it)."""
     notes: Notes = []
     main = cfg.root
     # Remote first: `branch -d` checks the upstream, which lacks the merge commit.
     if ref_exists(main, f"refs/remotes/origin/{branch}") and \
             git(["push", "-q", "origin", "--delete", branch], main)[0] != 0:
         notes.append(("merge.kept_remote", {"branch": branch}))
-    if git(["worktree", "remove", str(worktree)], main)[0] != 0:
+    if worktree is not None and \
+            git(["worktree", "remove", *(["--force"] if force else []), str(worktree)], main)[0] != 0:
         notes.append(("merge.kept_worktree", {"wt": str(worktree)}))
-    elif git(["branch", "-q", "-d", branch], main)[0] != 0:
+    elif git(["branch", "-q", "-D" if force else "-d", branch], main)[0] != 0:
         notes.append(("merge.kept_branch", {"branch": branch}))
     return notes
 

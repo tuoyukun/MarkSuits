@@ -191,6 +191,9 @@ commits there; `mark general merge <branch>` reuses the ticket merge steps (`mer
 merge main in, `[merge] regression`, `--ff-only`, push; then `merge.cleanup`). It refuses a
 branch without the prefix, a lane without a worktree, uncommitted work, and a lane with no
 commits. There is no ticket, status or result file; a failed merge keeps the lane and says why.
+`mark general drop <branch>` (v0.12) removes a lane that will not land (worktree, local and
+remote branch, through `merge.cleanup`); it refuses while the lane holds uncommitted files or
+commits not on main, unless `--force`, which the rules reserve for a human's explicit "discard".
 
 "Non-code only" needs no new guard: `[[write_rules]]` already keep code, tests and UI paths
 to their roles, and the main thread is `main`. The worktree guard's refusal on the main
@@ -322,8 +325,9 @@ agents, role rules, 13 prompt templates, artifact formats, en + zh-CN, CI) · ex
 
 **Phase 2 — merge and hygiene**
 auto-merge with pluggable regression contract ✅ (v0.7: `mark merge`, `merge-after` checked) · merge-order ✅ (v0.8: cycles, superseded, guards) · general-mode lane ✅ (v0.9: `/mark:general`,
-`mark general new|merge`) · doc-budget ✅ (v0.10: `[[doc_budget]]`, pre-write guard, merge check) ·
+`mark general new|merge`; `drop` in v0.12) · doc-budget ✅ (v0.10: `[[doc_budget]]`, pre-write guard, merge check) ·
 worktree env provisioning ✅ (v0.11: `[worktree] setup`, dispatch and general lanes).
+Versions stay below 1.0 until real end users have run Mark.
 
 **Phase 3 — optional plugins**
 `mark-web-e2e` (interaction floor, verdict criteria registry) · `mark-design-system`

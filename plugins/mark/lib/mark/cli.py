@@ -277,7 +277,7 @@ def cmd_merge(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
 
 
 def cmd_general(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
-    """`mark general new` | `mark general merge <branch>`: the no-ticket lane."""
+    """`mark general new` | `merge <branch>` | `drop <branch> [--force]`: the no-ticket lane."""
     if args == ["new"]:
         branch, wt, notes = general.new(cfg)
         for key, params in notes:
@@ -288,6 +288,11 @@ def cmd_general(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> i
         for key, params in general.merge_lane(cfg, args[1]):
             _say(cfg, out, key, **params)
         _say(cfg, out, "general.done", branch=args[1])
+        return 0
+    if len(args) in (2, 3) and args[0] == "drop" and args[2:] in ([], ["--force"]):
+        for key, params in general.drop(cfg, args[1], force=args[2:] == ["--force"]):
+            _say(cfg, out, key, **params)
+        _say(cfg, out, "general.dropped", branch=args[1])
         return 0
     _say(cfg, err, "cli.usage")
     return 2
