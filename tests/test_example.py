@@ -17,7 +17,7 @@ from pathlib import Path
 
 from tests._support import REPO_ROOT
 
-from mark import brief, cli, tickets
+from mark import brief, budget, cli, tickets
 from mark.config import load_config
 from mark.flow import SCENARIOS, Action, Ctx
 
@@ -43,6 +43,14 @@ class ExampleProjectTest(unittest.TestCase):
         self.assertEqual(cfg.locale, "en")
         for key in ("frontend", "backend", "ui", "tests"):
             self.assertTrue((EXAMPLE / cfg._section("paths")[key]).is_dir(), key)
+
+    def test_docs_fit_their_budget(self):
+        cfg = load_config(EXAMPLE)
+        for p in EXAMPLE.rglob("*.md"):
+            rel = p.relative_to(EXAMPLE).as_posix()
+            limit = budget.limit_for(cfg, rel)
+            if limit and not SKIP_DIRS & set(p.parts):
+                self.assertLessEqual(p.stat().st_size, limit, rel)
 
     def test_claude_md_is_filled_in(self):
         text = (EXAMPLE / "CLAUDE.md").read_text(encoding="utf-8")

@@ -341,6 +341,21 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(sh(self.wt, "git", "status", "--porcelain"), "")
         self.assertEqual((self.root / "fix.txt").read_text(), "main side")
 
+    def test_doc_grown_past_budget_lands_nothing(self):
+        cfg = self.root / ".mark/config.toml"
+        cfg.write_text(cfg.read_text() + '\n[[doc_budget]]\nglob = "*.md"\nmax_bytes = 10\n')
+        sh(self.root, "git", "commit", "-qam", "budget")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        self.commit_wt("NOTES.md", "n" * 11)  # e.g. written through Bash, past the pre-write guard
+        before = sh(self.root, "git", "rev-parse", "main")
+        code, _, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 1)
+        self.assertIn("NOTES.md (11 B > 10 B)", err)
+        self.assertEqual(sh(self.root, "git", "rev-parse", "main"), before)
+        self.commit_wt("NOTES.md", "short")
+        code, out, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 0, err + out)
+
     def test_needs_passing_verdict_and_merge_after(self):
         self.commit_wt("more.txt", "m", verdict="FAILED")
         code, _, err = run(self.root, "merge", "b0001")

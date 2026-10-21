@@ -4,9 +4,9 @@
 packaged as a plugin plus a project template — a "starter" for teams that want several
 specialized agents to build software together without stepping on each other.
 
-> Status: v0.9.0. The engine, the project template (`en` and `zh-CN`) and an example
+> Status: v0.10.0. The engine, the project template (`en` and `zh-CN`) and an example
 > project are complete, and both chains (bug and feature) have run end to end on the
-> example: see [examples/](examples/). Tickets now merge automatically (`mark merge`), and docs/config changes outside any ticket go through `/mark:general`. Not ready for production use yet.
+> example: see [examples/](examples/). Tickets now merge automatically (`mark merge`), docs/config changes outside any ticket go through `/mark:general`, and the docs every role loads stay within byte budgets (`[[doc_budget]]`). Not ready for production use yet.
 
 [中文说明](README.zh-CN.md)
 
@@ -19,7 +19,7 @@ specialized agents to build software together without stepping on each other.
 - **Human review gates.** `/mark:approve` writes a gate file; agents cannot be dispatched past
   a gate that does not exist.
 - **Enforced, not suggested.** Hooks block (exit 2) writes outside a role's scope, skipped gates,
-  duplicate dispatch, and work on the wrong branch.
+  duplicate dispatch, work on the wrong branch, and docs that outgrow their budget.
 - **Isolation.** One branch + git worktree per ticket; code reaches main through a single merge path.
 
 ## Layout

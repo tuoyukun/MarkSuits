@@ -31,6 +31,15 @@ class LoadConfigTest(unittest.TestCase):
         with self.assertRaises(ConfigError):
             load_config(root)
 
+    def test_doc_budget_is_optional_and_skips_malformed_rules(self):
+        self.assertEqual(load_config(make_project()).doc_budget, [])
+        cfg = load_config(make_project('mark_schema = 1\n'
+                                       '[[doc_budget]]\nglob = "a.md"\nmax_bytes = 10\n'
+                                       '[[doc_budget]]\nglob = "b.md"\nmax_bytes = "10"\n'
+                                       '[[doc_budget]]\nglob = "c.md"\nmax_bytes = -1\n'
+                                       '[[doc_budget]]\nmax_bytes = 5\n'))
+        self.assertEqual([(r.glob, r.max_bytes) for r in cfg.doc_budget], [("a.md", 10)])
+
     def test_rejects_invalid_toml(self):
         root = make_project("mark_schema = [\n")
         with self.assertRaises(ConfigError):

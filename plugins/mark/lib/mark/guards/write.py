@@ -1,7 +1,7 @@
 """Guards for file writes (PreToolUse: Edit | Write | MultiEdit | NotebookEdit)."""
 from __future__ import annotations
 
-from .. import flow, globs, states, tickets
+from .. import budget, flow, globs, states, tickets
 from ..config import MAIN
 from ..gitutil import current_branch
 from .common import Env, Location
@@ -147,4 +147,25 @@ def status_guard(env: Env) -> str | None:
     return None
 
 
-PRE_WRITE = [scope_guard, worktree_guard, ticket_guard, status_guard]
+def budget_guard(env: Env) -> str | None:
+    """`[[doc_budget]]`: a write may not leave a budgeted doc over its limit and larger."""
+    loc = _located(env)
+    if loc is None or budget.limit_for(env.cfg, loc.rel) is None:
+        return None
+    try:
+        old_text = loc.path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        old_text = None
+    new_text = _new_text(env, old_text)
+    if new_text is None:
+        return None
+    size = len(new_text.encode("utf-8"))
+    old_size = len(old_text.encode("utf-8")) if old_text is not None else None
+    limit = budget.overrun(env.cfg, loc.rel, size, old_size)
+    if limit is None:
+        return None
+    return env.t("guard.budget", rel=loc.rel, size=size, limit=limit, cut=size - limit,
+                 lines=budget.longest_lines(new_text))
+
+
+PRE_WRITE = [scope_guard, worktree_guard, ticket_guard, status_guard, budget_guard]

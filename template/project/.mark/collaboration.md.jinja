@@ -72,6 +72,11 @@ If anything fails (conflict, red regression, push), main is left untouched and t
 orchestrator stops for you: fix the cause and ask it to merge again, or
 `/mark:reject <id> <comments>`.
 
+Docs every role loads (CLAUDE.md, this file, role files, prompts, formats, fix plans) have
+byte budgets in `[[doc_budget]]` of `.mark/config.toml`. A write that leaves one over budget
+is refused, and so is a merge that grew one: make room instead of appending. Raising a budget
+is your call.
+
 ## Rules everyone works by
 
 1. Agents never talk to each other; files on disk are the only channel.
@@ -148,6 +153,10 @@ bug:     planning → developing → testing → pending-merge → passed
 跑 `.mark/config.toml` 中 `[merge] regression` 配置的命令，快进 main、推送，把工单标为 `passed`，
 并删除它的 worktree 和分支。任何一步失败（冲突、回归变红、推送失败），main 都不会被改动，
 orchestrator 会停下等你：处理好原因后让它重新合并，或用 `/mark:reject <id> <意见>` 打回。
+
+每个角色都会加载的文档（CLAUDE.md、本文件、角色文件、派活模板、制品格式、修复方案）在
+`.mark/config.toml` 的 `[[doc_budget]]` 里有字节预算。写入后超预算会被拒绝，让文档超预算的合并也会：
+先腾地方再加。提高预算由你决定。
 
 ## 所有人遵守的规则
 

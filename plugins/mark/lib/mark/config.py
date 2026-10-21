@@ -42,6 +42,12 @@ class WriteRule:
 
 
 @dataclass(frozen=True)
+class BudgetRule:
+    glob: str
+    max_bytes: int   # 0 = exempt
+
+
+@dataclass(frozen=True)
 class MarkConfig:
     root: Path
     data: dict[str, Any]
@@ -92,6 +98,14 @@ class MarkConfig:
     def write_rules(self) -> list[WriteRule]:
         return [WriteRule(str(r["glob"]), frozenset(r.get("roles", [])))
                 for r in self.data.get("write_rules", []) if "glob" in r]
+
+    @property
+    def doc_budget(self) -> list[BudgetRule]:
+        """Byte budgets for docs agents load; first matching glob wins. None: no budget."""
+        return [BudgetRule(str(r["glob"]), int(r["max_bytes"]))
+                for r in self.data.get("doc_budget", [])
+                if isinstance(r, dict) and "glob" in r and type(r.get("max_bytes")) is int
+                and r["max_bytes"] >= 0]
 
     @property
     def worktree_dir(self) -> str:

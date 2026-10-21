@@ -40,7 +40,7 @@ either location works for enforcement.
 - `mark_schema` — integer; the engine refuses unknown versions (exit 2 with a migration hint).
 - `locale` — `zh-CN` | `en`; selects hook message language and tells the orchestrator which
   language to use with humans and in artifacts.
-- `[paths]`, `[gates]`, `[[write_rules]]` — everything that used to be hardcoded.
+- `[paths]`, `[gates]`, `[[write_rules]]`, `[[doc_budget]]` — everything that used to be hardcoded.
 
 Hooks locate the project by walking up from the payload `cwd` to `.mark/config.toml`; no
 config means "not a Mark project" → exit 0. This matters because plugin hooks fire in every
@@ -92,7 +92,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 
 | group | event / matcher | guards, in order |
 |---|---|---|
-| `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **status** (main checkout on the main branch, valid fields, legal move) |
+| `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **status** (main checkout on the main branch, valid fields, legal move) · **budget** (`[[doc_budget]]`, see Doc budget) |
 | `pre-dispatch` | PreToolUse `Agent\|Task` | **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **gate** (feature roles need `[gates]`; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
 | `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock |
@@ -160,7 +160,8 @@ Review files: each round is `## Round N · <time> · pending <!-- mark:round N p
 `mark merge <id>` (`lib/mark/merge.py`) takes `pending-merge` to `passed`; `mark next` answers
 `merge` there. Checks: status, `<!-- mark:verdict PASSED -->` in `verdict.md`, every `merge-after`
 ticket `passed`, clean worktree, main checkout on main. Then, in the worktree, merge the latest
-main into the branch (conflict: abort) and run the **regression contract**: `[merge] regression`,
+main into the branch (conflict: abort), refuse docs grown past `[[doc_budget]]` (v0.10), and
+run the **regression contract**: `[merge] regression`,
 one shell command, exit 0 = green, empty = skipped (log in `locks/<id>.merge.log`). Main moves
 only by `--ff-only` and is pushed (a failed push undoes the local fast-forward), so every
 failure before that lands nothing. Then `passed` is committed and pushed, and the remote
@@ -195,6 +196,34 @@ commits. There is no ticket, status or result file; a failed merge keeps the lan
 to their roles, and the main thread is `main`. The worktree guard's refusal on the main
 checkout points to `mark general new`, and the bash guard refuses `git merge chore/general-…`
 on main, so a lane lands only through `mark general merge`.
+
+### Doc budget (v0.10)
+
+Every rule appended after an incident looks harmless; together they make each cold start
+slower, because every role loads `CLAUDE.md`, its role file, its prompt and the formats on
+every dispatch. A byte budget turns "add one more line" into a trade-off.
+
+`[[doc_budget]]` entries map a `glob` (relative to the checkout, so worktrees match too) to
+`max_bytes`; first match wins and `max_bytes = 0` exempts a path from a broader entry. The
+section is optional (no entries: no budgets), so `mark_schema` stays 1. Bytes, not lines:
+they track context cost and treat both locales the same.
+
+- **budget** guard (`pre-write`, every writer, `lib/mark/budget.py`): refuses a write that
+  leaves the file over budget *and* larger than before, so an oversized doc (e.g. after the
+  budget was lowered) can always be trimmed. The message gives the size, the limit, how many
+  bytes to cut and the three longest lines.
+- **merge check** (`merge.land`, tickets and general lanes): after merging main in, files the
+  branch added or changed that end over budget and larger than on main fail with
+  `merge.budget`, before the regression. Writes through Bash never reach the guard.
+
+What gets a budget: docs whose length follows process complexity (`CLAUDE.md`,
+`collaboration.md`, role files, prompts, formats) and one-shot artifacts that are thin by
+definition (`fix-plan.md`). Not docs whose length follows delivered work (module notes,
+indexes, logs, design or test artifacts, review rounds): a byte wall there can only be passed
+by deleting someone else's verified record. The template ships defaults with room above its
+own docs in both locales; `tests/test_template.py` checks they fit. Raising a budget is a config
+change: roles cannot make it (`.mark/config.toml` is main-thread only), and the orchestrator
+leaves it to the human.
 
 ### Project template (v0.5)
 
@@ -267,7 +296,7 @@ agents, role rules, 13 prompt templates, artifact formats, en + zh-CN, CI) · ex
 
 **Phase 2 — merge and hygiene**
 auto-merge with pluggable regression contract ✅ (v0.7: `mark merge`, `merge-after` checked) · merge-order ✅ (v0.8: cycles, superseded, guards) · general-mode lane ✅ (v0.9: `/mark:general`,
-`mark general new|merge`) · doc-budget ·
+`mark general new|merge`) · doc-budget ✅ (v0.10: `[[doc_budget]]`, pre-write guard, merge check) ·
 worktree env provisioning interface.
 
 **Phase 3 — optional plugins**

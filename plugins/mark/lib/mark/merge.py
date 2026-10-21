@@ -2,7 +2,8 @@
 
 1. Checks: status, the tester's `<!-- mark:verdict PASSED -->`, `merge-after` tickets
    passed or superseded (no cycle), clean worktree, main checkout on main.
-2. In the worktree: merge the latest main into the ticket branch (conflict: abort).
+2. In the worktree: merge the latest main into the ticket branch (conflict: abort),
+   then refuse docs the branch grew past `[[doc_budget]]`.
 3. In the worktree: run `[merge] regression` (exit 0 = green; empty = skipped).
 4. In the main checkout: fast-forward main to the branch and push it.
 5. `passed`, committed and pushed; then the worktree and branch are removed.
@@ -19,7 +20,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from . import flow
+from . import budget, flow
 from .flow import Ctx, FlowError
 from .gitutil import dirty_paths, git, has_remote, ref_exists, worktrees
 from .i18n import t
@@ -102,6 +103,9 @@ def land(cfg, worktree: Path, branch: str, log_name: str, conflict: FlowError) -
         git(["merge", "--abort"], worktree)
         conflict.params["base"] = base
         raise conflict
+    over = budget.branch_overruns(cfg, worktree, base)
+    if over:
+        raise FlowError("merge.budget", files="\n".join(f"  - {f}" for f in over))
     _regression(cfg, worktree, log_name, notes)
 
     before = git(["rev-parse", "HEAD"], main)[1]

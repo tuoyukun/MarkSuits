@@ -52,6 +52,38 @@ dir = ".claude/worktrees"
 # List extra globs here if your team edits them directly on main.
 main_writable = []
 
+# Doc budgets: byte limits for the docs every role loads, so their context does not
+# grow by one harmless line at a time. First matching glob wins; max_bytes = 0 exempts
+# a path from a broader rule. A write may not leave a doc over budget and larger than it
+# was (shrinking an oversized doc is fine), and `mark merge` refuses a branch that does.
+# Budget docs whose length follows process complexity, not delivered work: a byte wall on
+# an index or a log can only be passed by deleting someone else's record. Delete all
+# entries to turn budgets off.
+[[doc_budget]]
+glob = "**/CLAUDE.md"
+max_bytes = 16384
+
+[[doc_budget]]
+glob = ".mark/collaboration.md"
+max_bytes = 12288
+
+[[doc_budget]]
+glob = ".claude/agents/*.md"
+max_bytes = 12288
+
+[[doc_budget]]
+glob = ".mark/prompts/*.md"
+max_bytes = 6144
+
+[[doc_budget]]
+glob = ".mark/formats/*.md"
+max_bytes = 6144
+
+# A fix plan points coder-impl at the fix; it does not write the code for it.
+[[doc_budget]]
+glob = ".mark/bugs/*/fix-plan.md"
+max_bytes = 12288
+
 # Write scopes. First matching glob wins; paths that match nothing are open to all.
 # "main" is the orchestrator (main thread). The engine adds fixed rules before these
 # that no project can loosen: .claude/**, .mark/config.toml, gates, locks, status.md

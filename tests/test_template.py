@@ -19,7 +19,7 @@ from pathlib import Path
 
 from tests._support import PLUGIN_ROOT, REPO_ROOT
 
-from mark import brief, tickets
+from mark import brief, budget, tickets
 from mark.config import MAIN, MarkConfig, load_config
 from mark.flow import SCENARIOS, Action, Ctx
 from mark.i18n import t
@@ -260,6 +260,16 @@ class GeneratedProjectTest(unittest.TestCase):
                 self.assertNotIn("{{ ", text, f"{loc}/{rel}")
             self.assertTrue((root / "CLAUDE.md").read_text(encoding="utf-8").startswith("# CLAUDE.md — demo"))
             self.assertEqual(load_config(root).locale, loc)
+
+    def test_shipped_docs_fit_the_default_budget(self):
+        for loc, root in self.projects.items():
+            cfg = load_config(root)
+            self.assertTrue(cfg.doc_budget, loc)
+            for p in root.rglob("*.md"):
+                rel = p.relative_to(root).as_posix()
+                limit = budget.limit_for(cfg, rel)
+                if limit:
+                    self.assertLessEqual(p.stat().st_size, limit, f"{loc}/{rel}")
 
     def test_every_scenario_renders(self):
         for loc, root in self.projects.items():

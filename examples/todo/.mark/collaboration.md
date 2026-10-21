@@ -71,6 +71,11 @@ If anything fails (conflict, red regression, push), main is left untouched and t
 orchestrator stops for you: fix the cause and ask it to merge again, or
 `/mark:reject <id> <comments>`.
 
+Docs every role loads (CLAUDE.md, this file, role files, prompts, formats, fix plans) have
+byte budgets in `[[doc_budget]]` of `.mark/config.toml`. A write that leaves one over budget
+is refused, and so is a merge that grew one: make room instead of appending. Raising a budget
+is your call.
+
 ## Rules everyone works by
 
 1. Agents never talk to each other; files on disk are the only channel.

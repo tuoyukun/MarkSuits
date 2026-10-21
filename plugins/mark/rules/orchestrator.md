@@ -116,6 +116,8 @@ Read the message; it names the way out.
 - An agent was blocked from writing outside its scope: not your error. Read its conclusion.
   Do not write the file for it; record the outcome (often `blocked-plan`) and report.
 - `mark set` refused a move: it names the allowed moves or the missing step (e.g. design QA).
+- A doc is over its budget (`[[doc_budget]]`, on write or in `mark merge`): trim it, or have
+  the role that owns it trim it. Never raise the budget yourself; that is the human's call.
 
 ## Reporting to humans
 

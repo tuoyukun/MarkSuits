@@ -1,4 +1,4 @@
-"""pre-write guards: scope, worktree, ticket, status (run through the real hook)."""
+"""pre-write guards: scope, worktree, ticket, status, budget (run through the real hook)."""
 import unittest
 
 from tests._support import (FULL_CONFIG, add_ticket, add_worktree, hook, make_project, make_repo,
@@ -187,6 +187,47 @@ class MergeAfterTest(unittest.TestCase):
         code, err = write(self.root, self.status, content=merge_status("passed", "[0002]"))
         self.assertEqual(code, 2)
         self.assertIn("0002-dep (testing)", err)
+
+
+BUDGET = """
+[[doc_budget]]
+glob = "docs/archive.md"
+max_bytes = 0
+
+[[doc_budget]]
+glob = "docs/*.md"
+max_bytes = 20
+"""
+
+
+class BudgetTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = make_repo(FULL_CONFIG + BUDGET)
+        add_ticket(cls.root, "feature", "0001-login", "developing", gates=["ticket-approved"])
+        cls.wt = add_worktree(cls.root, "feature", "0001-login")
+        cls.doc = cls.wt / "docs/guide.md"
+        cls.doc.parent.mkdir(parents=True, exist_ok=True)
+
+    def test_write_over_budget_is_blocked_with_how_much_to_cut(self):
+        code, err = write(self.wt, self.doc, "tester", content="short line\n" + "y" * 30 + "\n")
+        self.assertEqual(code, 2)
+        self.assertIn("`docs/guide.md` would be 42 bytes; its doc budget is 20", err)
+        self.assertIn("Cut at least 22 bytes", err)
+        self.assertIn("L2 (30 B)", err)
+
+    def test_within_budget_exempt_and_unbudgeted_paths_pass(self):
+        self.assertEqual(write(self.wt, self.doc, "tester", content="ok")[0], 0)
+        self.assertEqual(write(self.wt, self.wt / "docs/archive.md", "tester", content="z" * 99)[0], 0)
+        self.assertEqual(write(self.wt, self.wt / "README.md", "tester", content="z" * 99)[0], 0)
+
+    def test_doc_already_over_budget_may_shrink_but_not_grow(self):
+        self.doc.write_text("x" * 40)
+        self.addCleanup(self.doc.unlink)
+        shrink = {"old_string": "xxxxx", "new_string": ""}
+        self.assertEqual(write(self.wt, self.doc, "tester", tool="Edit", **shrink)[0], 0)
+        grow = {"old_string": "x", "new_string": "xx"}
+        self.assertEqual(write(self.wt, self.doc, "tester", tool="Edit", **grow)[0], 2)
 
 
 class EntryTest(unittest.TestCase):

@@ -112,6 +112,13 @@ MESSAGES["en"].update({
         "add it to `[worktree] main_writable` in .mark/config.toml. For a docs/config change that belongs\n"
         "to no ticket, open a throwaway lane with `mark general new` (/mark:general)."
     ),
+    "guard.budget": (
+        "`{rel}` would be {size} bytes; its doc budget is {limit} (`[[doc_budget]]` in .mark/config.toml).\n"
+        "Cut at least {cut} bytes. Every role that loads this file pays for each line on every dispatch,\n"
+        "so make room instead of appending: merge overlapping rules, drop history and rationale (they\n"
+        "belong in the commit message), move one-role details to that role's file. Longest lines:\n{lines}\n"
+        "Raising the budget is a human decision in .mark/config.toml, not a way around this."
+    ),
     "guard.ticket": (
         "Opening {kind} `{id}` has not been approved by a human (missing `{gate}`).\n"
         "Opening a ticket is a scheduling decision, not an agent decision. Stop and explain to the human what\n"
@@ -231,6 +238,13 @@ MESSAGES["zh-CN"].update({
         "请在工单的 worktree（`{wt_dir}/` 下）里改，走正常合并进 main。\n"
         "如果这个路径本来就该在 main 上改，把它加进 .mark/config.toml 的 `[worktree] main_writable`。\n"
         "不属于任何工单的文档/配置改动，用 `mark general new`（/mark:general）开一条一次性车道。"
+    ),
+    "guard.budget": (
+        "`{rel}` 写入后将有 {size} 字节，超出文档预算 {limit}（.mark/config.toml 的 `[[doc_budget]]`）。\n"
+        "至少删掉 {cut} 字节。加载这份文件的每个角色每次派发都要为每一行付费，\n"
+        "所以先腾地方再加：合并重叠的规则，删掉历史和理由（它们属于 commit 正文），\n"
+        "只有一个角色用的细节挪进该角色的文件。最长的几行：\n{lines}\n"
+        "提高预算是人在 .mark/config.toml 里做的决定，不是绕过它的办法。"
     ),
     "guard.ticket": (
         "{kind} `{id}` 的建单还没有经过人同意（缺少 `{gate}`）。\n"
@@ -383,6 +397,10 @@ MESSAGES["en"].update({
         "Merging {base} into `{branch}` conflicts; the merge was aborted and nothing changed.\n"
         "The branch needs rework against the latest main: /mark:reject {id} \"resolve the conflict with main\"."
     ),
+    "merge.budget": (
+        "The branch leaves docs over their budget (`[[doc_budget]]`); main was not changed:\n{files}\n"
+        "Trim them on the branch, commit, and merge again."
+    ),
     "merge.red": (
         "Regression `{cmd}` failed (exit {code}) after merging main into the branch; main was not changed.\n"
         "Full log: {log}\n--- last lines ---\n{tail}"
@@ -533,6 +551,10 @@ MESSAGES["zh-CN"].update({
     "merge.conflict": (
         "把 {base} 合入 `{branch}` 有冲突；已中止合并，什么都没改。\n"
         "分支需要基于最新 main 返工：/mark:reject {id} \"解决与 main 的冲突\"。"
+    ),
+    "merge.budget": (
+        "分支上有文档超出预算（`[[doc_budget]]`）；main 未被改动：\n{files}\n"
+        "在分支上精简、提交后再合并。"
     ),
     "merge.red": (
         "合入 main 后回归 `{cmd}` 失败（退出码 {code}）；main 未被改动。\n"
