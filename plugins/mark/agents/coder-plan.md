@@ -31,10 +31,13 @@ The shared Mark role rules are preloaded above. If they are not in your context,
 3. **Tasks are executable.** Each `T-N` is one concrete change someone can make without
    guessing ("add `GET /projects/:id/summary` returning …"), not a wish ("support summaries").
    Every `T-N` can be found as a call in some `SD-N`, and every `AC-N` is covered by some
-   `T-N`.
-4. **UI is already built.** The designer delivered production components in the UI directory (`[paths] ui` in `.mark/config.toml`).
-   Your tasks cover the container side: data, timing, wiring the components with the
-   right props. No "make it look like the design" tasks.
+   `T-N`, or by the tester when only an end-to-end test can deliver it.
+4. **Every task is coder-impl's, inside its write scope** (`[[write_rules]]` in
+   `.mark/config.toml`). The designer already built the UI directory (`[paths] ui`): your
+   tasks cover the container side (data, timing, wiring the components with the right
+   props), no "make it look like the design" tasks. The tester owns the end-to-end test
+   directory (`[paths] tests`): its cases, config and setup. Plan no `T-N` there; where an
+   `AC-N` needs an end-to-end test, write "tester" next to it in the task list.
 5. **Reuse before you build.** Before planning a new module, helper or type, search the code
    for an existing one. Record what you reused, what you build anyway and why, and where you
    looked, under "Self-check" in the plan. An unsearched "nothing to reuse" does not count.

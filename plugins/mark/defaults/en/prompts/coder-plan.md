@@ -15,7 +15,8 @@ The human approved the design (if the feature has one). Now plan how to build it
 - `tech-plan.md` follows the format: data model, interfaces, module changes, sequence
   diagrams (`SD-N`, with failure branches), tasks (`T-N`), end-to-end path, self-check,
   ADRs, risks and open questions.
-- Every `AC-N` is covered by a `T-N`; every `T-N` appears in an `SD-N`; each `T-N` is a
+- Every `AC-N` is covered by a `T-N` (or by the tester, if only an end-to-end test delivers it);
+  no `T-N` lies outside coder-impl's write scope; every `T-N` appears in an `SD-N`; each `T-N` is a
   concrete change.
 - Architecture decisions have an ADR.
 - Open questions are empty. If they are not, report `blocked-unclear`.

@@ -31,5 +31,7 @@ role. Lives in the ticket dir on main.
 Rules:
 
 - Every `AC-N` can be decided true or false by someone who did not write it.
+- An `AC-N` is behavior a user or caller can observe. "There is an end-to-end test for X" is
+  not one: the tester writes those for every criterion anyway.
 - Ids are never reused or renumbered; a dropped criterion stays, struck through, with the
   reason.

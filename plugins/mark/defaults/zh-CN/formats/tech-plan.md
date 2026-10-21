@@ -52,6 +52,8 @@ sequenceDiagram
 
 规则：
 
-- 每条 `AC-N` 至少被一个 `T-N` 覆盖；每个 `T-N` 都出现在某张 `SD-N` 里。
+- 每条 `AC-N` 至少被一个 `T-N` 覆盖；只有端到端测试能交付的，标「tester」。每个 `T-N` 都出现在
+  某张 `SD-N` 里。
+- 每个 `T-N` 都是 coder-impl 的活：不落在 UI 目录（designer）或端到端测试目录（tester）。
 - 时序图用 Mermaid `sequenceDiagram`，并画出失败分支。
 - 不设 changelog 段：返工历史写在 commit 正文里，引用 `R-N`。

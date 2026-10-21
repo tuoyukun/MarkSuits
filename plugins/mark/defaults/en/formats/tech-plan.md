@@ -52,6 +52,9 @@ sequenceDiagram
 
 Rules:
 
-- Every `AC-N` is covered by at least one `T-N`; every `T-N` appears in some `SD-N`.
+- Every `AC-N` is covered by at least one `T-N`, or marked "tester" when only an end-to-end
+  test delivers it; every `T-N` appears in some `SD-N`.
+- Every `T-N` is coder-impl's work: nothing in the UI directory (designer) or the end-to-end
+  test directory (tester).
 - Sequence diagrams are Mermaid `sequenceDiagram` and include failure branches.
 - No changelog section: rework history goes in commit messages, citing `R-N`.
