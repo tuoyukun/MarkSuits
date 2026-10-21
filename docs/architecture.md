@@ -154,8 +154,19 @@ without a token creates the ticket unapproved; `/mark:approve <id>` approves the
 Review files: each round is `## Round N · <time> · pending <!-- mark:round N pending -->` followed by
 `- R-K: …` items; ids run across rounds; approve flips pending rounds to done; text is never edited.
 
-Merging is manual in this version: at `pending-merge` the human merges and pushes, then
-`mark set <id> passed` (Phase 2 automates it).
+### Merge (v0.7)
+
+`mark merge <id>` (`lib/mark/merge.py`) takes `pending-merge` to `passed`; `mark next` answers
+`merge` there. Checks: status, `<!-- mark:verdict PASSED -->` in `verdict.md`, every `merge-after`
+ticket `passed`, clean worktree, main checkout on main. Then, in the worktree, merge the latest
+main into the branch (conflict: abort) and run the **regression contract**: `[merge] regression`,
+one shell command, exit 0 = green, empty = skipped (log in `locks/<id>.merge.log`). Main moves
+only by `--ff-only` and is pushed (a failed push undoes the local fast-forward), so every
+failure before that lands nothing. Then `passed` is committed and pushed, and the remote
+branch, worktree and local branch are removed (cleanup problems are notes, not failures).
+A failure is recorded as `locks/<id>.merge.result.json`; while it is newer than `status.md`,
+`mark next` stops for the human. Concurrent merges serialize on the fast-forward: the loser
+fails with `merge.ff_failed` and is run again.
 
 ### Project template (v0.5)
 
@@ -227,7 +238,7 @@ agents, role rules, 13 prompt templates, artifact formats, en + zh-CN, CI) · ex
 `examples/todo`, sandbox script, feature + bug chains run live, recorded in `examples/README.md`).
 
 **Phase 2 — merge and hygiene**
-auto-merge with pluggable regression contract · merge-order · doc-budget · general-mode lane ·
+auto-merge with pluggable regression contract ✅ (v0.7: `mark merge`, `merge-after` checked) · merge-order · doc-budget · general-mode lane ·
 worktree env provisioning interface.
 
 **Phase 3 — optional plugins**

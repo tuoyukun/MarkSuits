@@ -49,14 +49,11 @@ Now it opens `b0001-…`, writes `bug.md`, and runs the bug chain without stoppi
 | implement | coder-impl | the fix, a unit test, `handoff.md` |
 | verify | tester | an end-to-end test, `verdict.md` (`PASSED` after merging main and running `npm test`) |
 
-It stops at `pending-merge`. Merging is manual in this version:
-
-```bash
-git merge --no-edit bug/b0001-…   # main has moved on (ticket state commits), so this is a merge commit
-git push origin main
-mark set b0001-… passed
-git worktree remove .claude/worktrees/bug-b0001-…   # optional; Phase 2 automates merge and cleanup
-```
+At `pending-merge` the orchestrator runs `mark merge b0001`: it merges the latest main into
+the ticket branch, runs `npm test` there (`[merge] regression` in `.mark/config.toml`),
+fast-forwards main, pushes, marks the ticket `passed` and removes its worktree and branch.
+If the merge conflicts or `npm test` fails, main is untouched and the orchestrator stops and
+tells you why.
 
 (`mark` is on PATH inside Claude Code; outside it, run `<repo>/plugins/mark/bin/mark`.)
 

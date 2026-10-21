@@ -44,3 +44,8 @@ ui_dir:
 tests_dir:
   type: str
   default: tests
+
+regression_cmd:
+  type: str
+  help: Full regression command `mark merge` runs before a ticket lands on main (empty for none)
+  default: ""

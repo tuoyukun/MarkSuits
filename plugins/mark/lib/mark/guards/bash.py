@@ -99,7 +99,7 @@ def git_guard(env: Env) -> str | None:
 
 # `mark` subcommands that change ticket state. Subagents report outcomes in
 # their result; the orchestrator records them.
-MARK_WRITES = frozenset({"set", "approve", "reject", "claim", "commit", "dispatch", "unlock"})
+MARK_WRITES = frozenset({"set", "approve", "reject", "claim", "commit", "dispatch", "unlock", "merge"})
 
 
 def mark_guard(env: Env) -> str | None:

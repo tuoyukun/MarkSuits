@@ -165,7 +165,7 @@ def previous_conclusion(ctx: Ctx) -> str:
 
 @dataclass
 class Action:
-    kind: str                         # dispatch | record | wait | stop | done
+    kind: str                         # dispatch | record | merge | wait | stop | done
     message: str = ""                 # i18n key
     params: dict = field(default_factory=dict)
     role: str | None = None
@@ -279,7 +279,7 @@ def _dispatch(ctx: Ctx, status: str) -> Action:
 
 _STOP_KEYS = {
     "review-design": "next.review", "review-plan": "next.review",
-    "pending-merge": "next.merge", "blocked-spec": "next.blocked_spec",
+    "blocked-spec": "next.blocked_spec",
     "blocked-plan": "next.blocked_plan", "blocked-unclear": "next.blocked_unclear",
 }
 
@@ -297,6 +297,11 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
     running = running_roles(ctx)
     if running:
         return Action("wait", "next.wait", {**base, "roles": ", ".join(running)}, role=running[0])
+    if status == "pending-merge":
+        failed = last_result(ctx, "merge")
+        if failed:
+            return Action("stop", "next.merge_failed", {**base, "reason": failed.get("reason", "")})
+        return Action("merge", "next.merge", base)
     if status in _STOP_KEYS:
         return Action("stop", _STOP_KEYS[status], base)
 

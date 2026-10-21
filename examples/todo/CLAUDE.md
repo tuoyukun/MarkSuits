@@ -44,7 +44,7 @@ fresh worktree.
 | Unit tests | `npm run test:unit` (backend `unittest`, `backend/test_*.py`) |
 | Type check and lint | `npm run check` (syntax check of every JS and Python file) |
 | End-to-end tests (selected specs) | `npx playwright test tests/e2e/<spec>.spec.js` |
-| Full regression (everything a merge must pass) | `npm test` |
+| Full regression (everything a merge must pass; also `[merge] regression` in `.mark/config.toml`) | `npm test` |
 
 End-to-end tests pick a port from the checkout path, so several worktrees can run them at
 once; set `PORT=<n>` to override. Failure traces and screenshots land in `test-results/`.

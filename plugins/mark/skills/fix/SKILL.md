@@ -15,7 +15,7 @@ allowed-tools: Bash(mark:*)
 Argument: `$ARGUMENTS`
 
 The bug chain has no human review gates: once it starts, keep looping (dispatch, wait,
-record) until `pending-merge`, a `blocked-*` status, or another stop. Report progress after
+record, merge) until `passed`, a `blocked-*` status, or another stop. Report progress after
 each step; do not wait for a command between steps.
 
 ### A. The argument is an existing bug id (`b0007`, `b0007-crash`)

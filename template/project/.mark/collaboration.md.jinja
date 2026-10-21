@@ -3,7 +3,7 @@
 
 One orchestrator (the main Claude Code session) moves tickets forward one step at a time.
 Each step is done by a fresh **role agent** that reads files, writes files, and ends. The
-human opens tickets, approves or rejects at two review gates, and merges.
+human opens tickets and approves or rejects at two review gates; merging is automatic.
 
 ## Commands
 
@@ -11,7 +11,7 @@ human opens tickets, approves or rejects at two review gates, and merges.
 |---|---|
 | `/mark:feature <description>` | The orchestrator reviews the request with you, opens a ticket once you agree, and runs the first step |
 | `/mark:feature <id>` | One more step of that feature |
-| `/mark:fix <description or id>` | Opens or continues a bug and runs it to `pending-merge` (no review gates) |
+| `/mark:fix <description or id>` | Opens or continues a bug and runs it to `passed` (no review gates) |
 | `/mark:approve <id>` | Approves the opening of a ticket, the design, the plan, or a blocked ticket's way back; then continues |
 | `/mark:reject <id> <comments>` | Sends a design, plan or finished branch back with your comments; then continues |
 | `/mark:status` | The board: what waits on you, what is in progress |
@@ -36,7 +36,7 @@ bug:     planning → developing → testing → pending-merge → passed
 | `design-qa` | designer | `design-qa.md` (real app vs design; only when UI changed) |
 | `testing` | tester | end-to-end tests, `verdict.md` |
 | `failed-impl` | coder-impl | fixes for `FAIL-N` / `D-N` / your merge comments |
-| `pending-merge` | **you** | merge the branch into main, or reject |
+| `pending-merge` | orchestrator | `mark merge`; if it fails, **you** decide (retry or reject) |
 | `blocked-*` | **you** | read the reason; `/mark:approve` sends it back the way it came |
 
 ## Where things live
@@ -64,9 +64,12 @@ Ids are never reused, so a comment like "R-4 withdraws R-1" stays unambiguous.
 
 ## Merging
 
-At `pending-merge` the branch has passed its tests against the latest main. Review it,
-merge it into main and push, then tell the orchestrator `mark set <id> passed`. To send it
-back instead: `/mark:reject <id> <comments>`.
+At `pending-merge` the orchestrator runs `mark merge <id>`: it merges the latest main into the
+ticket branch, runs the `[merge] regression` command from `.mark/config.toml` in the worktree,
+fast-forwards main, pushes, marks the ticket `passed` and removes its worktree and branch.
+If anything fails (conflict, red regression, push), main is left untouched and the
+orchestrator stops for you: fix the cause and ask it to merge again, or
+`/mark:reject <id> <comments>`.
 
 ## Rules everyone works by
 
@@ -80,7 +83,7 @@ back instead: `/mark:reject <id> <comments>`.
 # {{ project_name }} 如何用 Mark 协作开发
 
 一个 orchestrator（Claude Code 主会话）每次把工单往前推一步。每一步由一个全新的**角色 agent**
-完成：读文件、写文件、结束。人负责开单、在两道人审闸门上放行或打回、以及合并。
+完成：读文件、写文件、结束。人负责开单、在两道人审闸门上放行或打回；合并是自动的。
 
 ## 命令
 
@@ -88,7 +91,7 @@ back instead: `/mark:reject <id> <comments>`.
 |---|---|
 | `/mark:feature <描述>` | orchestrator 先和你评审需求，你同意后开单，并跑第一步 |
 | `/mark:feature <编号>` | 把该 feature 再推进一步 |
-| `/mark:fix <描述或编号>` | 开 bug 单或继续推进，一路跑到 `pending-merge`（无人审闸门） |
+| `/mark:fix <描述或编号>` | 开 bug 单或继续推进，一路跑到 `passed`（无人审闸门） |
 | `/mark:approve <编号>` | 放行开单、设计、方案，或让阻塞的工单原路退回；随后继续推进 |
 | `/mark:reject <编号> <意见>` | 带着你的意见把设计、方案或已完成的分支打回；随后继续推进 |
 | `/mark:status` | 看板：哪些在等你、哪些在进行中 |
@@ -113,7 +116,7 @@ bug:     planning → developing → testing → pending-merge → passed
 | `design-qa` | designer | `design-qa.md`（真实应用对照设计；仅 UI 有改动时） |
 | `testing` | tester | 端到端测试、`verdict.md` |
 | `failed-impl` | coder-impl | 修复 `FAIL-N` / `D-N` / 你的合并意见 |
-| `pending-merge` | **你** | 把分支合进 main，或打回 |
+| `pending-merge` | orchestrator | `mark merge`；失败时由**你**决定（重试或打回） |
 | `blocked-*` | **你** | 看原因；`/mark:approve` 让它原路退回 |
 
 ## 东西放在哪
@@ -139,8 +142,10 @@ bug:     planning → developing → testing → pending-merge → passed
 
 ## 合并
 
-到 `pending-merge` 时，分支已基于最新 main 通过测试。你审阅后把它合进 main 并推送，然后让
-orchestrator 执行 `mark set <id> passed`。要打回则用 `/mark:reject <id> <意见>`。
+到 `pending-merge` 时，orchestrator 执行 `mark merge <id>`：把最新 main 合入工单分支，在 worktree 里
+跑 `.mark/config.toml` 中 `[merge] regression` 配置的命令，快进 main、推送，把工单标为 `passed`，
+并删除它的 worktree 和分支。任何一步失败（冲突、回归变红、推送失败），main 都不会被改动，
+orchestrator 会停下等你：处理好原因后让它重新合并，或用 `/mark:reject <id> <意见>` 打回。
 
 ## 所有人遵守的规则
 

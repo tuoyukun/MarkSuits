@@ -2,7 +2,7 @@
 
 One orchestrator (the main Claude Code session) moves tickets forward one step at a time.
 Each step is done by a fresh **role agent** that reads files, writes files, and ends. The
-human opens tickets, approves or rejects at two review gates, and merges.
+human opens tickets and approves or rejects at two review gates; merging is automatic.
 
 ## Commands
 
@@ -10,7 +10,7 @@ human opens tickets, approves or rejects at two review gates, and merges.
 |---|---|
 | `/mark:feature <description>` | The orchestrator reviews the request with you, opens a ticket once you agree, and runs the first step |
 | `/mark:feature <id>` | One more step of that feature |
-| `/mark:fix <description or id>` | Opens or continues a bug and runs it to `pending-merge` (no review gates) |
+| `/mark:fix <description or id>` | Opens or continues a bug and runs it to `passed` (no review gates) |
 | `/mark:approve <id>` | Approves the opening of a ticket, the design, the plan, or a blocked ticket's way back; then continues |
 | `/mark:reject <id> <comments>` | Sends a design, plan or finished branch back with your comments; then continues |
 | `/mark:status` | The board: what waits on you, what is in progress |
@@ -35,7 +35,7 @@ bug:     planning → developing → testing → pending-merge → passed
 | `design-qa` | designer | `design-qa.md` (real app vs design; only when UI changed) |
 | `testing` | tester | end-to-end tests, `verdict.md` |
 | `failed-impl` | coder-impl | fixes for `FAIL-N` / `D-N` / your merge comments |
-| `pending-merge` | **you** | merge the branch into main, or reject |
+| `pending-merge` | orchestrator | `mark merge`; if it fails, **you** decide (retry or reject) |
 | `blocked-*` | **you** | read the reason; `/mark:approve` sends it back the way it came |
 
 ## Where things live
@@ -63,9 +63,12 @@ Ids are never reused, so a comment like "R-4 withdraws R-1" stays unambiguous.
 
 ## Merging
 
-At `pending-merge` the branch has passed its tests against the latest main. Review it,
-merge it into main and push, then tell the orchestrator `mark set <id> passed`. To send it
-back instead: `/mark:reject <id> <comments>`.
+At `pending-merge` the orchestrator runs `mark merge <id>`: it merges the latest main into the
+ticket branch, runs the `[merge] regression` command from `.mark/config.toml` in the worktree,
+fast-forwards main, pushes, marks the ticket `passed` and removes its worktree and branch.
+If anything fails (conflict, red regression, push), main is left untouched and the
+orchestrator stops for you: fix the cause and ask it to merge again, or
+`/mark:reject <id> <comments>`.
 
 ## Rules everyone works by
 

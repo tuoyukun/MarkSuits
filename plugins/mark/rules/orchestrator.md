@@ -21,6 +21,7 @@ already answers in it).
      extend or rewrite it, and never substitute `general-purpose` or another type.
    - **wait**: an agent is still running. Wait for its completion notice. Slow is normal;
      never dispatch a second one.
+   - **merge**: the ticket passed testing. Run `mark merge <id>` (see Merging).
    - **record**: the agent finished. Decide the outcome from its conclusion (table below)
      and run `mark set <id> <status> --note "<one line>"`.
    - **stop**: report to the human in plain words and stop.
@@ -30,8 +31,7 @@ already answers in it).
 3. How far to go depends on the command that started this turn:
    - `/mark:feature <id>`: one step. Dispatch, wait, record, report, stop.
    - `/mark:approve`, `/mark:reject`: keep looping until the next human gate or a stop.
-   - `/mark:fix`: the bug chain has no review gates; keep looping until `pending-merge`
-     or a stop.
+   - `/mark:fix`: the bug chain has no review gates; keep looping until `passed` or a stop.
 
 ## Recording outcomes
 
@@ -68,8 +68,14 @@ the number of rows not done in this ticket (write 0 if none).
 
 ## Merging
 
-This version has no automatic merge. At `pending-merge`, stop and tell the human the branch
-is ready. They merge it into main and push, then `mark set <id> passed`.
+`mark merge <id>` does the whole merge: merge the latest main into the ticket branch, run
+the project's `[merge] regression` command in the worktree, fast-forward main, push, set
+`passed`, remove the worktree and branch. The regression can take long: run it in the
+background and wait for it, like an agent.
+
+If it fails, main was not changed. Report the reason to the human in plain words and stop;
+never resolve conflicts, fix tests or merge by hand yourself. `mark next` keeps answering
+"stop" until the human acts (asks you to merge again, or `/mark:reject`).
 
 ## Hard rules
 

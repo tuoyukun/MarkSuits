@@ -41,6 +41,11 @@ tester = ["verdict.md"]
 paths = ["{{ frontend_dir }}/**"]
 exclude = ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"]
 
+# `mark merge` runs this shell command in the ticket's worktree after merging the latest
+# main into the branch; exit 0 = green. Empty: merge on the tester's verdict alone.
+[merge]
+regression = "{{ regression_cmd }}"
+
 [worktree]
 dir = ".claude/worktrees"
 # The main checkout is a state lane: only ticket dirs, gates and locks change there.

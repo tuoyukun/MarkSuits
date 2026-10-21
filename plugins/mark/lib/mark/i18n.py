@@ -314,6 +314,7 @@ _USAGE_EN = (
     "  mark reject <id> --item \"<text>\"... [--to planning] [--no-commit]   human only (/mark:reject)\n"
     "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
     "  mark commit <id> [-m \"<message>\"]             commit + push the ticket's state on main\n"
+    "  mark merge <id>                                pending-merge -> passed: merge main in, regression, ff-only, push\n"
     "  mark unlock <id> <role>                        release a dead agent's lock (human)\n"
     "  mark rules [orchestrator | role]               print a rulebook (orchestrator by default)"
 )
@@ -328,6 +329,7 @@ _USAGE_ZH = (
     "  mark reject <编号> --item \"<文本>\"... [--to planning] [--no-commit]   仅限人（/mark:reject）\n"
     "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
     "  mark commit <编号> [-m \"<说明>\"]               在 main 上提交并推送工单状态\n"
+    "  mark merge <编号>                              pending-merge -> passed：合入 main、回归、ff-only、推送\n"
     "  mark unlock <编号> <角色>                      释放已死 agent 的锁（由人执行）\n"
     "  mark rules [orchestrator | role]               打印规则（默认 orchestrator）"
 )
@@ -347,9 +349,35 @@ MESSAGES["en"].update({
         "The human answers with /mark:approve {id} or /mark:reject {id} <comments>."
     ),
     "next.merge": (
-        "{id} passed testing and waits for merge. This version has no automatic merge: the human merges the\n"
-        "ticket branch into main and pushes, then `mark set {id} passed`. To send it back: /mark:reject {id} <comments>."
+        "{id} passed testing. Merge it next (run in the background if the regression is slow):\n  mark merge {id}"
     ),
+    "next.merge_failed": (
+        "The last `mark merge {id}` failed, and main was not changed:\n{reason}\n"
+        "Report it to the human and stop. They fix it and ask for `mark merge {id}` again, or send it back with /mark:reject {id} <comments>."
+    ),
+    "merge.status": "{id} is at `{status}`; only `pending-merge` tickets are merged.",
+    "merge.no_git": "This project is not a git repository; there is nothing to merge.",
+    "merge.verdict": "{id}: verdict.md does not end with `<!-- mark:verdict PASSED -->`. Only a passing tester verdict is merged.",
+    "merge.waiting": "{id} must merge after: {deps}. Merge those first.",
+    "merge.no_worktree": "{id} has no worktree on `{branch}`. Run `mark dispatch` once to restore it, or merge by hand.",
+    "merge.fetch_failed": "Could not fetch origin/{main}. Fix the remote and retry.",
+    "merge.conflict": (
+        "Merging {base} into `{branch}` conflicts; the merge was aborted and nothing changed.\n"
+        "The branch needs rework against the latest main: /mark:reject {id} \"resolve the conflict with main\"."
+    ),
+    "merge.red": (
+        "Regression `{cmd}` failed (exit {code}) after merging main into the branch; main was not changed.\n"
+        "Full log: {log}\n--- last lines ---\n{tail}"
+    ),
+    "merge.ff_failed": "`{main}` cannot fast-forward to `{branch}` (it has commits the branch lacks). Push or drop them, then retry.",
+    "merge.push_failed": "Pushing {main} failed, so the local fast-forward was undone. Pull, then retry `mark merge`.",
+    "merge.no_regression": "No `[merge] regression` command is configured; merging on the tester's verdict alone.",
+    "merge.green": "Regression passed: `{cmd}`.",
+    "merge.landed": "`{branch}` fast-forwarded into {main} and pushed.",
+    "merge.kept_worktree": "Could not remove worktree {wt} (untracked files?). Remove it by hand.",
+    "merge.kept_branch": "Could not delete branch {branch}. Delete it by hand.",
+    "merge.kept_remote": "Could not delete origin/{branch}. Delete it by hand.",
+    "merge.done": "{id} merged: `pending-merge` -> `passed`.",
     "next.blocked_spec": "{id} is `blocked-spec`: the design contract has a problem. Report it to the human and stop. /mark:approve {id} sends it back to the designer.",
     "next.blocked_plan": "{id} is `blocked-plan`: the plan has a hole. Report it to the human and stop. /mark:approve {id} sends it back to planning.",
     "next.blocked_unclear": (
@@ -452,9 +480,35 @@ MESSAGES["zh-CN"].update({
         "由 Human 用 /mark:approve {id} 或 /mark:reject {id} <意见> 答复。"
     ),
     "next.merge": (
-        "{id} 已测试通过，等待合并。当前版本没有自动合并：由 Human 把工单分支合进 main 并推送，\n"
-        "再执行 `mark set {id} passed`。要打回：/mark:reject {id} <意见>。"
+        "{id} 已测试通过。下一步合并（回归慢就放后台跑）：\n  mark merge {id}"
     ),
+    "next.merge_failed": (
+        "上一次 `mark merge {id}` 失败，main 未被改动：\n{reason}\n"
+        "报告 Human 后停下。由 Human 处理后让你重跑 `mark merge {id}`，或用 /mark:reject {id} <意见> 打回。"
+    ),
+    "merge.status": "{id} 处于 `{status}`；只合并 `pending-merge` 的工单。",
+    "merge.no_git": "本项目不是 git 仓库，没有可合并的东西。",
+    "merge.verdict": "{id}：verdict.md 结尾不是 `<!-- mark:verdict PASSED -->`。只合并 tester 判通过的工单。",
+    "merge.waiting": "{id} 必须排在这些工单之后合并：{deps}。先合它们。",
+    "merge.no_worktree": "{id} 在 `{branch}` 上没有 worktree。跑一次 `mark dispatch` 恢复，或手工合并。",
+    "merge.fetch_failed": "拉取 origin/{main} 失败。修好远端后重试。",
+    "merge.conflict": (
+        "把 {base} 合入 `{branch}` 有冲突；已中止合并，什么都没改。\n"
+        "分支需要基于最新 main 返工：/mark:reject {id} \"解决与 main 的冲突\"。"
+    ),
+    "merge.red": (
+        "合入 main 后回归 `{cmd}` 失败（退出码 {code}）；main 未被改动。\n"
+        "完整日志：{log}\n--- 最后几行 ---\n{tail}"
+    ),
+    "merge.ff_failed": "`{main}` 无法快进到 `{branch}`（main 上有分支没有的提交）。先推送或丢弃它们，再重试。",
+    "merge.push_failed": "推送 {main} 失败，本地快进已撤销。先拉取，再重试 `mark merge`。",
+    "merge.no_regression": "没有配置 `[merge] regression` 命令；仅凭 tester 结论合并。",
+    "merge.green": "回归通过：`{cmd}`。",
+    "merge.landed": "`{branch}` 已快进合入 {main} 并推送。",
+    "merge.kept_worktree": "无法删除 worktree {wt}（有未跟踪文件？）。请手工删除。",
+    "merge.kept_branch": "无法删除分支 {branch}。请手工删除。",
+    "merge.kept_remote": "无法删除 origin/{branch}。请手工删除。",
+    "merge.done": "{id} 已合并：`pending-merge` -> `passed`。",
     "next.blocked_spec": "{id} 是 `blocked-spec`：设计契约有问题。报告 Human 后停下。/mark:approve {id} 会退回 designer 返工。",
     "next.blocked_plan": "{id} 是 `blocked-plan`：方案有洞。报告 Human 后停下。/mark:approve {id} 会退回出方案的环节。",
     "next.blocked_unclear": (

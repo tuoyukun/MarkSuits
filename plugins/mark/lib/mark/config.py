@@ -117,6 +117,11 @@ class MarkConfig:
     def design_qa_exclude(self) -> list[str]:
         return [str(g) for g in self._section("design_qa").get("exclude", [])]
 
+    @property
+    def merge_regression(self) -> str:
+        """Shell command `mark merge` runs in the worktree after merging main; exit 0 = green."""
+        return str(self._section("merge").get("regression", "")).strip()
+
     def branch_for(self, kind: str, ticket_id: str) -> str:
         return f"{kind}/{ticket_id}"
 

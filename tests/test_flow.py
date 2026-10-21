@@ -24,6 +24,10 @@ def ctx_of(root, ref):
     return flow.load(load_config(root), ref)
 
 
+def ctx_next(root, ref):
+    return flow.next_action(ctx_of(root, ref))
+
+
 def write(path, text=""):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
@@ -266,6 +270,91 @@ class MovesTest(unittest.TestCase):
         self.assertEqual(run(self.root, "set", "b0001", "passed")[0], 0)
 
 
+class MergeTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_repo()
+        self.origin = add_origin(self.root)
+        self.dir = add_ticket(self.root, "bug", "b0001-x", "pending-merge", gates=["ticket-approved"])
+        p = self.dir / "status.md"
+        p.write_text(p.read_text().replace("desc:", "leftover: 0\ndesc:"))
+        sh(self.root, "git", "commit", "-qam", "leftover")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        self.wt = add_worktree(self.root, "bug", "b0001-x")
+        self.commit_wt("fix.txt", "fix", verdict="PASSED")
+        sh(self.wt, "git", "push", "-q", "-u", "origin", "bug/b0001-x")
+
+    def commit_wt(self, name, text, verdict=None):
+        write(self.wt / name, text)
+        if verdict:
+            write(self.wt / ".mark/bugs/b0001-x/verdict.md", f"<!-- mark:verdict {verdict} -->\n")
+        sh(self.wt, "git", "add", ".")
+        sh(self.wt, "git", "commit", "-qm", name)
+
+    def regression(self, cmd):
+        cfg = self.root / ".mark/config.toml"
+        cfg.write_text(cfg.read_text() + f'\n[merge]\nregression = "{cmd}"\n')
+        sh(self.root, "git", "commit", "-qam", "regression")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+
+    def test_next_says_merge(self):
+        self.assertEqual(ctx_next(self.root, "b0001").kind, "merge")
+
+    def test_merges_latest_main_runs_regression_and_cleans_up(self):
+        self.regression("test -f fix.txt && test -f other.txt")  # sees both sides of the merge
+        write(self.root / "other.txt", "o")
+        sh(self.root, "git", "add", "other.txt")
+        sh(self.root, "git", "commit", "-qm", "main moved")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        code, out, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 0, err + out)
+        self.assertIn("Regression passed", out)
+        self.assertTrue((self.root / "fix.txt").is_file())
+        self.assertIn("status: passed", (self.dir / "status.md").read_text())
+        self.assertEqual(sh(self.root, "git", "rev-parse", "main"), sh(self.root, "git", "rev-parse", "origin/main"))
+        self.assertEqual(sh(self.root, "git", "status", "--porcelain", "--untracked-files=no"), "")
+        self.assertFalse(self.wt.exists())
+        self.assertEqual(sh(self.root, "git", "branch", "--list", "bug/*"), "")
+        self.assertNotIn("bug/b0001-x", sh(self.root, "git", "ls-remote", "--heads", "origin"))
+        self.assertEqual(ctx_next(self.root, "b0001").kind, "done")
+
+    def test_red_regression_lands_nothing_and_next_stops(self):
+        self.regression("echo boom && exit 3")
+        before = sh(self.root, "git", "rev-parse", "main")
+        code, _, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 1)
+        self.assertIn("exit 3", err)
+        self.assertIn("boom", err)
+        self.assertEqual(sh(self.root, "git", "rev-parse", "main"), before)
+        self.assertIn("status: pending-merge", (self.dir / "status.md").read_text())
+        action = ctx_next(self.root, "b0001")
+        self.assertEqual((action.kind, action.message), ("stop", "next.merge_failed"))
+        self.assertIn("boom", action.params["reason"])
+
+    def test_conflict_aborts(self):
+        write(self.root / "fix.txt", "main side")
+        sh(self.root, "git", "add", "fix.txt")
+        sh(self.root, "git", "commit", "-qm", "conflicting")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        code, _, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 1)
+        self.assertIn("conflicts", err)
+        self.assertEqual(sh(self.wt, "git", "status", "--porcelain"), "")
+        self.assertEqual((self.root / "fix.txt").read_text(), "main side")
+
+    def test_needs_passing_verdict_and_merge_after(self):
+        self.commit_wt("more.txt", "m", verdict="FAILED")
+        code, _, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 1)
+        self.assertIn("mark:verdict PASSED", err)
+        self.commit_wt("more2.txt", "m", verdict="PASSED")
+        add_ticket(self.root, "feature", "0002-y", "testing", gates=["ticket-approved"])
+        p = self.dir / "status.md"
+        p.write_text(p.read_text().replace("desc:", "merge-after: [0002]\ndesc:"))
+        code, _, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 1)
+        self.assertIn("0002-y (testing)", err)
+
+
 class HumanDecisionTest(unittest.TestCase):
     def setUp(self):
         self.root = make_repo()
@@ -424,6 +513,7 @@ class GuardTest(unittest.TestCase):
         code, err = self.bash("cd /tmp && mark set 0001 testing", "coder-impl")
         self.assertEqual(code, 2)
         self.assertIn("mark set", err)
+        self.assertEqual(self.bash("mark merge 0001", "tester")[0], 2)
         self.assertEqual(self.bash("mark next 0001", "coder-impl")[0], 0)
         self.assertEqual(self.bash("mark set 0001 testing")[0], 0)
 
