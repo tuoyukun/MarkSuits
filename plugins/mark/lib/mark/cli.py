@@ -228,6 +228,9 @@ def cmd_set(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     old = flow.set_status(ctx, pos[1], note=opts.get("--note"), leftover=opts.get("--leftover"),
                           add_after=after)
     _say(cfg, out, "set.done", id=ctx.id, old=old, new=pos[1])
+    note = flow.preview_note(flow.load(cfg, ctx.id))
+    if note:
+        out.write(note.lstrip("\n") + "\n")
     return _commit(cfg, ctx, f"{ctx.id}: {old} -> {pos[1]}", opts, out)
 
 
@@ -331,6 +334,7 @@ def cmd_init(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
         if dry_run:
             out.write(t(loc, "init.dry_run") + "\n")
             return 0
+        new_agents = not (p.root / ".claude" / "agents").is_dir()
         notes = scaffold.apply(p)
     except flow.FlowError as exc:
         err.write(t(loc, exc.key, **exc.params) + "\n")
@@ -338,6 +342,8 @@ def cmd_init(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
     for key, params in notes:
         out.write(t(loc, key, **params) + "\n")
     out.write(t(loc, "init.done", main=p.answers["main_branch"]) + "\n")
+    if new_agents:
+        out.write(t(loc, "init.restart") + "\n")
     return 0
 
 
@@ -416,6 +422,10 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
         except flow.FlowError as exc:
             return _fail(cfg, err, exc)
     if command == "unlock" and len(rest) == 2:
+        try:
+            rest[0] = flow.load(cfg, rest[0]).id
+        except flow.FlowError:
+            pass  # a lock may outlive its ticket dir; try the name as given
         lock = cfg.state_dir / "locks" / f"{rest[0]}.{rest[1]}.lock"
         if not lock.exists():
             out.write(t(cfg.locale, "cli.unlock.none", id=rest[0], role=rest[1]) + "\n")

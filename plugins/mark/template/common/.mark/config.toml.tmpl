@@ -29,7 +29,7 @@ tester = "plan-approved"
 # Files a role must leave in the ticket directory before it may stop.
 # A prompt can override this per dispatch with `<!-- mark:outputs a.md,b.md -->`.
 [outputs]
-designer = ["design.md"]
+designer = ["design.md", "preview.html"]
 coder-plan = ["tech-plan.md"]
 fix-plan = ["fix-plan.md"]
 coder-impl = ["handoff.md"]
@@ -108,6 +108,10 @@ roles = ["main"]
 
 [[write_rules]]
 glob = "**/design.md"
+roles = ["designer"]
+
+[[write_rules]]
+glob = "**/preview.html"
 roles = ["designer"]
 
 [[write_rules]]

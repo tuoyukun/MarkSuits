@@ -3,6 +3,7 @@
 Lifecycle:
   PreToolUse  Agent  -> acquire(): create `<id>.<role>.lock` (O_EXCL) with required outputs
   PostToolUse Agent  -> bind():    record agent_id
+  PostToolUseFailure -> release_failed(): the agent never started; drop the lock
   SubagentStop       -> verify():  check outputs, write result, release
 
 Event order depends on how the agent runs. Background agents: PostToolUse
@@ -172,6 +173,23 @@ def verify(env: Env) -> str | None:
     missing = "\n".join(f"  - {primary / f}" for f in required if not (primary / f).is_file())
     checked = "\n".join(f"  - {d}" for d in dirs[:6])
     return env.t("guard.output.missing", role=meta.get("role", "?"), missing=missing, checked=checked)
+
+
+def release_failed(env: Env) -> str | None:
+    """PostToolUseFailure on Agent: the dispatch never started, so its lock must not linger."""
+    role = env.dispatch_role
+    target = env.target()
+    if role not in env.cfg.roles or not isinstance(target, Target):
+        return None
+    path = lock_path(env, target, role)
+    if not path.exists() or read_lock(path).get("agent_id"):
+        return None
+    path.unlink(missing_ok=True)
+    error = str(env.ctx.payload.get("error") or "")
+    if "not found" in error.lower() and role in error:
+        # Claude Code watches .claude/agents/ only if it existed when the session started.
+        return env.t("guard.dispatch.not_loaded", role=role, id=target.id)
+    return env.t("guard.dispatch.failed", role=role, id=target.id)
 
 
 def release(env: Env, ticket_id: str, role: str) -> bool:

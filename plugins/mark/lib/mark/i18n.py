@@ -204,6 +204,16 @@ MESSAGES["en"].update({
         "  mark unlock {id} {role}"
     ),
     "guard.dedup.race": "Another `{role}` dispatch for `{id}` started at the same moment. Wait for it.",
+    "guard.dispatch.not_loaded": (
+        "The `{role}` agent is not loaded in this session, so the dispatch for `{id}` never started; its lock\n"
+        "is released. Claude Code only sees .claude/agents/ if that folder existed when the session started\n"
+        "(it did not before `mark init`). Do not substitute another agent type. Tell the human to restart\n"
+        "Claude Code (/exit, then `claude -c` to keep this conversation) and then run /mark:feature {id} again."
+    ),
+    "guard.dispatch.failed": (
+        "The `{role}` dispatch for `{id}` failed before the agent started; its lock is released.\n"
+        "Fix what the error says, then `mark next {id}` and dispatch again."
+    ),
     "guard.output.missing": (
         "You (`{role}`) are about to stop, but required output is missing:\n{missing}\n"
         "Checked these ticket directories:\n{checked}\n"
@@ -310,6 +320,12 @@ MESSAGES["zh-CN"].update({
         "如果确认那个会话已经没了，由 Human 执行：\n  mark unlock {id} {role}"
     ),
     "guard.dedup.race": "另一个 `{role}` 派发在同一时刻启动了 `{id}`，请等待它。",
+    "guard.dispatch.not_loaded": (
+        "本会话没有加载 `{role}` agent，所以 `{id}` 的派发根本没启动；锁已释放。Claude Code 只在会话启动时\n"
+        "已经存在 .claude/agents/ 目录的情况下才会发现其中的 agent（`mark init` 之前它不存在）。不要换成别的\n"
+        "agent 类型。请 Human 重启 Claude Code（/exit，然后 `claude -c` 保留本次对话），再运行 /mark:feature {id}。"
+    ),
+    "guard.dispatch.failed": "`{id}` 的 `{role}` 派发在 agent 启动前就失败了；锁已释放。按报错修好后，`mark next {id}` 再派一次。",
     "guard.output.missing": (
         "你（`{role}`）正要结束，但必交产物缺失：\n{missing}\n"
         "已查过这些工单目录：\n{checked}\n"
@@ -379,8 +395,9 @@ MESSAGES["en"].update({
     "next.wait": "{roles} is still working on {id}. Wait for its completion notice; never dispatch a second one.",
     "next.review": (
         "{id} is at `{status}`, a human review gate. Report what the last step produced in plain words, then stop.\n"
-        "The human answers with /mark:approve {id} or /mark:reject {id} <comments>."
+        "The human answers with /mark:approve {id} or /mark:reject {id} <comments>.{preview}"
     ),
+    "next.preview": "Design preview (give the human this path; it opens in a browser, offline):\n  {path}",
     "next.merge": (
         "{id} passed testing. Merge it next (run in the background if the regression is slow):\n  mark merge {id}"
     ),
@@ -552,8 +569,9 @@ MESSAGES["zh-CN"].update({
     "next.wait": "{roles} 还在处理 {id}。等它的完成通知，绝不派第二个。",
     "next.review": (
         "{id} 停在 `{status}`，这是人审闸门。用人话报告上一步的产出，然后停下。\n"
-        "由 Human 用 /mark:approve {id} 或 /mark:reject {id} <意见> 答复。"
+        "由 Human 用 /mark:approve {id} 或 /mark:reject {id} <意见> 答复。{preview}"
     ),
+    "next.preview": "设计预览（把这个路径交给 Human，浏览器直接打开，无需联网）：\n  {path}",
     "next.merge": (
         "{id} 已测试通过。下一步合并（回归慢就放后台跑）：\n  mark merge {id}"
     ),
@@ -723,6 +741,11 @@ MESSAGES["en"].update({
         "  - set `[merge] regression` and `[worktree] setup` in .mark/config.toml once the project has tests\n"
         "  - start work with /mark:feature or /mark:fix"
     ),
+    "init.restart": (
+        "Restart Claude Code before the first ticket: a running session does not see the new\n"
+        ".claude/agents/ folder, so it cannot dispatch the role agents. /exit, then `claude -c` keeps\n"
+        "this conversation."
+    ),
     "init.pushed": "Pushed {main} to origin.",
     "init.push_failed": "Pushing {main} to origin failed; push it yourself before opening tickets or lanes.",
     "init.already": "{root} is already a Mark project (.mark/config.toml exists).",
@@ -750,6 +773,10 @@ MESSAGES["zh-CN"].update({
         "  - 补完 CLAUDE.md 里的 TODO（技术栈、模块边界、命令），每个角色开工先读它\n"
         "  - 工程有了测试后，在 .mark/config.toml 里设置 `[merge] regression` 和 `[worktree] setup`\n"
         "  - 用 /mark:feature 或 /mark:fix 开始干活"
+    ),
+    "init.restart": (
+        "开第一张工单前先重启 Claude Code：正在运行的会话看不到新建的 .claude/agents/ 目录，派不出角色 agent。\n"
+        "/exit，然后 `claude -c` 可以保留本次对话。"
     ),
     "init.pushed": "已把 {main} 推到 origin。",
     "init.push_failed": "把 {main} 推到 origin 失败；开工单或车道之前请自己推一下。",

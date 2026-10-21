@@ -169,6 +169,21 @@ class NextActionTest(unittest.TestCase):
         self.assertEqual(self.next("0001").message, "next.output_failed")
         self.assertEqual(self.next("0001", retry=True).kind, "dispatch")
 
+    def test_dispatch_that_never_started_is_not_waited_on(self):
+        add_ticket(self.root, "feature", "0001-a", "planning", gates=ALL_GATES)
+        lock = self.root / ".mark/locks/0001-a.coder-plan.lock"
+        write(lock, json.dumps({"created": time.time() - 120}))
+        self.assertEqual(self.next("0001").kind, "dispatch")
+        write(lock, json.dumps({"created": time.time() - 120, "agent_id": "a1"}))
+        self.assertEqual(self.next("0001").kind, "wait")
+
+    def test_design_review_points_at_preview(self):
+        add_ticket(self.root, "feature", "0001-a", "review-design", gates=["ticket-approved"])
+        self.assertEqual(self.next("0001").params["preview"], "")
+        wt = add_worktree(self.root, "feature", "0001-a")
+        write(wt / ".mark/features/0001-a/preview.html", "<html></html>")
+        self.assertIn(str(wt / ".mark/features/0001-a/preview.html"), self.next("0001").params["preview"])
+
     def test_record_before_pending_merge_mentions_wrap_up(self):
         d = add_ticket(self.root, "bug", "b0001-a", "testing", gates=ALL_GATES)
         write(self.root / ".mark/locks/b0001-a.tester.result.json",

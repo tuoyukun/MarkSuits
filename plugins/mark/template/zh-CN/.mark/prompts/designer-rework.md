@@ -16,6 +16,7 @@ role: designer
 - {{trigger}} 指出的问题已在 `design.md` 和 UI 里修正，设计重新自洽（状态、props、集成契约）。
 - 若修正改动了 props 或状态，在「设计意图」里写清楚，让 coder-impl 能跟上。
 - 改过的视觉重新截图检查过。
+- `{{ticket_dir}}/preview.html` 已按改过的组件重新构建。
 - 待确认为空，否则报 `blocked-unclear`。
 
 ## 要读
@@ -28,7 +29,7 @@ role: designer
 
 ## 可写
 
-`{{ticket_dir}}/design.md` 和 UI 目录，只限这次发现需要改的地方。
+`{{ticket_dir}}/design.md`、`{{ticket_dir}}/preview.html` 和 UI 目录，只限这次发现需要改的地方。
 
 ## 汇报
 

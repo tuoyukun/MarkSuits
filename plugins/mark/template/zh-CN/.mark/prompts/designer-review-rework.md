@@ -21,6 +21,7 @@ role: designer
 
 - {{pending_refs}} 的每一条都在 `design.md` 和 UI 里落实，或有书面异议，记在「人审回应」表里。
 - 改过的视觉重新截图检查过。
+- `{{ticket_dir}}/preview.html` 已按改过的组件重新构建。
 - 预览渲染的仍恰好是 `design.md` 里的 `S-N`。
 - 不新增待确认。某条做不到或与既有契约冲突时，把冲突写进待确认，报 `blocked-unclear`。
 
@@ -33,7 +34,7 @@ role: designer
 
 ## 可写
 
-`{{ticket_dir}}/design.md` 和 UI 目录，只限 {{pending_refs}} 需要改的地方。审阅文件属于人：
+`{{ticket_dir}}/design.md`、`{{ticket_dir}}/preview.html` 和 UI 目录，只限 {{pending_refs}} 需要改的地方。审阅文件属于人：
 绝不改它，包括轮次标记。
 
 ## 汇报

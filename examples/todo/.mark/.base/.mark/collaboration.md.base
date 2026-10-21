@@ -28,7 +28,7 @@ bug:     planning → developing → testing → pending-merge → passed
 
 | Status | Who acts | Artifact |
 |---|---|---|
-| `designing` | designer | `design.md` + UI components + preview |
+| `designing` | designer | `design.md` + UI components + preview + `preview.html` (what the human reviews) |
 | `review-design` | **you** | approve, or reject with comments |
 | `planning` | coder-plan (feature) / fix-plan (bug) | `tech-plan.md` / `fix-plan.md` |
 | `review-plan` | **you** | approve, or reject with comments |

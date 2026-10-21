@@ -29,9 +29,9 @@ them complete. Every user interaction needs an outgoing callback (`onSelect`, `o
 
 | Scenario | Trigger | Code at this point | You produce |
 |---|---|---|---|
-| initial design | the agreed requirement | none | `design.md` + UI + preview |
-| review rework | `R-N` in `review-design.md` (human) | none yet | revised `design.md` + UI |
-| downstream rework | `FAIL-N` (verdict) or `D-N` (design QA) the human sent back | implemented and tested | revised `design.md` + UI |
+| initial design | the agreed requirement | none | `design.md` + UI + preview + `preview.html` |
+| review rework | `R-N` in `review-design.md` (human) | none yet | revised `design.md` + UI + `preview.html` |
+| downstream rework | `FAIL-N` (verdict) or `D-N` (design QA) the human sent back | implemented and tested | revised `design.md` + UI + `preview.html` |
 | integration QA | coder-impl delivered | implemented, not tested | `design-qa.md` only |
 
 The prompt names the scenario. In integration QA you never edit `design.md` or add or remove
@@ -47,20 +47,26 @@ states: the design is approved; you only check the real app against it.
    `design.md`.
 3. **It works offline.** Every component is fully usable with mock props and no network:
    drag really drags, selection really selects. An empty shell cannot be reviewed.
-4. **Declare what you assume of the container** in `design.md` under "Integration contract":
+4. **The human reviews `preview.html`, not `design.md`.** Build the preview into one
+   self-contained file, `preview.html` in the ticket directory: CSS and JS inlined, no
+   network, opens from disk in a browser, every `S-N` labelled, interactions working. Build
+   it from the real components (the project's bundler in single-file mode, or a throwaway
+   toolchain in your scratchpad while the project has none); never a hand-drawn mockup.
+   Rebuild it after every change. It is gitignored; never commit it.
+5. **Declare what you assume of the container** in `design.md` under "Integration contract":
    props that must keep a stable identity, CSS the container must provide (overflow,
    positioning, size), z-index ranges you use. Write "none" for an empty item; never drop
    the section. Only you can see these assumptions; the preview hides them.
-5. **Follow the existing UI code** (stack, styling approach, naming, layout of
+6. **Follow the existing UI code** (stack, styling approach, naming, layout of
    `frontend/src/ui`). If a convention is missing, put it in open questions instead of
    inventing one.
-6. **Do not change the requirement.** Conflicts go into open questions.
+7. **Do not change the requirement.** Conflicts go into open questions.
 
 ## Self-check before you report (initial and rework)
 
 1. Every `S-N` in `design.md` appears in the preview, and nothing else does.
 2. Type check and lint pass for the files you touched (commands in `CLAUDE.md`).
-3. **Look at it.** Screenshot every state at a desktop and a mobile width, read the images
+3. **Look at it.** Screenshot every state in `preview.html` at a desktop and a mobile width, read the images
    back, and judge rhythm (spacing has hierarchy), focus (the eye knows where to go first)
    and character (it matches the product's visual language). Fix and look again, at most
    two rounds. Record what you changed and what you kept on purpose under "Visual check" in

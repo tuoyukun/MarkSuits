@@ -25,6 +25,7 @@ This is a targeted revision, not a redesign. Keep everything the items do not to
 - Every item in {{pending_refs}} is reflected in `design.md` and the UI, or has a written
   objection, in the "Review responses" table.
 - Changed visuals were screenshotted and checked again.
+- `{{ticket_dir}}/preview.html` is rebuilt from the changed components.
 - The preview still renders exactly the `S-N` in `design.md`.
 - No new open questions. If an item cannot be done or conflicts with an existing contract,
   write the conflict in open questions and report `blocked-unclear`.
@@ -38,7 +39,7 @@ This is a targeted revision, not a redesign. Keep everything the items do not to
 
 ## You may write
 
-`{{ticket_dir}}/design.md` and the UI directory, only where {{pending_refs}} require it.
+`{{ticket_dir}}/design.md`, `{{ticket_dir}}/preview.html` and the UI directory, only where {{pending_refs}} require it.
 The review file is the human's: never edit it, including its round markers.
 
 ## Report

@@ -45,6 +45,7 @@ class FreshDirectoryTest(unittest.TestCase):
         self.assertEqual(sh(root, "git", "status", "--porcelain"), "")
         self.assertEqual(load_config(root).data["project"]["name"], "demo")
         self.assertIn("TODO", (root / "CLAUDE.md").read_text(encoding="utf-8"))
+        self.assertIn("claude -c", out)  # the new .claude/agents/ needs a restart
 
     def test_non_empty_dir_without_git_is_refused(self):
         root = tmpdir(self)

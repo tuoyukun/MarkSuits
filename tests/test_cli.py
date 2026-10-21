@@ -55,6 +55,14 @@ class CliTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn(".mark/bugs/b0001-x/status.md", out)
 
+    def test_unlock_takes_a_short_id(self):
+        run(self.root, "claim", "feature", "Add login")
+        lock = self.root / ".mark" / "locks" / "0001-add-login.designer.lock"
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        lock.write_text("{}")
+        self.assertEqual(run(self.root, "unlock", "0001", "designer")[0], 0)
+        self.assertFalse(lock.exists())
+
     def test_bad_usage(self):
         self.assertEqual(run(self.root, "claim", "epic", "x")[0], 2)
         self.assertEqual(run(self.root, "claim", "feature")[0], 2)

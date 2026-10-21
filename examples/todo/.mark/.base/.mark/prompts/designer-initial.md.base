@@ -17,6 +17,7 @@ yet. Design it from scratch.
 - The components exist in the UI directory, with complete props types and an outgoing
   callback for every user interaction.
 - The preview renders every `S-N` with mock props, offline, and nothing else.
+- `{{ticket_dir}}/preview.html` is built from the components and opens from disk, offline.
 - You looked at screenshots of every state (desktop and mobile) and recorded the visual
   check in `design.md`.
 - Open questions are empty. If they are not, report `blocked-unclear` (or `blocked-spec`
@@ -30,10 +31,10 @@ yet. Design it from scratch.
 
 ## You may write
 
-`{{ticket_dir}}/design.md`, the UI directory (components and preview), design tokens if
+`{{ticket_dir}}/design.md`, `{{ticket_dir}}/preview.html`, the UI directory (components and preview), design tokens if
 they are in your scope.
 
 ## Report
 
 As in the role rules. Outcome `review-design` when done; the ticket then waits for the
-human's design review. Add how the human opens the preview for this ticket.
+human's design review. Give the absolute path of `preview.html`: that is what the human reviews.

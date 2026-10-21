@@ -96,6 +96,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 | `pre-dispatch` | PreToolUse `Agent\|Task` | **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **gate** (feature roles need `[gates]`; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
 | `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock |
+| `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates `.claude/agents/`: restart) |
 | `post-write` | PostToolUse writes | reminds to commit ticket state on main (feedback only) |
 | `user-prompt` | UserPromptSubmit | records a token when a human types `/mark:approve`, `/mark:reject`, `/mark:feature` or `/mark:fix` (never blocks) |
 | `subagent-stop` | SubagentStop | required outputs (`[outputs]`, or `mark:outputs` in the prompt) must exist in the ticket dir of some checkout; otherwise the subagent keeps running. Result goes to `.mark/locks/<id>.<role>.result.json`, with the agent's final report (`conclusion`, the default `--prev` of the next dispatch) |
@@ -129,7 +130,8 @@ The loop: `mark next <id>` returns one of dispatch · wait · record · stop · 
   a prompt: the `mark:ticket` anchor, `mark:outputs` when the template overrides outputs, and the
   project's template for the scenario filled with verified facts (worktree, branch, artifacts in the
   worktree and on main, required outputs, trigger, previous conclusion, open review rounds).
-- **wait**: a dispatch lock exists for the ticket.
+- **wait**: a dispatch lock exists for the ticket (an unbound lock older than 90 s is a dispatch
+  that never started and does not count).
 - **record**: a SubagentStop result newer than `status.md` exists; the orchestrator runs
   `mark set <id> <status>`, choosing among the legal moves listed.
 
@@ -307,6 +309,7 @@ name is an error. Other files are copied verbatim, which keeps the prompts' `{{p
 |---|---|---|
 | `requirement.md`, `fix-plan.md` | `<!-- mark:ac -->` + `AC-N` | tester, coder-impl self-check |
 | `design.md` | `<!-- mark:states -->` + `S-N` | coder-impl, tester, design QA |
+| `preview.html` | none: the designer's preview built into one offline file (gitignored); `mark set`/`mark next` give its path at `review-design` | human design review |
 | `tech-plan.md` | `<!-- mark:tasks -->` + `T-N`, `SD-N` | coder-impl |
 | `handoff.md` | `<!-- mark:ac-table -->`, `<!-- mark:blocked -->` | tester, designer |
 | `design-qa.md` | `<!-- mark:qa-round N -->`, `<!-- mark:qa passed\|blocked -->`, `D-N` | engine (`mark set testing`, triggers) |

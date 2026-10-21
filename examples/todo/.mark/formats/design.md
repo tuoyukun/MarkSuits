@@ -33,7 +33,8 @@ Written by the designer; read by coder-plan, coder-impl and the tester.
 <breakpoints and what changes>
 
 ## Preview
-<where the preview lives and how to open it>
+<how to run the live preview in the project; `preview.html` next to this file is the built
+copy the human reviews>
 
 ## Review responses
 | review id | change | or objection |

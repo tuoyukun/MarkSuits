@@ -15,6 +15,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -186,12 +187,23 @@ def _locks(ctx: Ctx) -> Path:
 
 
 def running_roles(ctx: Ctx) -> list[str]:
+    """Roles with a live lock. An unbound lock past the ghost window is a dispatch that never
+    started (the dispatch guard reclaims it), so it does not count."""
+    from .guards.locks import GHOST_SECONDS, read_lock
     try:
-        names = sorted(p.name for p in _locks(ctx).iterdir())
+        paths = sorted(_locks(ctx).iterdir())
     except OSError:
         return []
-    prefix = ctx.id + "."
-    return [n[len(prefix):-len(".lock")] for n in names if n.startswith(prefix) and n.endswith(".lock")]
+    prefix, now = ctx.id + ".", time.time()
+    roles = []
+    for path in paths:
+        if not (path.name.startswith(prefix) and path.name.endswith(".lock")):
+            continue
+        meta = read_lock(path)
+        if not meta.get("agent_id") and now - float(meta.get("created", path.stat().st_mtime)) > GHOST_SECONDS:
+            continue
+        roles.append(path.name[len(prefix):-len(".lock")])
+    return roles
 
 
 def last_result(ctx: Ctx, role: str) -> dict | None:
@@ -345,6 +357,12 @@ _STOP_KEYS = {
 }
 
 
+def preview_note(ctx: Ctx) -> str:
+    """Where the human opens the designer's preview at design review ("" if none)."""
+    path = ctx.find("preview.html") if ctx.ticket.status == "review-design" else None
+    return "\n" + _msg(ctx.cfg.locale, "next.preview", path=path) if path else ""
+
+
 def next_action(ctx: Ctx, retry: bool = False) -> Action:
     t = ctx.ticket
     status, kind = t.status, t.kind
@@ -367,7 +385,7 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
             return Action("stop", "next.merge_failed", {**base, "reason": failed.get("reason", "")})
         return Action("merge", "next.merge", base)
     if status in _STOP_KEYS:
-        return Action("stop", _STOP_KEYS[status], base)
+        return Action("stop", _STOP_KEYS[status], {**base, "preview": preview_note(ctx)})
 
     action = _dispatch(ctx, status)
     if action.scenario in ("designer-initial", "fix-plan-initial"):

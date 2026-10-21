@@ -19,6 +19,7 @@ needs a targeted correction, not a redesign.
 - If the fix changes props or states, the change is spelled out in "Design intent" so
   coder-impl can follow it.
 - Changed visuals were screenshotted and checked again.
+- `{{ticket_dir}}/preview.html` is rebuilt from the changed components.
 - Open questions are empty, or you report `blocked-unclear`.
 
 ## Read
@@ -31,7 +32,7 @@ needs a targeted correction, not a redesign.
 
 ## You may write
 
-`{{ticket_dir}}/design.md` and the UI directory, only where the finding requires it.
+`{{ticket_dir}}/design.md`, `{{ticket_dir}}/preview.html` and the UI directory, only where the finding requires it.
 
 ## Report
 

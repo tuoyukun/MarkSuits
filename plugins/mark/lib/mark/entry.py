@@ -7,6 +7,7 @@ Groups (registered in hooks/hooks.json):
   pre-dispatch   PreToolUse  Agent|Task                         -> block (exit 2)
   pre-bash       PreToolUse  Bash                               -> block (exit 2)
   post-dispatch  PostToolUse Agent|Task                         -> bind lock, never blocks
+  dispatch-failed PostToolUseFailure Agent|Task                 -> drop the lock, tell Claude why (exit 2)
   post-write     PostToolUse Edit|Write|MultiEdit               -> reminder (exit 2 = feedback only)
   subagent-stop  SubagentStop                                   -> keep subagent running (exit 2)
   user-prompt    UserPromptSubmit                               -> record human commands, never blocks
@@ -33,6 +34,7 @@ GROUPS = {
     "pre-bash": bash.PRE_BASH,
     "post-write": [dispatch.status_reminder],
     "subagent-stop": [locks.verify],
+    "dispatch-failed": [locks.release_failed],
 }
 
 
@@ -70,7 +72,7 @@ def handler_for(group: str):
                   file=sys.stderr)
             sys.exit(EXIT_ALLOW)
         if message:
-            notify(message) if group == "post-write" else block(message)
+            notify(message) if group in ("post-write", "dispatch-failed") else block(message)
     return handle
 
 

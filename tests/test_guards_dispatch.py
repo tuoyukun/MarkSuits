@@ -179,6 +179,25 @@ class LifecycleTest(unittest.TestCase):
             payload["last_assistant_message"] = message
         return hook("subagent-stop", payload)
 
+    def failed(self, error):
+        prompt = anchor("features", "0001-a")
+        return hook("dispatch-failed", {"hook_event_name": "PostToolUseFailure", "tool_name": "Agent",
+                                        "cwd": str(self.root), "error": error,
+                                        "tool_input": {"subagent_type": "coder-impl", "prompt": prompt}})
+
+    def test_failed_dispatch_releases_lock_and_says_restart(self):
+        self.assertEqual(dispatch(self.root, "coder-impl", anchor("features", "0001-a"))[0], 0)
+        code, err = self.failed("Agent type 'coder-impl' not found. Available agents: Explore")
+        self.assertEqual(code, 2)
+        self.assertIn("claude -c", err)
+        self.assertFalse(self.lock.exists())
+        self.assertEqual(dispatch(self.root, "coder-impl", anchor("features", "0001-a"))[0], 0)
+
+    def test_failure_never_releases_a_running_agent(self):
+        self.start()
+        self.assertEqual(self.failed("boom")[0], 0)
+        self.assertTrue(self.lock.exists())
+
     def test_bound_lock_blocks_duplicates(self):
         self.start()
         self.assertEqual(json.loads(self.lock.read_text())["agent_id"], "agent-1")
