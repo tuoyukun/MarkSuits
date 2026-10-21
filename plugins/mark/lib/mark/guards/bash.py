@@ -87,6 +87,11 @@ def git_guard(env: Env) -> str | None:
                 return env.t("guard.bash.commit_main", who=env.role)
             if sub == "push" and _pushes_main(args, branch, main):
                 return env.t("guard.bash.push_main", who=env.role)
+        if sub == "merge" and branch == main and checkout_root(where) == env.main:
+            refs = [a for a in args[1:] if not a.startswith("-")]
+            ticket_ref = next((r for r in refs if r.removeprefix("origin/").startswith(("feature/", "bug/"))), None)
+            if ticket_ref:
+                return env.t("guard.bash.merge_main", ref=ticket_ref, main=main)
         if sub in ("checkout", "switch"):
             names = [a for a in args[1:] if not a.startswith("-")]
             ticket_branch = next((n for n in names if n.startswith(("feature/", "bug/"))), None)

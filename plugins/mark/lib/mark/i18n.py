@@ -126,6 +126,10 @@ MESSAGES["en"].update({
         "  git checkout {main}"
     ),
     "guard.status.invalid": "This status.md would be invalid:\n{problems}",
+    "guard.status.merge_after": (
+        "This edit removes `merge-after` entries ({refs}) from `{rel}`. Declaring a dependency is free;\n"
+        "dropping one is a human decision. Ask the human to edit the file themselves."
+    ),
     "guard.status.move": (
         "Illegal status move `{old}` -> `{new}`. From `{old}` the allowed moves are: {allowed}.\n"
         "Review gates cannot be skipped by editing status.md; use /mark:approve or /mark:reject."
@@ -198,6 +202,7 @@ MESSAGES["en"].update({
         "Do not stop yet: write the missing file(s) to the first location, then finish. If the file does\n"
         "exist somewhere above, say where in your result and finish; do not create a second copy."
     ),
+    "guard.bash.merge_main": "Do not merge `{ref}` into {main} by hand. `mark merge <id>` checks merge order, runs the regression and lands it.",
     "guard.bash.commit_main": "`{who}` may not commit on main. Run git in your worktree: `git -C <worktree> commit ...`.",
     "guard.bash.push_main": "`{who}` may not push to main. Push your ticket branch; merging into main has its own path.",
     "guard.bash.checkout_main": (
@@ -232,6 +237,7 @@ MESSAGES["zh-CN"].update({
     "guard.status.not_main": "`{rel}` 是工单状态，只能在主仓里改。把状态变更写进你的结论，由 orchestrator 在 main 上记录。",
     "guard.status.branch": "工单状态只能在 `{main}` 上改，但主仓现在在 `{branch}` 上。\n  git checkout {main}",
     "guard.status.invalid": "这样写 status.md 不合规：\n{problems}",
+    "guard.status.merge_after": "这次编辑会从 `{rel}` 删掉 `merge-after` 条目（{refs}）。声明依赖随时可以，撤销依赖要人来决定：请人亲手编辑这个文件。",
     "guard.status.move": (
         "非法的状态跳转 `{old}` -> `{new}`。从 `{old}` 只能跳到：{allowed}。\n"
         "不能靠改 status.md 跳过人审闸门，请用 /mark:approve 或 /mark:reject。"
@@ -292,6 +298,7 @@ MESSAGES["zh-CN"].update({
         "已查过这些工单目录：\n{checked}\n"
         "先别结束：把缺的文件写到第一个位置，再结束。如果文件其实在上面某处，在结论里写明位置后直接结束，不要另写一份。"
     ),
+    "guard.bash.merge_main": "不要手工把 `{ref}` 合进 {main}。`mark merge <编号>` 会检查合并顺序、跑回归再合入。",
     "guard.bash.commit_main": "`{who}` 不能在 main 上提交。请在你的 worktree 里执行：`git -C <worktree> commit ...`。",
     "guard.bash.push_main": "`{who}` 不能推送到 main。请推送工单分支，合并进 main 有专门的路径。",
     "guard.bash.checkout_main": "不要在主仓里检出 `{branch}`，主仓是所有会话共用的。请用 worktree：\n  git worktree add \"{wt}\" \"{branch}\"",
@@ -309,7 +316,7 @@ _USAGE_EN = (
     "  mark next <id> [--json]                        what happens next for a ticket\n"
     "  mark dispatch <id> [--prev \"<text>\"] [--trigger \"<text>\"] [--retry]\n"
     "                                                 prepare the worktree, print the dispatch prompt\n"
-    "  mark set <id> <status> [--note \"<text>\"] [--leftover N] [--no-commit]\n"
+    "  mark set <id> <status> [--note \"<text>\"] [--leftover N] [--merge-after <ids>] [--no-commit]\n"
     "  mark approve <id> [--no-commit]                human only (/mark:approve)\n"
     "  mark reject <id> --item \"<text>\"... [--to planning] [--no-commit]   human only (/mark:reject)\n"
     "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
@@ -324,7 +331,7 @@ _USAGE_ZH = (
     "  mark next <编号> [--json]                      这张工单下一步做什么\n"
     "  mark dispatch <编号> [--prev \"<文本>\"] [--trigger \"<文本>\"] [--retry]\n"
     "                                                 备好 worktree，输出派活 prompt\n"
-    "  mark set <编号> <状态> [--note \"<文本>\"] [--leftover N] [--no-commit]\n"
+    "  mark set <编号> <状态> [--note \"<文本>\"] [--leftover N] [--merge-after <编号>] [--no-commit]\n"
     "  mark approve <编号> [--no-commit]              仅限人（/mark:approve）\n"
     "  mark reject <编号> --item \"<文本>\"... [--to planning] [--no-commit]   仅限人（/mark:reject）\n"
     "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
@@ -358,7 +365,12 @@ MESSAGES["en"].update({
     "merge.status": "{id} is at `{status}`; only `pending-merge` tickets are merged.",
     "merge.no_git": "This project is not a git repository; there is nothing to merge.",
     "merge.verdict": "{id}: verdict.md does not end with `<!-- mark:verdict PASSED -->`. Only a passing tester verdict is merged.",
-    "merge.waiting": "{id} must merge after: {deps}. Merge those first.",
+    "merge.waiting": "{id} must merge after: {deps}. Those tickets must be `passed` or `superseded` first.",
+    "merge.cycle": (
+        "`merge-after` forms a cycle, so none of these can ever merge first: {cycle}.\n"
+        "This is a deadlock, not a wait. A human resolves it: merge the tickets, split them differently, or\n"
+        "remove one `merge-after` entry by editing status.md."
+    ),
     "merge.no_worktree": "{id} has no worktree on `{branch}`. Run `mark dispatch` once to restore it, or merge by hand.",
     "merge.fetch_failed": "Could not fetch origin/{main}. Fix the remote and retry.",
     "merge.conflict": (
@@ -394,6 +406,7 @@ MESSAGES["en"].update({
     ),
     # flow errors and notes
     "flow.no_ticket": "No ticket `{ref}`. See `mark status`.",
+    "flow.bad_merge_after": "Not a ticket reference: {refs}. Use `0012` or `b0007`.",
     "flow.ambiguous": "`{ref}` matches several tickets: {hits}. Use the full id.",
     "flow.not_main": "Ticket state only changes on `{main}`, but the main checkout is on `{branch}`.\n  git checkout {main}",
     "flow.commit_failed": "Commit of {paths} failed. Check `git status` in the main checkout.",
@@ -489,7 +502,11 @@ MESSAGES["zh-CN"].update({
     "merge.status": "{id} 处于 `{status}`；只合并 `pending-merge` 的工单。",
     "merge.no_git": "本项目不是 git 仓库，没有可合并的东西。",
     "merge.verdict": "{id}：verdict.md 结尾不是 `<!-- mark:verdict PASSED -->`。只合并 tester 判通过的工单。",
-    "merge.waiting": "{id} 必须排在这些工单之后合并：{deps}。先合它们。",
+    "merge.waiting": "{id} 必须排在这些工单之后合并：{deps}。它们须先到 `passed` 或 `superseded`。",
+    "merge.cycle": (
+        "`merge-after` 成环，环上谁都不可能先合：{cycle}。\n"
+        "这是死锁，不是等待。由人来解：合并这几单、重新划分，或亲手编辑 status.md 删掉一条 `merge-after`。"
+    ),
     "merge.no_worktree": "{id} 在 `{branch}` 上没有 worktree。跑一次 `mark dispatch` 恢复，或手工合并。",
     "merge.fetch_failed": "拉取 origin/{main} 失败。修好远端后重试。",
     "merge.conflict": (
@@ -524,6 +541,7 @@ MESSAGES["zh-CN"].update({
         "  mark dispatch {id} --retry --prev \"<它的结论>\"\n再失败就报告 Human。"
     ),
     "flow.no_ticket": "没有工单 `{ref}`。见 `mark status`。",
+    "flow.bad_merge_after": "不是工单引用：{refs}。请写 `0012` 或 `b0007`。",
     "flow.ambiguous": "`{ref}` 匹配到多张工单：{hits}。请写完整编号。",
     "flow.not_main": "工单状态只能在 `{main}` 上改，但主仓现在在 `{branch}` 上。\n  git checkout {main}",
     "flow.commit_failed": "提交 {paths} 失败。请在主仓查看 `git status`。",

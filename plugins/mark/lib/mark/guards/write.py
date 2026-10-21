@@ -1,7 +1,7 @@
 """Guards for file writes (PreToolUse: Edit | Write | MultiEdit | NotebookEdit)."""
 from __future__ import annotations
 
-from .. import globs, states, tickets
+from .. import flow, globs, states, tickets
 from ..config import MAIN
 from ..gitutil import current_branch
 from .common import Env, Location
@@ -130,11 +130,20 @@ def status_guard(env: Env) -> str | None:
         listed = "\n".join("  - " + env.t(p.key, **p.params) for p in problems)
         return env.t("guard.status.invalid", problems=listed)
 
-    old_status = tickets.parse_status(old_text)[0].get("status", "") if old_text else ""
+    old_fields = tickets.parse_status(old_text)[0] if old_text else {}
+    old_status = old_fields.get("status", "")
     new_status = fields.get("status", "")
     if states.is_valid(kind, old_status) and not states.can_move(kind, old_status, new_status):
         allowed = ", ".join(sorted(states.TRANSITIONS[kind][old_status])) or "-"
         return env.t("guard.status.move", old=old_status, new=new_status, allowed=allowed)
+    old_ticket = tickets.Ticket(kind, ticket_id, loc.path, old_fields)
+    removed = sorted(set(flow.merge_after(old_ticket)) - set(flow.merge_after(ticket)))
+    if removed:
+        return env.t("guard.status.merge_after", refs=", ".join(removed), rel=loc.rel)
+    if new_status == "passed" and old_status != "passed":
+        blocked = flow.merge_blockers(env.cfg, ticket)
+        if blocked:
+            return env.t(blocked.key, **blocked.params)
     return None
 
 

@@ -6,7 +6,7 @@ import time
 import unittest
 
 from tests._support import (FULL_CONFIG, add_origin, add_templates, add_ticket, add_worktree, hook,
-                            human_typed, make_project, make_repo, sh)
+                            human_typed, make_project, make_repo, sh, status_text)
 
 from mark import cli, flow, human, reviews
 from mark.config import load_config
@@ -353,6 +353,78 @@ class MergeTest(unittest.TestCase):
         code, _, err = run(self.root, "merge", "b0001")
         self.assertEqual(code, 1)
         self.assertIn("0002-y (testing)", err)
+
+
+class MergeOrderTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_repo()
+
+    def ticket(self, ticket_id, status, after=None):
+        kind = "bug" if ticket_id.startswith("b") else "feature"
+        d = add_ticket(self.root, kind, ticket_id, status, gates=["ticket-approved"], commit=False)
+        extra = {"merge-after": after} if after else {}
+        if status in ("pending-merge", "passed"):
+            extra["leftover"] = "0"
+        (d / "status.md").write_text(status_text(status, **extra))
+        return d
+
+    def blockers(self, ref):
+        ctx = ctx_of(self.root, ref)
+        return flow.merge_blockers(ctx.cfg, ctx.ticket)
+
+    def test_passed_and_superseded_satisfy(self):
+        self.ticket("0001-a", "passed")
+        self.ticket("0002-b", "superseded")
+        self.ticket("0003-c", "pending-merge", "[0001, 0002]")
+        self.assertIsNone(self.blockers("0003"))
+
+    def test_unmet_unknown_and_ambiguous_block(self):
+        self.ticket("0001-a", "testing")
+        self.ticket("0004-x", "passed")
+        self.ticket("b0004-y", "passed")
+        self.ticket("0003-c", "pending-merge", "[0001, 0009, 0004]")
+        err = self.blockers("0003")
+        self.assertEqual(err.key, "merge.waiting")
+        deps = err.params["deps"]
+        self.assertIn("0001-a (testing)", deps)
+        self.assertIn("0009 (No ticket", deps)
+        self.assertNotIn("0004 (", deps)   # `0004` is an exact prefix of one feature only
+        a = flow.next_action(ctx_of(self.root, "0003"))
+        self.assertEqual((a.kind, a.message), ("stop", "merge.waiting"))
+
+    def test_cycle_is_named(self):
+        self.ticket("0001-a", "pending-merge", "[0002]")
+        self.ticket("0002-b", "testing", "[0003]")
+        self.ticket("0003-c", "developing", "[0001]")
+        err = self.blockers("0001")
+        self.assertEqual(err.key, "merge.cycle")
+        self.assertEqual(err.params["cycle"], "0001-a -> 0002-b -> 0003-c -> 0001-a")
+        self.ticket("0003-c", "superseded", "[0001]")   # a finished link breaks the cycle
+        self.assertEqual(self.blockers("0001").key, "merge.waiting")
+
+    def test_set_adds_merge_after_and_refuses_passed(self):
+        self.ticket("0001-a", "testing")
+        d = self.ticket("0002-b", "planning", "[0001]")
+        sh(self.root, "git", "add", ".")
+        sh(self.root, "git", "commit", "-qm", "t")
+        self.assertIn("Not a ticket reference: x1", run(self.root, "set", "0002", "review-plan", "--merge-after", "x1")[2])
+        code, _, err = run(self.root, "set", "0002", "review-plan", "--merge-after", "0001, b0003", "--no-commit")
+        self.assertEqual(code, 0, err)
+        self.assertIn("merge-after: [0001, b0003]", (d / "status.md").read_text())
+        self.ticket("0003-c", "pending-merge", "[0001]")
+        self.assertIn("0001-a (testing)", run(self.root, "set", "0003", "passed", "--no-commit")[2])
+
+    def test_waiting_is_not_recorded_as_a_failed_merge(self):
+        self.ticket("0001-a", "testing")
+        self.ticket("0002-b", "pending-merge", "[0001]")
+        sh(self.root, "git", "add", ".")
+        sh(self.root, "git", "commit", "-qm", "t")
+        code, _, err = run(self.root, "merge", "0002")
+        self.assertEqual(code, 1)
+        self.assertIn("0001-a (testing)", err)
+        self.assertFalse((self.root / ".mark/locks/0002-b.merge.result.json").exists())
+        self.ticket("0001-a", "passed")
+        self.assertEqual(ctx_next(self.root, "0002").kind, "merge")
 
 
 class HumanDecisionTest(unittest.TestCase):

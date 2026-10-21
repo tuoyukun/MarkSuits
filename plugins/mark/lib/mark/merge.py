@@ -1,7 +1,7 @@
 """Automated merge: `mark merge <id>` takes a ticket from `pending-merge` to `passed`.
 
 1. Checks: status, the tester's `<!-- mark:verdict PASSED -->`, `merge-after` tickets
-   passed, clean worktree, main checkout on main.
+   passed or superseded (no cycle), clean worktree, main checkout on main.
 2. In the worktree: merge the latest main into the ticket branch (conflict: abort).
 3. In the worktree: run `[merge] regression` (exit 0 = green; empty = skipped).
 4. In the main checkout: fast-forward main to the branch and push it.
@@ -18,13 +18,14 @@ import re
 import subprocess
 import time
 
-from . import flow, tickets
+from . import flow
 from .flow import Ctx, FlowError
 from .gitutil import dirty_paths, git, has_remote, worktrees
 from .i18n import t
 
 _VERDICT_RE = re.compile(r"<!--\s*mark:verdict\s+(PASSED|FAILED)\s*-->")
 LOG_TAIL = 20
+ORDER_KEYS = ("merge.waiting", "merge.cycle")
 
 Notes = list[tuple[str, dict]]
 
@@ -33,7 +34,8 @@ def run(ctx: Ctx) -> Notes:
     try:
         return _merge(ctx)
     except FlowError as exc:
-        _record(ctx, t(ctx.cfg.locale, exc.key, **exc.params))
+        if exc.key not in ORDER_KEYS:  # order is re-checked by `mark next`; not a failed merge
+            _record(ctx, t(ctx.cfg.locale, exc.key, **exc.params))
         raise
 
 
@@ -50,6 +52,9 @@ def _record(ctx: Ctx, reason: str) -> None:
 def _precheck(ctx: Ctx) -> None:
     if ctx.ticket.status != "pending-merge":
         raise FlowError("merge.status", id=ctx.id, status=ctx.ticket.status)
+    blocked = flow.merge_blockers(ctx.cfg, ctx.ticket)
+    if blocked:
+        raise blocked
     if not flow._is_git(ctx):
         raise FlowError("merge.no_git")
     flow._require_main_branch(ctx)
@@ -57,13 +62,6 @@ def _precheck(ctx: Ctx) -> None:
     found = _VERDICT_RE.findall(verdict.read_text(encoding="utf-8")) if verdict else []
     if not found or found[-1] != "PASSED":
         raise FlowError("merge.verdict", id=ctx.id)
-    waiting = []
-    for ref in tickets.parse_merge_after(ctx.ticket.get("merge-after") or "[]") or []:
-        dep = flow.load(ctx.cfg, ref)
-        if dep.ticket.status != "passed":
-            waiting.append(f"{dep.id} ({dep.ticket.status})")
-    if waiting:
-        raise FlowError("merge.waiting", id=ctx.id, deps=", ".join(waiting))
     if not any(b == ctx.branch for _, b in worktrees(ctx.main)):
         raise FlowError("merge.no_worktree", id=ctx.id, branch=ctx.branch)
     dirty = dirty_paths(ctx.worktree, ".")

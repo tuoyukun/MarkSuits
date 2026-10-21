@@ -279,6 +279,14 @@ class BashTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("git worktree add", err)
 
+    def test_merging_ticket_branch_into_main_by_hand_is_blocked(self):
+        code, err = bash(self.root, "git merge --no-ff feature/0001-a")
+        self.assertEqual(code, 2)
+        self.assertIn("mark merge", err)
+        self.assertEqual(bash(self.root, "git merge origin/bug/b0002-x")[0], 2)
+        self.assertEqual(bash(self.wt, "git merge main")[0], 0)   # main into the ticket branch
+        self.assertEqual(bash(self.root, "git merge --abort")[0], 0)
+
     def test_heredoc_body_is_not_a_command(self):
         cmd = "cat > notes.txt <<'EOF'\ngit commit -m x\nEOF"
         self.assertEqual(bash(self.root, cmd, "coder-impl")[0], 0)

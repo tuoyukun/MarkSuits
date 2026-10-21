@@ -168,6 +168,18 @@ A failure is recorded as `locks/<id>.merge.result.json`; while it is newer than 
 `mark next` stops for the human. Concurrent merges serialize on the fast-forward: the loser
 fails with `merge.ff_failed` and is run again.
 
+**Merge order (v0.8).** `merge-after: [0012, b0007]` lists tickets that must land first; `passed`
+and `superseded` both satisfy it (otherwise folding one ticket into another deadlocks). One check,
+`flow.merge_blockers`, serves every entry point: `mark next` (stop, naming the tickets),
+`mark merge`, `mark set … passed`, and the status guard for hand edits. Order:
+a cycle among unfinished tickets is reported first, with its path (`0001 -> 0002 -> 0001`);
+then each unmet entry with its status; an unknown or ambiguous reference blocks and is never
+guessed. Order refusals are not recorded as merge failures, so the ticket proceeds by itself
+once its dependencies land. Adding entries is free (`mark set --merge-after`, coder-plan
+reports them); removing one is a human edit (the status guard refuses it from Claude). The
+bash guard refuses `git merge feature/…|bug/…` on main in the main checkout: tickets land only
+through `mark merge`.
+
 ### Project template (v0.5)
 
 `copier.yml` sits at the repo root (Copier only looks there) with `_subdirectory: template/project`.
@@ -238,7 +250,7 @@ agents, role rules, 13 prompt templates, artifact formats, en + zh-CN, CI) · ex
 `examples/todo`, sandbox script, feature + bug chains run live, recorded in `examples/README.md`).
 
 **Phase 2 — merge and hygiene**
-auto-merge with pluggable regression contract ✅ (v0.7: `mark merge`, `merge-after` checked) · merge-order · doc-budget · general-mode lane ·
+auto-merge with pluggable regression contract ✅ (v0.7: `mark merge`, `merge-after` checked) · merge-order ✅ (v0.8: cycles, superseded, guards) · doc-budget · general-mode lane ·
 worktree env provisioning interface.
 
 **Phase 3 — optional plugins**

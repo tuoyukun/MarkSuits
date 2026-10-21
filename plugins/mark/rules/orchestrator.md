@@ -39,7 +39,7 @@ already answers in it).
 |---|---|---|
 | designer (`designing`) | design done | `review-design` |
 | | conflict in the requirement / contract | `blocked-spec` or `blocked-unclear` |
-| coder-plan (`planning`) | plan done | `review-plan` |
+| coder-plan (`planning`) | plan done | `review-plan` (plus `--merge-after <ids>` if it reports any) |
 | fix-plan (`planning`, bug) | plan done | `developing` (no review gate) |
 | coder-impl (`developing`, `failed-impl`) | implemented, self-check green | `testing` (if told design QA is required: `design-qa`) |
 | | the plan has a hole | `blocked-plan` |
@@ -76,6 +76,11 @@ background and wait for it, like an agent.
 If it fails, main was not changed. Report the reason to the human in plain words and stop;
 never resolve conflicts, fix tests or merge by hand yourself. `mark next` keeps answering
 "stop" until the human acts (asks you to merge again, or `/mark:reject`).
+
+**Merge order.** `merge-after` in `status.md` lists tickets that must land first (`passed` or
+`superseded`). Until they do, `mark next` answers "stop" and names them: report which tickets
+this one waits for. `--merge-after` on `mark set` only adds entries; removing one, or
+breaking a cycle, is the human's edit.
 
 ## Hard rules
 

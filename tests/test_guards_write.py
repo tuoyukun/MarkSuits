@@ -145,6 +145,31 @@ class StatusTest(unittest.TestCase):
         self.assertIn("main checkout is on `side`", err)
 
 
+def merge_status(status, after):
+    return status_text(status, **{"merge-after": after, "leftover": "0"})
+
+
+class MergeAfterTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_repo()
+        add_ticket(self.root, "feature", "0002-dep", "testing", gates=["ticket-approved"])
+        self.tdir = add_ticket(self.root, "feature", "0001-login", "pending-merge", gates=["ticket-approved"])
+        self.status = self.tdir / "status.md"
+        self.status.write_text(merge_status("pending-merge", "[0002]"))
+
+    def test_removing_an_entry_is_blocked_adding_is_free(self):
+        code, err = write(self.root, self.status, content=merge_status("pending-merge", "[]"))
+        self.assertEqual(code, 2)
+        self.assertIn("removes `merge-after` entries (0002)", err)
+        add = merge_status("pending-merge", "[0002, b0009]")
+        self.assertEqual(write(self.root, self.status, content=add)[0], 0)
+
+    def test_passed_by_hand_needs_dependencies(self):
+        code, err = write(self.root, self.status, content=merge_status("passed", "[0002]"))
+        self.assertEqual(code, 2)
+        self.assertIn("0002-dep (testing)", err)
+
+
 class EntryTest(unittest.TestCase):
     def test_silent_outside_mark_project(self):
         root = make_project(None)

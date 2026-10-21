@@ -112,6 +112,65 @@ def load(cfg: MarkConfig, ref: str) -> Ctx:
     return Ctx(cfg, tickets.load_ticket(cfg, *hits[0]))
 
 
+# --------------------------------------------------------------------------
+# Merge order (`merge-after`)
+# --------------------------------------------------------------------------
+
+def merge_after(ticket: tickets.Ticket) -> list[str]:
+    return tickets.parse_merge_after(ticket.get("merge-after") or "[]") or []
+
+
+def _open_dep(cfg: MarkConfig, ref: str) -> tickets.Ticket | None:
+    """The dependency if it still holds things up; None if done or unresolvable."""
+    try:
+        dep = load(cfg, ref).ticket
+    except FlowError:
+        return None
+    return None if dep.status in states.TERMINAL else dep
+
+
+def merge_cycle(cfg: MarkConfig, ticket: tickets.Ticket) -> list[str] | None:
+    """`[A, B, A]` if unfinished `merge-after` links lead back to a ticket."""
+    path: list[str] = []
+    done: set[str] = set()
+
+    def dfs(node: tickets.Ticket) -> list[str] | None:
+        if node.id in path:
+            return path[path.index(node.id):] + [node.id]
+        if node.id in done:
+            return None
+        path.append(node.id)
+        for ref in merge_after(node):
+            dep = _open_dep(cfg, ref)
+            found = dep and dfs(dep)
+            if found:
+                return found
+        path.pop()
+        done.add(node.id)
+        return None
+
+    return dfs(ticket)
+
+
+def merge_blockers(cfg: MarkConfig, ticket: tickets.Ticket) -> FlowError | None:
+    """Why `ticket` may not land yet. `passed` and `superseded` both satisfy `merge-after`."""
+    cycle = merge_cycle(cfg, ticket)
+    if cycle:
+        return FlowError("merge.cycle", id=ticket.id, cycle=" -> ".join(cycle))
+    waiting = []
+    for ref in merge_after(ticket):
+        try:
+            dep = load(cfg, ref).ticket
+        except FlowError as exc:   # unknown or ambiguous: never guess, block
+            waiting.append(f"{ref} ({_msg(cfg.locale, exc.key, **exc.params)})")
+            continue
+        if dep.status not in states.TERMINAL:
+            waiting.append(f"{dep.id} ({dep.status})")
+    if waiting:
+        return FlowError("merge.waiting", id=ticket.id, deps=", ".join(waiting))
+    return None
+
+
 def _today() -> str:
     return _dt.date.today().isoformat()
 
@@ -298,6 +357,9 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
     if running:
         return Action("wait", "next.wait", {**base, "roles": ", ".join(running)}, role=running[0])
     if status == "pending-merge":
+        blocked = merge_blockers(ctx.cfg, t)
+        if blocked:
+            return Action("stop", blocked.key, {**base, **blocked.params})
         failed = last_result(ctx, "merge")
         if failed:
             return Action("stop", "next.merge_failed", {**base, "reason": failed.get("reason", "")})
@@ -446,7 +508,8 @@ def _move(ctx: Ctx, new: str, note: str | None, extra: dict[str, str] | None = N
     return old
 
 
-def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None = None) -> str:
+def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None = None,
+               add_after: list[str] | None = None) -> str:
     """Orchestrator records an outcome. Human gates are not movable from here."""
     if _is_git(ctx):
         _require_main_branch(ctx)
@@ -456,11 +519,24 @@ def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None
     if new == "testing" and old in ("developing", "failed-impl") and design_qa_needed(ctx) \
             and qa_result(ctx) != "passed":
         raise FlowError("flow.need_design_qa", id=ctx.id)
+    if add_after:
+        # Declaring a dependency is free; removing one is a human edit (status guard).
+        bad = [r for r in add_after if tickets.parse_merge_after(f"[{r}]") is None]
+        if bad:
+            raise FlowError("flow.bad_merge_after", refs=", ".join(bad))
+        refs = merge_after(ctx.ticket)
+        refs += [r for r in add_after if r not in refs]
+    if new == "passed":
+        blocked = merge_blockers(ctx.cfg, ctx.ticket)
+        if blocked:
+            raise blocked
     if new == "passed" and _is_git(ctx) and ref_exists(ctx.main, f"refs/heads/{ctx.branch}"):
         unmerged = patch_unique(ctx.main, ctx.cfg.main_branch, f"refs/heads/{ctx.branch}")
         if unmerged:
             raise FlowError("flow.unmerged", branch=ctx.branch, n=len(unmerged), main=ctx.cfg.main_branch)
     extra = {"leftover": str(leftover)} if leftover is not None else {}
+    if add_after:
+        extra["merge-after"] = f"[{', '.join(refs)}]"
     return _move(ctx, new, note, extra)
 
 

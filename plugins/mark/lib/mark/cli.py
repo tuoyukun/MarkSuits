@@ -7,6 +7,7 @@ any worktree.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import TextIO
@@ -210,12 +211,14 @@ def cmd_dispatch(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
 
 
 def cmd_set(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
-    opts, pos = _parse(args, {"--note", "--leftover"})
+    opts, pos = _parse(args, {"--note", "--leftover", "--merge-after"})
     if opts is None or len(pos) != 2:
         _say(cfg, err, "cli.usage")
         return 2
     ctx = flow.load(cfg, pos[0])
-    old = flow.set_status(ctx, pos[1], note=opts.get("--note"), leftover=opts.get("--leftover"))
+    after = [r for r in re.split(r"[\s,\[\]]+", opts.get("--merge-after", "")) if r and r != "none"]
+    old = flow.set_status(ctx, pos[1], note=opts.get("--note"), leftover=opts.get("--leftover"),
+                          add_after=after)
     _say(cfg, out, "set.done", id=ctx.id, old=old, new=pos[1])
     return _commit(cfg, ctx, f"{ctx.id}: {old} -> {pos[1]}", opts, out)
 
