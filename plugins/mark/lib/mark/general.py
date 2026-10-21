@@ -13,7 +13,7 @@ from pathlib import Path
 
 from . import merge
 from .config import MarkConfig
-from .flow import FlowError
+from .flow import FlowError, provision
 from .gitutil import current_branch, dirty_paths, git, has_remote, worktrees
 
 PREFIX = "chore/general-"
@@ -26,8 +26,8 @@ def _require_git(cfg: MarkConfig) -> None:
         raise FlowError("merge.no_git")
 
 
-def new(cfg: MarkConfig) -> tuple[str, Path]:
-    """Create the lane branch from the latest main and its worktree."""
+def new(cfg: MarkConfig) -> tuple[str, Path, Notes]:
+    """Create the lane branch from the latest main and its worktree, provisioned by `[worktree] setup`."""
     _require_git(cfg)
     stamp = time.strftime("%Y%m%d-%H%M%S")
     branch = PREFIX + stamp
@@ -41,7 +41,12 @@ def new(cfg: MarkConfig) -> tuple[str, Path]:
     if git(["worktree", "add", "-q", str(wt), branch], cfg.root)[0] != 0:
         git(["branch", "-q", "-D", branch], cfg.root)  # just created, no commits: safe
         raise FlowError("flow.iso.worktree_failed", wt=str(wt), branch=branch)
-    return branch, wt
+    try:
+        notes = provision(cfg, wt, branch, f"general-{stamp}")
+    except FlowError:
+        git(["branch", "-q", "-D", branch], cfg.root)  # provision removed the worktree; no commits yet
+        raise
+    return branch, wt, notes
 
 
 def merge_lane(cfg: MarkConfig, branch: str) -> Notes:

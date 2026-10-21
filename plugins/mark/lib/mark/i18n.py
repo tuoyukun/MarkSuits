@@ -460,6 +460,16 @@ MESSAGES["en"].update({
         "  cd \"{wt}\" && git add -A && git commit -m \"{id}: <role> output\""
     ),
     "flow.iso.worktree": "Created worktree {wt}.",
+    "flow.iso.setup": "Provisioned the new worktree: `{cmd}`.",
+    "flow.iso.setup_failed": (
+        "Worktree setup `{cmd}` failed ({result}), so the new worktree was removed and no agent was started.\n"
+        "Fix `[worktree] setup` in .mark/config.toml (or what it needs in the main checkout), then retry.\n"
+        "Full log: {log}\n--- last lines ---\n{tail}"
+    ),
+    "flow.iso.setup_dirty": (
+        "Worktree setup `{cmd}` left files git sees, so the new worktree was removed:\n{files}\n"
+        "Gitignore them (a symlink needs `name`, not `name/`), then retry. Full log: {log}"
+    ),
     "flow.iso.branch_failed": "Could not create branch {branch} from {base}.",
     "flow.iso.worktree_failed": "Could not create worktree {wt} for {branch}.",
     "flow.iso.push_failed": "Could not push {branch} to origin. Fix the remote and retry; the work must not live on one machine only.",
@@ -614,6 +624,16 @@ MESSAGES["zh-CN"].update({
         "  cd \"{wt}\" && git add -A && git commit -m \"{id}: <角色> 产出\""
     ),
     "flow.iso.worktree": "已建 worktree {wt}。",
+    "flow.iso.setup": "新 worktree 已完成准备：`{cmd}`。",
+    "flow.iso.setup_failed": (
+        "worktree 准备命令 `{cmd}` 失败（{result}），新 worktree 已删除，没有派出任何 agent。\n"
+        "修好 .mark/config.toml 的 `[worktree] setup`（或它在主仓依赖的东西）后重试。\n"
+        "完整日志：{log}\n--- 最后几行 ---\n{tail}"
+    ),
+    "flow.iso.setup_dirty": (
+        "worktree 准备命令 `{cmd}` 留下了 git 能看见的文件，新 worktree 已删除：\n{files}\n"
+        "把它们加进 .gitignore（软链要写 `name`，不能写 `name/`）后重试。完整日志：{log}"
+    ),
     "flow.iso.branch_failed": "无法从 {base} 建分支 {branch}。",
     "flow.iso.worktree_failed": "无法为 {branch} 建 worktree {wt}。",
     "flow.iso.push_failed": "无法把 {branch} 推到 origin。修好远端后重试；产出不能只存在一台机器上。",

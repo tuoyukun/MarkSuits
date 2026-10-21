@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import os
 import re
+import subprocess
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -423,6 +425,46 @@ def commit(ctx: Ctx, message: str) -> list[str]:
     return notes
 
 
+SETUP_LOG_TAIL = 20
+
+
+def provision(cfg: MarkConfig, wt: Path, branch: str, log_name: str) -> list[tuple[str, dict]]:
+    """Run `[worktree] setup` in a worktree that was just created.
+
+    A worktree only has tracked files; the project's command adds what agents need
+    (dependencies, `.env`, local config). It must exit 0 within the timeout and leave
+    nothing git sees, or the new worktree is removed again: an agent never gets a
+    half-provisioned checkout, and the next dispatch starts over.
+    """
+    cmd = cfg.worktree_setup
+    if not cmd:
+        return []
+    log = cfg.state_dir / "locks" / f"{log_name}.setup.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    env = {**os.environ, "MARK_MAIN_CHECKOUT": str(cfg.root), "MARK_BRANCH": branch}
+    with log.open("w", encoding="utf-8") as fh:
+        try:
+            code = subprocess.run(cmd, shell=True, cwd=wt, env=env, stdout=fh, stderr=subprocess.STDOUT,
+                                  timeout=cfg.worktree_setup_timeout).returncode
+        # shortcut: a timeout kills the shell, not its children; use a process group if setups hang.
+        except subprocess.TimeoutExpired:
+            code = None
+        except OSError as exc:
+            fh.write(f"{exc}\n")
+            code = 127
+    dirty = dirty_paths(wt, ".") if code == 0 else []
+    if code == 0 and not dirty:
+        return [("flow.iso.setup", {"cmd": cmd})]
+    git(["worktree", "remove", "--force", str(wt)], cfg.root)
+    rel_log = log.relative_to(cfg.root).as_posix()
+    if dirty:
+        raise FlowError("flow.iso.setup_dirty", cmd=cmd, log=rel_log,
+                        files="\n".join(f"  - {p}" for p in dirty[:10]))
+    tail = "\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-SETUP_LOG_TAIL:])
+    result = f"timeout {cfg.worktree_setup_timeout}s" if code is None else f"exit {code}"
+    raise FlowError("flow.iso.setup_failed", cmd=cmd, result=result, log=rel_log, tail=tail)
+
+
 def ensure_isolation(ctx: Ctx) -> list[tuple[str, dict]]:
     """Branch `<kind>/<id>` from main, its worktree, and its remote copy. Idempotent."""
     if not _is_git(ctx):
@@ -446,6 +488,7 @@ def ensure_isolation(ctx: Ctx) -> list[tuple[str, dict]]:
         if code != 0:
             raise FlowError("flow.iso.worktree_failed", wt=str(ctx.worktree), branch=ctx.branch)
         done.append(("flow.iso.worktree", {"wt": str(ctx.worktree)}))
+        done += provision(ctx.cfg, ctx.worktree, ctx.branch, ctx.id)
     else:
         dirty = dirty_paths(ctx.worktree, ".")
         if dirty:

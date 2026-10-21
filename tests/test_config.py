@@ -40,6 +40,14 @@ class LoadConfigTest(unittest.TestCase):
                                        '[[doc_budget]]\nmax_bytes = 5\n'))
         self.assertEqual([(r.glob, r.max_bytes) for r in cfg.doc_budget], [("a.md", 10)])
 
+    def test_worktree_setup_is_optional(self):
+        cfg = load_config(make_project())
+        self.assertEqual((cfg.worktree_setup, cfg.worktree_setup_timeout), ("", 300))
+        cfg = load_config(make_project('mark_schema = 1\n[worktree]\nsetup = " npm ci "\nsetup_timeout = 60\n'))
+        self.assertEqual((cfg.worktree_setup, cfg.worktree_setup_timeout), ("npm ci", 60))
+        cfg = load_config(make_project('mark_schema = 1\n[worktree]\nsetup_timeout = "60"\n'))
+        self.assertEqual(cfg.worktree_setup_timeout, 300)
+
     def test_rejects_invalid_toml(self):
         root = make_project("mark_schema = [\n")
         with self.assertRaises(ConfigError):

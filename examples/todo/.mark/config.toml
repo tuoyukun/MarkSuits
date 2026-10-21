@@ -51,6 +51,16 @@ dir = ".claude/worktrees"
 # The main checkout is a state lane: only ticket dirs, gates and locks change there.
 # List extra globs here if your team edits them directly on main.
 main_writable = []
+# A new worktree has only tracked files: no dependencies, no .env, no local config.
+# `mark dispatch` and `mark general new` run this shell command in each worktree they create,
+# before any agent works there; exit 0 within setup_timeout seconds = ready. It gets the main
+# checkout in $MARK_MAIN_CHECKOUT and the branch in $MARK_BRANCH, for example:
+#   setup = 'cp "$MARK_MAIN_CHECKOUT/.env" . && ln -s "$MARK_MAIN_CHECKOUT/node_modules" .'
+# Everything it creates must be gitignored (a symlink matches `node_modules`, not
+# `node_modules/`). On failure the new worktree is removed and the log is kept in
+# .mark/locks/<id>.setup.log. Empty: no setup.
+setup = "npm ci"
+setup_timeout = 300
 
 # Doc budgets: byte limits for the docs every role loads, so their context does not
 # grow by one harmless line at a time. First matching glob wins; max_bytes = 0 exempts

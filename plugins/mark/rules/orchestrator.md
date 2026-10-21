@@ -15,7 +15,9 @@ already answers in it).
      on verbatim (recorded when that agent stopped, so it survives `/clear`). Add
      `--prev "<text>"` only when the step before was not an agent, e.g. the output of
      `mark reject`.
-     It creates or reuses the ticket's branch and worktree, then prints `subagent_type`,
+     It creates or reuses the ticket's branch and worktree (a new worktree first runs the
+     project's `[worktree] setup`, which can take minutes: give the Bash call a timeout above
+     its `setup_timeout`; if setup fails, report it and stop), then prints `subagent_type`,
      `description` and the prompt. Call the Agent tool with exactly that `subagent_type`
      and everything after `--- prompt ---` as the prompt, unchanged. Do not summarize,
      extend or rewrite it, and never substitute `general-purpose` or another type.

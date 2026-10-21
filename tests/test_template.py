@@ -28,7 +28,8 @@ TEMPLATE = REPO_ROOT / "template" / "project"
 LOCALES = ("en", "zh-CN")
 ANSWERS = {"locale": "en", "profile": "web-fullstack", "project_name": "demo", "main_branch": "main",
            "frontend_dir": "frontend", "backend_dir": "backend", "ui_dir": "frontend/src/ui",
-           "tests_dir": "tests", "regression_cmd": "make test"}
+           "tests_dir": "tests", "regression_cmd": "make test",
+           "worktree_setup": "npm ci"}
 
 # Anchors each artifact format must show (language-neutral, see CLAUDE.md rule 7).
 FORMAT_ANCHORS = {
@@ -84,6 +85,9 @@ class TemplateConfigTest(unittest.TestCase):
 
     def test_regression_answer_reaches_merge(self):
         self.assertEqual(self.cfg.merge_regression, "make test")
+
+    def test_setup_answer_reaches_worktree(self):
+        self.assertEqual((self.cfg.worktree_setup, self.cfg.worktree_setup_timeout), ("npm ci", 300))
 
     def test_roles_are_top_level(self):
         # A `roles` line below a [table] header would silently become e.g. paths.roles.

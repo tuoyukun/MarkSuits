@@ -4,9 +4,9 @@
 packaged as a plugin plus a project template — a "starter" for teams that want several
 specialized agents to build software together without stepping on each other.
 
-> Status: v0.10.0. The engine, the project template (`en` and `zh-CN`) and an example
+> Status: v0.11.0. The engine, the project template (`en` and `zh-CN`) and an example
 > project are complete, and both chains (bug and feature) have run end to end on the
-> example: see [examples/](examples/). Tickets now merge automatically (`mark merge`), docs/config changes outside any ticket go through `/mark:general`, and the docs every role loads stay within byte budgets (`[[doc_budget]]`). Not ready for production use yet.
+> example: see [examples/](examples/). Tickets now merge automatically (`mark merge`), docs/config changes outside any ticket go through `/mark:general`, the docs every role loads stay within byte budgets (`[[doc_budget]]`), and each new worktree is provisioned by the project's `[worktree] setup` before an agent works there. Not ready for production use yet.
 
 [中文说明](README.zh-CN.md)
 

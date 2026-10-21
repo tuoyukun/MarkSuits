@@ -279,7 +279,9 @@ def cmd_merge(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
 def cmd_general(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     """`mark general new` | `mark general merge <branch>`: the no-ticket lane."""
     if args == ["new"]:
-        branch, wt = general.new(cfg)
+        branch, wt, notes = general.new(cfg)
+        for key, params in notes:
+            _say(cfg, out, key, **params)
         _say(cfg, out, "general.new", branch=branch, wt=wt)
         return 0
     if len(args) == 2 and args[0] == "merge":

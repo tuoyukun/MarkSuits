@@ -32,8 +32,8 @@ Each module has a `CONTEXT.md` that describes its current shape.
 
 ## 4. Commands
 
-Role agents run exactly these, from the root of their worktree. Run the install once per
-fresh worktree.
+Role agents run exactly these, from the root of their worktree. Every new worktree gets
+`npm ci` before an agent starts (`[worktree] setup`); install the browser once per machine.
 
 | Purpose | Command |
 |---|---|

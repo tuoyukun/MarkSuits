@@ -49,3 +49,8 @@ regression_cmd:
   type: str
   help: Full regression command `mark merge` runs before a ticket lands on main (empty for none)
   default: ""
+
+worktree_setup:
+  type: str
+  help: Command run in every new worktree before an agent works there, e.g. `npm ci` (empty for none)
+  default: ""

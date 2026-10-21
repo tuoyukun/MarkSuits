@@ -117,6 +117,16 @@ class MarkConfig:
         return [str(g) for g in self._section("worktree").get("main_writable", [])]
 
     @property
+    def worktree_setup(self) -> str:
+        """Shell command run in every new worktree before an agent gets it; exit 0 = ready."""
+        return str(self._section("worktree").get("setup", "")).strip()
+
+    @property
+    def worktree_setup_timeout(self) -> int:
+        value = self._section("worktree").get("setup_timeout", 300)
+        return value if type(value) is int and value > 0 else 300
+
+    @property
     def prompts_dir(self) -> Path:
         """Dispatch prompt templates (`<scenario>.md`), owned by the project."""
         rel = str(self._section("paths").get("prompts", f"{self.state_rel}/prompts")).strip("/")

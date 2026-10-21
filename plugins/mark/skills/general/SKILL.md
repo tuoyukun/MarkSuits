@@ -17,7 +17,8 @@ ticket, no subagents, no review gates. You edit the files yourself, on a throwaw
    decision, it is not general work: say so and suggest `/mark:fix` or `/mark:feature`, then
    stop. Write scopes enforce the same line; a `[BLOCKED]` on a code path means you are here.
 2. **Agree on the change** with the human when it is not obvious from the request.
-3. **Open a lane.** `mark general new` prints the branch and worktree.
+3. **Open a lane.** `mark general new` prints the branch and worktree. It runs the project's
+   `[worktree] setup` first, which can take minutes; if setup fails, no lane is left: report it and stop.
 4. **Edit in the lane** with absolute paths under that worktree, never in the main checkout.
 5. **Commit in the lane**: `git -C "<worktree>" add -A && git -C "<worktree>" commit -m "<message>"`.
 6. **Land it.** `mark general merge <branch>` merges the latest main in, runs the project's

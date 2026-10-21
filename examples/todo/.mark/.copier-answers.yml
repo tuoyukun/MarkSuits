@@ -10,3 +10,4 @@ project_name: todo
 regression_cmd: npm test
 tests_dir: tests
 ui_dir: frontend/src/ui
+worktree_setup: npm ci

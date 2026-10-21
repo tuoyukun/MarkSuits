@@ -416,6 +416,31 @@ class GeneralLaneTest(unittest.TestCase):
         self.assertEqual(sh(self.root, "git", "rev-parse", "main"), before)
         self.assertTrue(wt.is_dir())
 
+    def test_provisioned_lane_still_merges_and_is_removed(self):
+        (self.root / ".mark/config.toml").write_text(
+            FULL_CONFIG + '\n[worktree]\nsetup = \'echo k > .env && ln -s "$MARK_MAIN_CHECKOUT/.mark" node_modules\'\n')
+        write(self.root / ".gitignore", ".claude/\n.mark/locks/\n.env\nnode_modules\n")
+        sh(self.root, "git", "add", "-A")
+        sh(self.root, "git", "commit", "-qm", "setup")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        branch, wt = self.new_lane()
+        self.assertTrue((wt / "node_modules").is_symlink())
+        self.commit(wt)
+        code, out, err = run(self.root, "general", "merge", branch)
+        self.assertEqual(code, 0, err + out)
+        self.assertFalse(wt.exists())
+        self.assertTrue((self.root / ".mark/config.toml").is_file())  # link target untouched
+
+    def test_failed_setup_leaves_no_lane(self):
+        (self.root / ".mark/config.toml").write_text(FULL_CONFIG + '\n[worktree]\nsetup = "exit 1"\n')
+        sh(self.root, "git", "commit", "-qam", "setup")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        code, out, err = run(self.root, "general", "new")
+        self.assertEqual(code, 1)
+        self.assertIn("failed (exit 1)", err)
+        self.assertEqual(len(sh(self.root, "git", "worktree", "list").splitlines()), 1)
+        self.assertEqual(sh(self.root, "git", "branch", "--list", "chore/*"), "")
+
     def test_refusals(self):
         branch, wt = self.new_lane()
         code, _, err = run(self.root, "general", "merge", branch)
@@ -628,6 +653,53 @@ class DispatchTest(unittest.TestCase):
         self.assertEqual(run(self.root, "dispatch", "0001")[0], 0)
         self.assertEqual(sh(wt, "git", "rev-parse", "HEAD"),
                          sh(self.root, "git", "rev-parse", "origin/feature/0001-a"))
+
+    def set_setup(self, cmd, extra=""):
+        (self.root / ".mark/config.toml").write_text(FULL_CONFIG + f"\n[worktree]\nsetup = '{cmd}'\n{extra}")
+        write(self.root / ".gitignore", ".claude/\n.mark/locks/\n.env\nnode_modules\n")
+        sh(self.root, "git", "add", "-A")
+        sh(self.root, "git", "commit", "-qm", "setup")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+
+    def test_setup_provisions_only_new_worktrees(self):
+        write(self.root / "deps/lib.txt", "x")
+        self.set_setup('cp "$MARK_MAIN_CHECKOUT/.gitignore" .env && ln -s "$MARK_MAIN_CHECKOUT/deps" node_modules'
+                       ' && echo "$MARK_BRANCH" >> "$MARK_MAIN_CHECKOUT/runs"')
+        code, out, err = run(self.root, "dispatch", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("Provisioned the new worktree", err)
+        wt = self.root / ".claude/worktrees/feature-0001-a"
+        self.assertTrue((wt / ".env").is_file())
+        self.assertEqual((wt / "node_modules/lib.txt").read_text(), "x")
+        for lock in (self.root / ".mark/locks").glob("*.lock"):
+            lock.unlink()
+        self.assertEqual(run(self.root, "dispatch", "0001")[0], 0)  # reused: no second setup
+        self.assertEqual((self.root / "runs").read_text(), "feature/0001-a\n")
+
+    def test_failed_setup_removes_the_new_worktree(self):
+        self.set_setup("echo boom; exit 3")
+        code, out, err = run(self.root, "dispatch", "0001")
+        self.assertEqual(code, 1)
+        self.assertIn("failed (exit 3)", err)
+        self.assertIn("boom", err)
+        self.assertIn(".mark/locks/0001-a.setup.log", err)
+        self.assertEqual(out, "")
+        self.assertFalse((self.root / ".claude/worktrees/feature-0001-a").exists())
+        self.assertEqual(len(sh(self.root, "git", "worktree", "list").splitlines()), 1)
+
+    def test_setup_that_leaves_tracked_noise_or_hangs_fails(self):
+        self.set_setup("touch junk.txt")
+        code, _, err = run(self.root, "dispatch", "0001")
+        self.assertEqual(code, 1)
+        self.assertIn("junk.txt", err)
+        self.assertIn("Gitignore them", err)
+        self.assertFalse((self.root / ".claude/worktrees/feature-0001-a").exists())
+        self.set_setup("sleep 5", "setup_timeout = 1\n")
+        code, _, err = run(self.root, "dispatch", "0001")
+        self.assertIn("timeout 1s", err)
+        # Once setup is fixed, the next dispatch starts over and succeeds.
+        self.set_setup("true")
+        self.assertEqual(run(self.root, "dispatch", "0001")[0], 0)
 
     def test_outputs_override_and_template_errors(self):
         (self.root / ".mark/prompts/coder-plan.md").write_text("---\nrole: designer\n---\nx\n")

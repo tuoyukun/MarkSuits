@@ -40,7 +40,7 @@ either location works for enforcement.
 - `mark_schema` — integer; the engine refuses unknown versions (exit 2 with a migration hint).
 - `locale` — `zh-CN` | `en`; selects hook message language and tells the orchestrator which
   language to use with humans and in artifacts.
-- `[paths]`, `[gates]`, `[[write_rules]]`, `[[doc_budget]]` — everything that used to be hardcoded.
+- `[paths]`, `[gates]`, `[[write_rules]]`, `[[doc_budget]]`, `[worktree]` — everything that used to be hardcoded.
 
 Hooks locate the project by walking up from the payload `cwd` to `.mark/config.toml`; no
 config means "not a Mark project" → exit 0. This matters because plugin hooks fire in every
@@ -225,6 +225,32 @@ own docs in both locales; `tests/test_template.py` checks they fit. Raising a bu
 change: roles cannot make it (`.mark/config.toml` is main-thread only), and the orchestrator
 leaves it to the human.
 
+### Worktree provisioning (v0.11)
+
+`git worktree add` brings only tracked files: no dependencies, no `.env`, no local config, so
+an agent in a fresh worktree cannot run the project's tests. What a worktree needs is project
+knowledge, so the engine runs one project command and checks the result; it knows no file names.
+
+`[worktree] setup` is a shell command; `setup_timeout` (seconds, default 300) bounds it. Both are
+optional (no command: no setup), so `mark_schema` stays 1. One function, `flow.provision`,
+serves both places that create a worktree: `mark dispatch` (`ensure_isolation`) and
+`mark general new`. It runs only when the worktree was just created, with the worktree as
+cwd, `MARK_MAIN_CHECKOUT` and `MARK_BRANCH` in the environment (a lane can tell itself apart by
+the `chore/general-` prefix), and output in `locks/<id>.setup.log`. Ready means exit 0 within
+the timeout **and** `git status` clean: whatever setup creates (copies, symlinks, installs)
+must be gitignored, or the next dispatch would refuse the worktree as uncommitted work and a
+role might commit it. Symlinks are the usual trap: git sees a link as a file, so `name/` does not
+ignore it; the message says so.
+
+A failure removes the new worktree (`git worktree remove --force`; the branch and its commits
+stay) and refuses the dispatch with the exit code or timeout and the last log lines. So a
+worktree that exists was provisioned, an agent never starts in a half-provisioned one, and the
+next dispatch simply starts over; `mark general new` also deletes the just-cut branch. A
+reused worktree is not set up again: refreshing a long-lived worktree (e.g. a `.env` changed on
+main) is left to the project. Merge cleanup needs nothing new: `git worktree remove` ignores
+ignored files and removes symlinks without following them. The CLI runs setup, not a tool call,
+so no write guard sees it; the orchestrator rules ask for a Bash timeout above `setup_timeout`.
+
 ### Project template (v0.5)
 
 `copier.yml` sits at the repo root (Copier only looks there) with `_subdirectory: template/project`.
@@ -297,7 +323,7 @@ agents, role rules, 13 prompt templates, artifact formats, en + zh-CN, CI) · ex
 **Phase 2 — merge and hygiene**
 auto-merge with pluggable regression contract ✅ (v0.7: `mark merge`, `merge-after` checked) · merge-order ✅ (v0.8: cycles, superseded, guards) · general-mode lane ✅ (v0.9: `/mark:general`,
 `mark general new|merge`) · doc-budget ✅ (v0.10: `[[doc_budget]]`, pre-write guard, merge check) ·
-worktree env provisioning interface.
+worktree env provisioning ✅ (v0.11: `[worktree] setup`, dispatch and general lanes).
 
 **Phase 3 — optional plugins**
 `mark-web-e2e` (interaction floor, verdict criteria registry) · `mark-design-system`
