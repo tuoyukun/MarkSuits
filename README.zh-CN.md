@@ -1,9 +1,9 @@
 # MarkSuits
 
-**Mark** 是一套给 [Claude Code](https://code.claude.com) 用的多 agent 研发流程，由一个插件和一份项目模板组成，类似 starter：新工程装上就有完整的多 agent 协作架构。
+**Mark** 是一套给 [Claude Code](https://code.claude.com) 用的多 agent 研发流程，装一个插件即可，项目文件由插件生成，类似 starter：新工程装上就有完整的多 agent 协作架构。
 
-> 状态：v0.12.0。引擎、项目模板（`en` 与 `zh-CN`）和示例工程已完成，bug 链与 feature 链都已在
-> 示例工程上端到端跑通，见 [examples/](examples/)。工单已能自动合并（`mark merge`），不属于任何工单的文档/配置改动走 `/mark:general`，每个角色都加载的文档受字节预算约束（`[[doc_budget]]`），每个新 worktree 在 agent 开工前先由项目的 `[worktree] setup` 准备好环境。尚不可用于生产。
+> 状态：v0.13.0。引擎、项目模板（`en` 与 `zh-CN`）和示例工程已完成，bug 链与 feature 链都已在
+> 示例工程上端到端跑通，见 [examples/](examples/)。工单已能自动合并（`mark merge`），不属于任何工单的文档/配置改动走 `/mark:general`，每个角色都加载的文档受字节预算约束（`[[doc_budget]]`），每个新 worktree 在 agent 开工前先由项目的 `[worktree] setup` 准备好环境。`/mark:init` 可在新工程或已有工程里启用 Mark。尚不可用于生产。
 
 ## 核心机制
 
@@ -18,10 +18,19 @@
 | 层 | 内容 | 升级方式 |
 |---|---|---|
 | 插件 `plugins/mark/` | hooks、编排 skills、CLI | `claude plugin update` |
-| 模板 `copier.yml` + `template/project/` | 角色定义、派活模板、制品格式、`.mark/config.toml` | `copier update -a .mark/.copier-answers.yml`（三方合并） |
+| 模板 `plugins/mark/template/` | 角色定义、派活模板、制品格式、`.mark/config.toml`，由 `mark init` 写入项目 | `/mark:upgrade`（三方合并，保留你的改动；v0.14 提供） |
 | 项目内容 | 模块边界、写域、契约 | 不升级 |
 
 模板提供 `zh-CN` 与 `en` 两套文本，生成项目时选择。
+
+## 安装
+
+```bash
+claude plugin marketplace add tuoyukun/MarkSuits --scope project
+claude plugin install mark@marksuits --scope project
+```
+
+然后在仓库里打开 Claude Code，运行 `/mark:init`。它会先读项目（新工程或已有工程），确认是 web 全栈应用（目前唯一的角色包），给出一份答案草案（语言、目录、测试和安装命令），你确认后在 main 上一次提交写入项目文件。已有的 `CLAUDE.md` 保留并补充，已有的 `.gitignore` 只追加 Mark 需要的行。不经 agent 也可以：先 `mark init --dry-run`，再 `mark init --<答案> <值>...`。
 
 开发说明见 [README.md](README.md#development)。
 

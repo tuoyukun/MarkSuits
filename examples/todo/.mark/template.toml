@@ -1,0 +1,14 @@
+# Written by `mark init`; do not edit. Upgrades read the answers below.
+version = "0.13.0"
+
+[answers]
+project_name = "todo"
+locale = "en"
+profile = "web-fullstack"
+main_branch = "main"
+frontend_dir = "frontend"
+backend_dir = "backend"
+ui_dir = "frontend/src/ui"
+tests_dir = "tests"
+regression_cmd = "npm test"
+worktree_setup = "npm ci"

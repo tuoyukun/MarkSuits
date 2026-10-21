@@ -4,8 +4,8 @@
 |---|---|
 | [`todo/`](todo/) | A small todo app (vanilla JS frontend, Python standard-library backend, Playwright end-to-end tests), generated from the Mark template in `en` and filled in. It ships with one known bug so the bug chain has something to fix. |
 
-The scaffold files in `todo/` (`.claude/agents/`, `.mark/`) are exactly what `copier copy`
-produces; `tests/test_example.py` regenerates them and fails if they drift. Only `CLAUDE.md`
+The scaffold files in `todo/` (`.claude/agents/`, `.mark/`) are exactly what `mark init`
+writes; `tests/test_example.py` re-renders them and fails if they drift. Only `CLAUDE.md`
 and `.gitignore` are edited by hand, as a real project would.
 
 ## Run it
@@ -130,10 +130,8 @@ the decision to the human. Try it as a second `/mark:fix`.
 
 ## Updating the example
 
-When the template changes, regenerate the scaffold in place (requires Copier):
+When the template changes, re-render the scaffold in place from `.mark/template.toml`:
 
 ```bash
-cd examples/todo
-copier recopy --defaults --overwrite --vcs-ref HEAD -a .mark/.copier-answers.yml
-git checkout -- CLAUDE.md .gitignore    # keep the project-owned files, then merge by hand if needed
+python3 tools/sync_example.py    # leaves CLAUDE.md and .gitignore alone; merge those by hand if needed
 ```

@@ -45,6 +45,11 @@ class ScopeTest(unittest.TestCase):
                     ".mark/features/0001-login/review-plan.md"):
             self.assertEqual(write(self.wt, self.wt / rel, "tester")[0], 2, rel)
 
+    def test_template_record_and_base_copies_are_protected(self):
+        self.assertEqual(write(self.wt, self.wt / ".mark/template.toml", "tester")[0], 2)
+        self.assertEqual(write(self.wt, self.wt / ".mark/template.toml")[0], 0)
+        self.assertEqual(write(self.wt, self.wt / ".mark/.base/CLAUDE.md.base")[0], 2)
+
     def test_main_thread_may_edit_control_files_in_worktree(self):
         self.assertEqual(write(self.wt, self.wt / ".claude/agents/designer.md")[0], 0)
 

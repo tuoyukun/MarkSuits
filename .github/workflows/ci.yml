@@ -27,28 +27,8 @@ jobs:
           git config --global user.name ci
           git config --global user.email ci@example.com
           git config --global init.defaultBranch main
-      - name: unit tests (stdlib only; template generation is skipped here)
+      - name: tests (stdlib only; includes generating a project per locale)
         run: python -m unittest discover -s tests -t . -v
-
-  template:
-    name: template (copier, every locale)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: install copier
-        run: pip install "copier>=9,<10"
-      - name: git identity for test repos
-        run: |
-          git config --global user.name ci
-          git config --global user.email ci@example.com
-          git config --global init.defaultBranch main
-      - name: generate a project per locale and render every scenario
-        run: python -m unittest tests.test_template tests.test_example -v
-        env:
-          MARK_COPIER: copier
 
   manifests:
     name: plugin manifests

@@ -2,22 +2,22 @@
 
 - Always: its config loads, every scenario renders for it, its own unit tests pass,
   and `examples/sandbox.py` turns it into a working repository.
-- With Copier: regenerating the scaffold from the recorded answers reproduces the
-  committed files, so the example never drifts from the template. Only the files a
-  project is expected to edit (`PROJECT_OWNED`) may differ.
+- Rendering the template from the recorded answers reproduces the committed files, so the
+  example never drifts from the template. Only the files a project is expected to edit
+  (`PROJECT_OWNED`) may differ; their pristine copies in `.mark/.base/` may not.
 """
 import io
-import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
 from tests._support import REPO_ROOT
 
-from mark import brief, budget, cli, tickets
+from mark import brief, budget, cli, scaffold, tickets
 from mark.config import load_config
 from mark.flow import SCENARIOS, Action, Ctx
 
@@ -29,12 +29,7 @@ SKIP_DIRS = {"node_modules", "test-results", "playwright-report", "__pycache__"}
 
 
 def _answers(root: Path) -> dict[str, str]:
-    out = {}
-    for line in (root / ".mark/.copier-answers.yml").read_text(encoding="utf-8").splitlines():
-        key, sep, value = line.partition(": ")
-        if sep and not key.startswith("#"):
-            out[key] = value
-    return out
+    return tomllib.loads((root / scaffold.RECORD).read_text(encoding="utf-8"))["answers"]
 
 
 class ExampleProjectTest(unittest.TestCase):
@@ -58,9 +53,9 @@ class ExampleProjectTest(unittest.TestCase):
         for command in ("npm ci", "npm run test:unit", "npm run check", "npx playwright test", "npm test"):
             self.assertIn(command, text)
 
-    def test_answers_point_at_this_repo(self):
+    def test_answers_are_recorded(self):
         answers = _answers(EXAMPLE)
-        self.assertEqual(answers["_src_path"], "../..")
+        self.assertEqual(answers, scaffold.resolve(answers, EXAMPLE))
         self.assertEqual(answers["locale"], "en")
 
     def test_every_scenario_renders(self):
@@ -103,10 +98,6 @@ class ExampleProjectTest(unittest.TestCase):
         self.assertEqual(again.returncode, 2)
 
 
-def _copier() -> str | None:
-    return os.environ.get("MARK_COPIER") or shutil.which("copier")
-
-
 def _files(root: Path) -> dict[str, bytes]:
     out = {}
     for path in root.rglob("*"):
@@ -116,24 +107,17 @@ def _files(root: Path) -> dict[str, bytes]:
     return out
 
 
-@unittest.skipUnless(_copier(), "copier not installed (set MARK_COPIER or put copier on PATH)")
 class ExampleScaffoldSyncTest(unittest.TestCase):
     def test_scaffold_matches_the_template(self):
-        tmp = Path(tempfile.mkdtemp(prefix="mark-example-gen-"))
-        self.addCleanup(shutil.rmtree, tmp, True)
-        answers = {k: v for k, v in _answers(EXAMPLE).items() if not k.startswith("_")}
-        args = [a for k, v in answers.items() for a in ("-d", f"{k}={v}")]
-        subprocess.run([_copier(), "copy", "--defaults", "--quiet", "--vcs-ref", "HEAD", *args,
-                        str(REPO_ROOT), str(tmp)], check=True, capture_output=True, text=True)
-        generated, example = _files(tmp), _files(EXAMPLE)
-        stale = [rel for rel, data in generated.items()
-                 if rel not in PROJECT_OWNED and rel != ".mark/.copier-answers.yml"
-                 and example.get(rel) != data]
+        generated, example = scaffold.render(_answers(EXAMPLE)), _files(EXAMPLE)
+        stale = [rel for rel, text in generated.items()
+                 if (rel not in PROJECT_OWNED and example.get(rel) != text.encode())
+                 or example.get(scaffold.base_path(rel)) != text.encode()]
         self.assertEqual(stale, [], "examples/todo is out of date with the template; regenerate it "
                                     "(see examples/README.md, 'Updating the example')")
         for rel in PROJECT_OWNED:
             self.assertIn(rel, example)
-        self.assertTrue(example[".gitignore"].startswith(generated[".gitignore"]))
+        self.assertTrue(example[".gitignore"].startswith(generated[".gitignore"].encode()))
 
 
 if __name__ == "__main__":

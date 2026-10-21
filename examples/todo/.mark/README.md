@@ -12,5 +12,5 @@ How the workflow runs: [collaboration.md](collaboration.md).
 | `features/<id>/`, `bugs/<id>/` | One directory per ticket: status + artifacts |
 | `gates/` | Human approval records (file exists = approved). Never delete |
 | `locks/` | Runtime dispatch locks (not committed) |
-| `.copier-answers.yml` | Template version record for `copier update -a .mark/.copier-answers.yml` |
-
+| `template.toml` | Template version and the answers given to `mark init` (written by Mark; do not edit) |
+| `.base/` | The template files as Mark last wrote them, so an upgrade can keep your edits (do not edit) |

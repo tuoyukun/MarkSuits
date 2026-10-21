@@ -1,12 +1,12 @@
 # MarkSuits
 
 **Mark** is a multi-agent development workflow for [Claude Code](https://code.claude.com),
-packaged as a plugin plus a project template — a "starter" for teams that want several
+packaged as one plugin that also writes the project files — a "starter" for teams that want several
 specialized agents to build software together without stepping on each other.
 
-> Status: v0.12.0. The engine, the project template (`en` and `zh-CN`) and an example
+> Status: v0.13.0. The engine, the project template (`en` and `zh-CN`) and an example
 > project are complete, and both chains (bug and feature) have run end to end on the
-> example: see [examples/](examples/). Tickets now merge automatically (`mark merge`), docs/config changes outside any ticket go through `/mark:general`, the docs every role loads stay within byte budgets (`[[doc_budget]]`), and each new worktree is provisioned by the project's `[worktree] setup` before an agent works there. Not ready for production use yet.
+> example: see [examples/](examples/). Tickets now merge automatically (`mark merge`), docs/config changes outside any ticket go through `/mark:general`, the docs every role loads stay within byte budgets (`[[doc_budget]]`), and each new worktree is provisioned by the project's `[worktree] setup` before an agent works there. `/mark:init` sets Mark up in a new or existing repository. Not ready for production use yet.
 
 [中文说明](README.zh-CN.md)
 
@@ -27,7 +27,7 @@ specialized agents to build software together without stepping on each other.
 ```
 .claude-plugin/marketplace.json   marketplace catalog (this repo)
 plugins/mark/                     the engine plugin (upgradable)
-copier.yml, template/project/     Copier template for a Mark project (generated once)
+plugins/mark/template/            project files `mark init` writes (en, zh-CN)
 examples/todo/, examples/sandbox.py   example project and a script to run it in a sandbox
 docs/architecture.md              design
 ```
@@ -43,25 +43,28 @@ CLAUDE.md                         stack, module boundaries, commands (fill in th
 .mark/formats/                    artifact formats with language-neutral anchors
 ```
 
-## Install (once released)
+## Install
 
 ```bash
-# 1. Generate project files (roles, prompts, .mark/config.toml)
-copier copy gh:<owner>/MarkSuits . --vcs-ref <tag>     # asks for locale: en | zh-CN
-
-# 2. Enable the engine for everyone in the repo
-claude plugin marketplace add <owner>/MarkSuits --scope project
+claude plugin marketplace add tuoyukun/MarkSuits --scope project
 claude plugin install mark@marksuits --scope project
 ```
 
-Upgrade the engine with `claude plugin update mark@marksuits`; upgrade generated files with
-`copier update -a .mark/.copier-answers.yml` (a 3-way merge that keeps your edits).
+Then, inside Claude Code in your repository, run `/mark:init`. It reads the project (new or
+existing), checks it is a web full-stack app (the only role pack so far), proposes the
+answers (language, directories, test and install commands) and, once you confirm, writes
+the project files in one commit on main. An existing `CLAUDE.md` is kept and extended; an
+existing `.gitignore` only gains the lines Mark needs. The same step without the agent:
+`mark init --dry-run`, then `mark init --<answer> <value>...`.
+
+Upgrade the engine with `claude plugin update mark@marksuits`. Upgrading the generated files
+from a newer template (`/mark:upgrade`, a 3-way merge that keeps your edits) comes in v0.14.
 
 ## Development
 
 ```bash
 python3 -m unittest discover -s tests -t .
-MARK_COPIER=copier python3 -m unittest tests.test_template   # also generate + render the template
+python3 tools/sync_example.py               # after a template change
 claude plugin validate .
 claude --plugin-dir ./plugins/mark
 git config core.hooksPath tools/git-hooks   # sensitive-data pre-commit check

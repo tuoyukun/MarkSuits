@@ -1,0 +1,54 @@
+# CLAUDE.md — todo
+
+> This file explains **what the project is and how to build it**: stack, layout, module
+> boundaries, commands, docs and commit conventions. Every Mark role agent reads it first.
+> How the agents collaborate lives in `.mark/collaboration.md`, not here.
+
+## 1. Overview
+
+TODO: one paragraph on what todo does and for whom.
+
+## 2. Tech stack
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Frontend (`frontend/`) | TODO | |
+| Backend (`backend/`) | TODO | |
+| End-to-end tests (`tests/`) | TODO | |
+
+## 3. Module boundaries
+
+| Module | Owns | May depend on | Must not |
+|---|---|---|---|
+| `frontend/src/ui` | Presentational components and their preview (designer only) | design tokens, props types | requests, routing, global state |
+
+## 4. Commands
+
+Role agents run exactly these. Keep them working from a fresh worktree.
+
+| Purpose | Command |
+|---|---|
+| Install dependencies | TODO |
+| Start the app (dev) | TODO |
+| Open the UI preview | TODO |
+| Unit tests | TODO |
+| Type check and lint | TODO |
+| End-to-end tests (selected specs) | TODO |
+| Full regression (everything a merge must pass; also `[merge] regression` in `.mark/config.toml`) | TODO |
+
+## 5. Red lines
+
+1. No architecture-level decision without an ADR (`docs/adr/`).
+2. No reaching across module boundaries outside defined contracts.
+3. Changing a module requires updating its `CONTEXT.md`.
+
+## 6. Commit format
+
+```
+type(module): what changed
+
+Why:
+How:
+Rejected:
+Refs: <ticket id> <R-N / FAIL-N / D-N>
+```

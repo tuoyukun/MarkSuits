@@ -84,4 +84,3 @@ is your call.
    decisions.
 4. Enforcement comes from hooks that block (exit 2). A rule that is only written down is a
    wish.
-

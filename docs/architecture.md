@@ -25,7 +25,7 @@ Invariants:
 | Layer | Contents | Owner | Upgrade |
 |---|---|---|---|
 | **Engine** (`plugins/mark`) | hooks, orchestration skills, CLI (`bin/`), shared role rules (`skills/role-rules`), `lib/mark` | Mark | plugin version bump → `claude plugin update` |
-| **Scaffold** (`template/`) | `CLAUDE.md`, `.mark/collaboration.md`, role agents, prompt templates, artifact formats, `.mark/config.toml` | the project, after generation | `copier update` (3-way merge) |
+| **Scaffold** (`plugins/mark/template/`) | `CLAUDE.md`, `.mark/collaboration.md`, role agents, prompt templates, artifact formats, `.mark/config.toml` | the project, after `mark init` | `mark upgrade` (3-way merge, v0.14) |
 | **Project content** | module boundaries, contracts, write-scope exceptions, domain scripts | the project | — |
 
 Why role agents live in the scaffold, not the plugin: plugin agents are namespaced
@@ -254,11 +254,28 @@ main) is left to the project. Merge cleanup needs nothing new: `git worktree rem
 ignored files and removes symlinks without following them. The CLI runs setup, not a tool call,
 so no write guard sees it; the orchestrator rules ask for a Bash timeout above `setup_timeout`.
 
-### Project template (v0.5)
+### Project template (v0.5; shipped in the plugin since v0.13)
 
-`copier.yml` sits at the repo root (Copier only looks there) with `_subdirectory: template/project`.
-Answers are recorded in `.mark/.copier-answers.yml`, so upgrades run
-`copier update -a .mark/.copier-answers.yml`.
+The template lives in the plugin, `plugins/mark/template/`, and `mark init` (`lib/mark/scaffold.py`,
+driven by the `/mark:init` skill) writes it into a project. There is no external generator: one
+plugin install is the whole setup.
+
+- **Answers** (`scaffold.KEYS`): project name, locale, profile, main branch, frontend / backend /
+  UI / end-to-end test directories, regression command, worktree setup command. `mark init
+  --<answer> <value>`; defaults fill the rest; `--dry-run` shows the plan and writes nothing.
+- **Checks before writing**: a git repository (an empty directory is `git init`ed), on the main
+  branch, clean tree, git identity set, not already a Mark project, and no template file already
+  present except `CLAUDE.md` (kept as is: the project owns it) and `.gitignore` (gains the missing
+  lines). Anything else is a conflict and nothing is written.
+- **Result**: one commit on main, pushed when there is an `origin`. `.mark/template.toml` records
+  the plugin version and the answers; `.mark/.base/<path>.base` keeps each written file exactly as
+  written, the common ancestor for a later 3-way upgrade (the `.base` suffix keeps Claude Code and
+  git from reading the copies as a live `CLAUDE.md`, agent or `.gitignore`). Both are write-protected
+  by built-in rules.
+- **The skill** decides what the command cannot: new vs existing project, whether the stack fits
+  the only profile (`web-fullstack`; anything else stops with nothing written), the answers
+  (proposed from the manifests and CI config, confirmed by the human), and afterwards fills in
+  `CLAUDE.md` in a general lane.
 
 | generated path | what | read by |
 |---|---|---|
@@ -278,11 +295,11 @@ Three layers of instructions reach a role, from durable to specific:
 3. **Scenario template** (template): why this dispatch happens, done-when, what to read, what to write.
    Only `{{placeholders}}` from `brief.PLACEHOLDERS`; never how to do the work.
 
-**Locales.** Every localized set exists once per locale under a directory whose name renders empty
-for the other locale, e.g. `.mark/{% if locale == 'en' %}prompts{% endif %}/`. Files without the
-`.jinja` suffix are copied verbatim, which keeps the prompts' `{{placeholders}}` away from Jinja.
-Short shared docs (`CLAUDE.md`, `.mark/README.md`, `.mark/collaboration.md`) switch on `locale`
-inside the file. English is written first; `zh-CN` is its translation.
+**Locales.** `template/common/` holds what is the same in every locale (`.mark/config.toml`,
+`.gitignore`); `template/<locale>/` holds the rest, one full set per locale. A `*.tmpl` file has
+each `{{ answer }}` filled in (TOML-escaped in `.toml` files) and loses the suffix; an unknown
+name is an error. Other files are copied verbatim, which keeps the prompts' `{{placeholders}}` for
+`mark dispatch`. English is written first; `zh-CN` is its translation.
 
 **Anchors in artifacts** (language-neutral, so formats can be localized):
 
@@ -301,9 +318,9 @@ are never reused, and only open items carry ids, because the engine hands every 
 it finds to the next role.
 
 **Tests.** `tests/test_template.py` checks the sources (every scenario in every locale, role
-declared, placeholders known, anchors present, locales ship the same files) and, when Copier is
-available (`MARK_COPIER` or PATH; always in CI), generates a project per locale and renders every
-scenario through `brief.render`.
+declared, placeholders known, anchors present, locales ship the same files), generates a project
+per locale with `mark init` and renders every scenario through `brief.render`. `tests/test_scaffold.py`
+covers init's checks and the existing-project cases.
 
 ## 5. Distribution and versioning
 
@@ -312,6 +329,9 @@ scenario through `brief.render`.
   Users only receive an update when the version string changes.
 - Recommended install scope for teams: `project` (committed `.claude/settings.json`).
 - Breaking changes to config or artifact formats bump `mark_schema` and ship a migration note.
+- Migration note (v0.13): projects generated with Copier have `.mark/.copier-answers.yml`. Replace
+  it with `.mark/template.toml` (same answers, TOML, plus `version`) and add `.mark/.base/` copies
+  (`tools/sync_example.py` shows how); only the bundled example existed at the time.
 
 ## 6. Roadmap
 
@@ -327,6 +347,11 @@ agents, role rules, 13 prompt templates, artifact formats, en + zh-CN, CI) · ex
 auto-merge with pluggable regression contract ✅ (v0.7: `mark merge`, `merge-after` checked) · merge-order ✅ (v0.8: cycles, superseded, guards) · general-mode lane ✅ (v0.9: `/mark:general`,
 `mark general new|merge`; `drop` in v0.12) · doc-budget ✅ (v0.10: `[[doc_budget]]`, pre-write guard, merge check) ·
 worktree env provisioning ✅ (v0.11: `[worktree] setup`, dispatch and general lanes).
+
+**Setup** (between Phase 2 and 3)
+template in the plugin + `mark init` / `/mark:init` ✅ (v0.13: new and existing repositories,
+no Copier) · `mark upgrade` / `/mark:upgrade` (v0.14: 3-way merge against `.mark/.base/`, in a
+general lane).
 Versions stay below 1.0 until real end users have run Mark.
 
 **Phase 3 — optional plugins**

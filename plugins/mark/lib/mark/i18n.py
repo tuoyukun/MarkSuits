@@ -330,6 +330,7 @@ MESSAGES["zh-CN"].update({
 # --------------------------------------------------------------------------
 _USAGE_EN = (
     "usage: mark <command> [options]\n"
+    "  mark init [--dry-run] [--<answer> <value>]...  set up Mark in this repository (/mark:init)\n"
     "  mark status [--active | --json | --check]      ticket board\n"
     "  mark next <id> [--json]                        what happens next for a ticket\n"
     "  mark dispatch <id> [--prev \"<text>\"] [--trigger \"<text>\"] [--retry]\n"
@@ -347,6 +348,7 @@ _USAGE_EN = (
 )
 _USAGE_ZH = (
     "用法：mark <命令> [选项]\n"
+    "  mark init [--dry-run] [--<答案> <值>]...       在本仓库启用 Mark（/mark:init）\n"
     "  mark status [--active | --json | --check]      工单看板\n"
     "  mark next <编号> [--json]                      这张工单下一步做什么\n"
     "  mark dispatch <编号> [--prev \"<文本>\"] [--trigger \"<文本>\"] [--retry]\n"
@@ -702,4 +704,64 @@ MESSAGES["zh-CN"].update({
     "review.state.done": "已处理",
     "guard.bash.mark_cli": "`{who}` 不能执行 `mark {sub}`：工单状态归 orchestrator 管。把结果写进你的结论。",
     "guard.bash.human_tokens": "命令不能碰 `{dir}`：那里存放的是「人亲手输入过命令」的凭证。",
+})
+
+# --------------------------------------------------------------------------
+# mark init
+# --------------------------------------------------------------------------
+MESSAGES["en"].update({
+    "init.plan": "Mark v{version} setup for {root}, with these answers:",
+    "init.writes": "Writes {n} files (plus .mark/template.toml and a pristine copy of each under .mark/.base/).",
+    "init.kept": "Keeps the existing {rel} as it is; add what Mark needs to it afterwards (/mark:init does this in a general lane).",
+    "init.append": "Adds to the existing {rel}: {lines}",
+    "init.dry_run": "Dry run: nothing was written. Run again without --dry-run to apply.",
+    "init.done": (
+        "Mark is set up: one commit on {main}. Next:\n"
+        "  - fill in the TODOs in CLAUDE.md (stack, module boundaries, commands); roles read it first\n"
+        "  - set `[merge] regression` and `[worktree] setup` in .mark/config.toml once the project has tests\n"
+        "  - start work with /mark:feature or /mark:fix"
+    ),
+    "init.pushed": "Pushed {main} to origin.",
+    "init.push_failed": "Pushing {main} to origin failed; push it yourself before opening tickets or lanes.",
+    "init.already": "{root} is already a Mark project (.mark/config.toml exists).",
+    "init.not_repo": "{root} is not a git repository and not empty. Make it a repository and commit its files first (git init && git add -A && git commit), or run in an empty directory.",
+    "init.not_main": "You are on `{branch}`, but the main branch answer is `{main}`. Switch to {main}, or pass --main-branch {branch}.",
+    "init.dirty": "The working tree has uncommitted changes; commit or stash them first:\n{files}",
+    "init.no_identity": "git has no user name/email, so Mark cannot commit. Set them: git config --global user.name \"...\" && git config --global user.email \"...\"",
+    "init.conflicts": "These files already exist and Mark would overwrite them:\n{files}\nRename or remove them (or merge them by hand after init), then retry.",
+    "init.unknown_answer": "Unknown answer(s): {keys}. Run `mark init --dry-run` to see every answer.",
+    "init.bad_choice": "`{answer}` must be one of: {choices} (got `{value}`).",
+    "init.bad_answer": "`{answer}` must be a single non-empty line (got `{value}`).",
+    "init.bad_dir": "`{answer}` must be a path inside the repository, like `frontend` (got `{value}`).",
+    "init.unknown_var": "Template uses an unknown answer `{name}` (a bug in the Mark template).",
+    "init.bad_config": "The answers produce an invalid .mark/config.toml: {error}",
+    "init.git_failed": "`{step}` failed; the files written so far are left in place. Fix the problem and commit them by hand.",
+})
+MESSAGES["zh-CN"].update({
+    "init.plan": "在 {root} 启用 Mark v{version}，答案如下：",
+    "init.writes": "写入 {n} 个文件（另加 .mark/template.toml，以及每个文件在 .mark/.base/ 下的原样副本）。",
+    "init.kept": "保留现有的 {rel} 不动；之后要往里补 Mark 需要的内容（/mark:init 会在通用车道里做）。",
+    "init.append": "往现有的 {rel} 追加：{lines}",
+    "init.dry_run": "试运行：什么都没写。去掉 --dry-run 再跑一次即生效。",
+    "init.done": (
+        "Mark 已启用：{main} 上一次提交。接下来：\n"
+        "  - 补完 CLAUDE.md 里的 TODO（技术栈、模块边界、命令），每个角色开工先读它\n"
+        "  - 工程有了测试后，在 .mark/config.toml 里设置 `[merge] regression` 和 `[worktree] setup`\n"
+        "  - 用 /mark:feature 或 /mark:fix 开始干活"
+    ),
+    "init.pushed": "已把 {main} 推到 origin。",
+    "init.push_failed": "把 {main} 推到 origin 失败；开工单或车道之前请自己推一下。",
+    "init.already": "{root} 已经是 Mark 项目（.mark/config.toml 已存在）。",
+    "init.not_repo": "{root} 不是 git 仓库，而且不是空目录。先把它变成仓库并提交现有文件（git init && git add -A && git commit），或者在空目录里运行。",
+    "init.not_main": "当前在 `{branch}`，但主分支答案是 `{main}`。切到 {main}，或者传 --main-branch {branch}。",
+    "init.dirty": "工作区有未提交的改动，先提交或 stash：\n{files}",
+    "init.no_identity": "git 没有设置用户名/邮箱，Mark 无法提交。先设置：git config --global user.name \"...\" && git config --global user.email \"...\"",
+    "init.conflicts": "这些文件已存在，Mark 会覆盖它们：\n{files}\n改名或移走（也可以 init 之后再手动合并回去），然后重试。",
+    "init.unknown_answer": "未知的答案：{keys}。跑 `mark init --dry-run` 可看到全部答案。",
+    "init.bad_choice": "`{answer}` 只能是：{choices}（收到 `{value}`）。",
+    "init.bad_answer": "`{answer}` 必须是一行非空文本（收到 `{value}`）。",
+    "init.bad_dir": "`{answer}` 必须是仓库内的路径，比如 `frontend`（收到 `{value}`）。",
+    "init.unknown_var": "模板用了未知的答案 `{name}`（Mark 模板的 bug）。",
+    "init.bad_config": "这组答案生成的 .mark/config.toml 不合法：{error}",
+    "init.git_failed": "`{step}` 失败；已写入的文件保留在原处。解决问题后手动提交。",
 })

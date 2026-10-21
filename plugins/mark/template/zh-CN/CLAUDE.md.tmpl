@@ -1,0 +1,53 @@
+# CLAUDE.md — {{ project_name }}
+
+> 本文件讲**这个工程是什么、怎么构建**：技术栈、目录、模块边界、命令、文档与 commit 规范。
+> 每个 Mark 角色 agent 开工先读它。agent 之间怎么协作写在 `.mark/collaboration.md`，不在这里。
+
+## 1. 概述
+
+TODO：用一段话说明 {{ project_name }} 做什么、给谁用。
+
+## 2. 技术栈
+
+| 层 | 选型 | 备注 |
+|---|---|---|
+| 前端（`{{ frontend_dir }}/`） | TODO | |
+| 后端（`{{ backend_dir }}/`） | TODO | |
+| 端到端测试（`{{ tests_dir }}/`） | TODO | |
+
+## 3. 模块边界
+
+| 模块 | 负责 | 可依赖 | 不得 |
+|---|---|---|---|
+| `{{ ui_dir }}` | 纯展示组件及其预览（仅 designer） | design tokens、props 类型 | 发请求、路由、全局状态 |
+
+## 4. 命令
+
+角色 agent 只跑这些命令。请保证它们在一个全新的 worktree 里也能跑通。
+
+| 用途 | 命令 |
+|---|---|
+| 安装依赖 | TODO |
+| 启动应用（开发态） | TODO |
+| 打开 UI 预览 | TODO |
+| 单元测试 | TODO |
+| 类型检查与 lint | TODO |
+| 端到端测试（指定 spec） | TODO |
+| 全量回归（合并前必须通过的全部检查；同时填进 `.mark/config.toml` 的 `[merge] regression`） | TODO |
+
+## 5. 红线
+
+1. 架构级决策必须先写 ADR（`docs/adr/`）。
+2. 不得绕过既定契约跨越模块边界。
+3. 改动模块必须同步更新该模块的 `CONTEXT.md`。
+
+## 6. Commit 格式
+
+```
+type(module): 改了什么
+
+Why:
+How:
+Rejected:
+Refs: <工单号> <R-N / FAIL-N / D-N>
+```

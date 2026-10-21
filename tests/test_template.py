@@ -4,11 +4,10 @@ Two layers:
 
 - Source checks (always run): config, role agents, prompt templates and artifact
   formats under `template/project/`, per locale, against what the engine expects.
-- Generated checks (need Copier): generate a project per locale with the real
-  `copier copy`, then render every dispatch scenario through `mark.brief`.
-  Copier is found via `$MARK_COPIER` or on PATH; CI installs it.
+- Generated checks: generate a project per locale with the real `mark init`, then render
+  every dispatch scenario through `mark.brief`.
 """
-import os
+import io
 import re
 import shutil
 import subprocess
@@ -17,14 +16,14 @@ import tomllib
 import unittest
 from pathlib import Path
 
-from tests._support import PLUGIN_ROOT, REPO_ROOT
+from tests._support import PLUGIN_ROOT
 
-from mark import brief, budget, tickets
+from mark import brief, budget, cli, scaffold, tickets
 from mark.config import MAIN, MarkConfig, load_config
 from mark.flow import SCENARIOS, Action, Ctx
 from mark.i18n import t
 
-TEMPLATE = REPO_ROOT / "template" / "project"
+TEMPLATE = PLUGIN_ROOT / "template"
 LOCALES = ("en", "zh-CN")
 ANSWERS = {"locale": "en", "profile": "web-fullstack", "project_name": "demo", "main_branch": "main",
            "frontend_dir": "frontend", "backend_dir": "backend", "ui_dir": "frontend/src/ui",
@@ -43,18 +42,16 @@ FORMAT_ANCHORS = {
     "verdict.md": ["<!-- mark:verdict FAILED -->", "FAIL-3", "failureType:", "routeTo:"],
 }
 FAILURE_TYPES = ("impl-bug", "needs-unit-test", "design-flaw", "unclear")
-_JINJA_VAR = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 _FORMAT_REF = re.compile(r"\.mark/formats/([a-z-]+\.md)")
 
 
-def render(text: str, **overrides: str) -> str:
-    answers = {**ANSWERS, **overrides}
-    return _JINJA_VAR.sub(lambda m: answers[m.group(1)], text)
+def render(text: str) -> str:
+    return scaffold._fill(text, ANSWERS, toml=False)
 
 
-def localized(parent: Path, name: str, locale: str) -> Path:
-    """Source dir that Copier renders to `name` only for `locale`."""
-    return parent / f"{{% if locale == '{locale}' %}}{name}{{% endif %}}"
+def localized(parent: str, name: str, locale: str) -> Path:
+    """Source dir of `<parent>/<name>` for `locale`."""
+    return TEMPLATE / locale / parent / name
 
 
 def frontmatter(text: str) -> dict[str, object]:
@@ -77,8 +74,7 @@ def frontmatter(text: str) -> dict[str, object]:
 
 class TemplateConfigTest(unittest.TestCase):
     def setUp(self):
-        src = (TEMPLATE / ".mark/config.toml.jinja").read_text(encoding="utf-8")
-        self.cfg = MarkConfig(Path("."), tomllib.loads(render(src)))
+        self.cfg = MarkConfig(Path("."), tomllib.loads(scaffold.render(ANSWERS)[".mark/config.toml"]))
 
     def test_schema_supported(self):
         self.assertEqual(self.cfg.schema, 1)
@@ -112,22 +108,26 @@ class TemplateConfigTest(unittest.TestCase):
             self.assertEqual(self.cfg.write_rules[[r.glob for r in self.cfg.write_rules]
                                                   .index(f"**/{name}")].roles, {MAIN}, name)
 
-    def test_copier_file_at_repo_root(self):
-        text = (REPO_ROOT / "copier.yml").read_text(encoding="utf-8")
-        self.assertIn("_subdirectory: template/project", text)
-        self.assertIn("_answers_file: .mark/.copier-answers.yml", text)
-        self.assertTrue((TEMPLATE / "{{ _copier_conf.answers_file }}.jinja").is_file())
+    def test_quotes_in_answers_stay_valid_toml(self):
+        files = scaffold.render({**ANSWERS, "regression_cmd": 'npm test -- --grep "a\\b"'})
+        self.assertEqual(tomllib.loads(files[".mark/config.toml"])["merge"]["regression"], 'npm test -- --grep "a\\b"')
+
+    def test_template_uses_only_known_answers(self):
+        for loc in LOCALES:
+            for p in (TEMPLATE / loc).rglob("*.tmpl"):
+                for name in re.findall(r"\{\{\s*(\w+)\s*\}\}", p.read_text(encoding="utf-8")):
+                    self.assertIn(name, scaffold.KEYS, p)
 
 
 class TemplatePromptsTest(unittest.TestCase):
     def test_every_scenario_in_every_locale(self):
         for loc in LOCALES:
-            names = {p.stem for p in localized(TEMPLATE / ".mark", "prompts", loc).glob("*.md")} - {"README"}
+            names = {p.stem for p in localized(".mark", "prompts", loc).glob("*.md")} - {"README"}
             self.assertEqual(names, set(SCENARIOS), loc)
 
     def test_role_placeholders_and_outputs(self):
         for loc in LOCALES:
-            for path in sorted(localized(TEMPLATE / ".mark", "prompts", loc).glob("*.md")):
+            for path in sorted(localized(".mark", "prompts", loc).glob("*.md")):
                 if path.stem == "README":
                     continue
                 with self.subTest(locale=loc, scenario=path.stem):
@@ -141,7 +141,7 @@ class TemplatePromptsTest(unittest.TestCase):
 
     def test_review_scenarios_name_the_open_rounds(self):
         for loc in LOCALES:
-            folder = localized(TEMPLATE / ".mark", "prompts", loc)
+            folder = localized(".mark", "prompts", loc)
             for name in ("designer-review-rework", "coder-plan-rework", "coder-impl-merge-rework"):
                 body = (folder / f"{name}.md").read_text(encoding="utf-8")
                 for ph in ("{{review_file}}", "{{pending_rounds}}", "{{pending_refs}}"):
@@ -149,7 +149,7 @@ class TemplatePromptsTest(unittest.TestCase):
 
     def test_integration_qa_overrides_outputs(self):
         for loc in LOCALES:
-            path = localized(TEMPLATE / ".mark", "prompts", loc) / "designer-integration-qa.md"
+            path = localized(".mark", "prompts", loc) / "designer-integration-qa.md"
             tpl = brief.parse_template(path.read_text(encoding="utf-8"))
             self.assertEqual(tpl.outputs, ["design-qa.md"])
             self.assertIn("<!-- mark:qa passed -->", tpl.body)
@@ -157,17 +157,16 @@ class TemplatePromptsTest(unittest.TestCase):
 
 class TemplateAgentsTest(unittest.TestCase):
     def setUp(self):
-        src = (TEMPLATE / ".mark/config.toml.jinja").read_text(encoding="utf-8")
-        self.roles = set(tomllib.loads(render(src))["roles"])
+        self.roles = set(tomllib.loads(scaffold.render(ANSWERS)[".mark/config.toml"])["roles"])
 
     def test_one_agent_per_role_with_role_rules(self):
         for loc in LOCALES:
-            folder = localized(TEMPLATE / ".claude", "agents", loc)
+            folder = localized(".claude", "agents", loc)
             files = {p.name for p in folder.iterdir()}
-            self.assertEqual(files, {f"{r}.md.jinja" for r in self.roles}, loc)
+            self.assertEqual(files, {f"{r}.md.tmpl" for r in self.roles}, loc)
             for role in self.roles:
                 with self.subTest(locale=loc, role=role):
-                    text = render((folder / f"{role}.md.jinja").read_text(encoding="utf-8"))
+                    text = render((folder / f"{role}.md.tmpl").read_text(encoding="utf-8"))
                     meta = frontmatter(text)
                     self.assertEqual(meta["name"], role)
                     self.assertIn("mark:role-rules", meta.get("skills", []))
@@ -177,7 +176,7 @@ class TemplateAgentsTest(unittest.TestCase):
 
     def test_agents_name_failure_types_and_outcomes(self):
         for loc in LOCALES:
-            tester = (localized(TEMPLATE / ".claude", "agents", loc) / "tester.md.jinja").read_text(encoding="utf-8")
+            tester = (localized(".claude", "agents", loc) / "tester.md.tmpl").read_text(encoding="utf-8")
             for ft in FAILURE_TYPES:
                 self.assertIn(f"`{ft}`", tester, loc)
 
@@ -185,7 +184,7 @@ class TemplateAgentsTest(unittest.TestCase):
 class TemplateFormatsTest(unittest.TestCase):
     def test_same_formats_and_anchors_in_every_locale(self):
         for loc in LOCALES:
-            folder = localized(TEMPLATE / ".mark", "formats", loc)
+            folder = localized(".mark", "formats", loc)
             self.assertEqual({p.name for p in folder.glob("*.md")}, set(FORMAT_ANCHORS), loc)
             for name, anchors in FORMAT_ANCHORS.items():
                 text = (folder / name).read_text(encoding="utf-8")
@@ -195,8 +194,8 @@ class TemplateFormatsTest(unittest.TestCase):
     def test_referenced_formats_exist(self):
         for loc in LOCALES:
             texts = [p.read_text(encoding="utf-8")
-                     for d in (localized(TEMPLATE / ".mark", "prompts", loc),
-                               localized(TEMPLATE / ".claude", "agents", loc))
+                     for d in (localized(".mark", "prompts", loc),
+                               localized(".claude", "agents", loc))
                      for p in d.iterdir()]
             refs = {m for text in texts for m in _FORMAT_REF.findall(text)}
             self.assertTrue(refs)
@@ -204,7 +203,7 @@ class TemplateFormatsTest(unittest.TestCase):
 
     def test_locales_ship_the_same_files(self):
         for name, parent in (("agents", ".claude"), ("prompts", ".mark"), ("formats", ".mark")):
-            sets = [{p.name for p in localized(TEMPLATE / parent, name, loc).iterdir()} for loc in LOCALES]
+            sets = [{p.name for p in localized(parent, name, loc).iterdir()} for loc in LOCALES]
             self.assertEqual(sets[0], sets[1], name)
 
 
@@ -219,13 +218,8 @@ class RoleRulesTest(unittest.TestCase):
         self.assertTrue(out.startswith("# Mark role rules"))
 
 
-def _copier() -> str | None:
-    return os.environ.get("MARK_COPIER") or shutil.which("copier")
-
-
-@unittest.skipUnless(_copier(), "copier not installed (set MARK_COPIER or put copier on PATH)")
 class GeneratedProjectTest(unittest.TestCase):
-    """`copier copy` per locale, then render every scenario with the real engine."""
+    """`mark init` per locale, then render every scenario with the real engine."""
 
     @classmethod
     def setUpClass(cls):
@@ -233,9 +227,11 @@ class GeneratedProjectTest(unittest.TestCase):
         cls.projects: dict[str, Path] = {}
         for loc in LOCALES:
             dest = cls.tmp / loc
-            subprocess.run([_copier(), "copy", "--defaults", "--quiet", "--vcs-ref", "HEAD",
-                            "-d", f"locale={loc}", "-d", "project_name=demo", str(REPO_ROOT), str(dest)],
-                           check=True, capture_output=True, text=True)
+            dest.mkdir()
+            err = io.StringIO()
+            code = cli.main(["init", "--locale", loc, "--project-name", "demo"], cwd=dest,
+                            out=io.StringIO(), err=err)
+            assert code == 0, err.getvalue()
             cls.projects[loc] = dest
 
     @classmethod
@@ -244,19 +240,24 @@ class GeneratedProjectTest(unittest.TestCase):
 
     def test_layout(self):
         for loc, root in self.projects.items():
-            paths = [p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()]
+            paths = [p.relative_to(root).as_posix() for p in root.rglob("*")
+                     if p.is_file() and ".git" not in p.relative_to(root).parts]
             for p in paths:
                 self.assertNotIn("{", p, f"{loc}: unrendered path {p}")
             for want in ["CLAUDE.md", ".mark/config.toml", ".mark/collaboration.md", ".mark/README.md",
-                         ".mark/.copier-answers.yml", ".mark/prompts/README.md",
+                         ".mark/template.toml", ".mark/prompts/README.md", ".gitignore",
                          *(f".claude/agents/{r}.md" for r in ("designer", "coder-plan", "coder-impl", "tester", "fix-plan")),
                          *(f".mark/prompts/{s}.md" for s in SCENARIOS),
                          *(f".mark/formats/{f}" for f in FORMAT_ANCHORS)]:
                 self.assertIn(want, paths, loc)
-            answers = (root / ".mark/.copier-answers.yml").read_text(encoding="utf-8")
-            self.assertIn(f"locale: {loc}", answers)
+            record = tomllib.loads((root / ".mark/template.toml").read_text(encoding="utf-8"))
+            self.assertEqual(record["answers"]["locale"], loc)
+            self.assertEqual(record["version"], scaffold.version())
+            for rel in scaffold.render(record["answers"]):
+                self.assertEqual((root / scaffold.base_path(rel)).read_text(encoding="utf-8"),
+                                 (root / rel).read_text(encoding="utf-8"), f"{loc}: base of {rel}")
 
-    def test_rendered_docs_have_no_jinja_left(self):
+    def test_rendered_docs_have_no_placeholders_left(self):
         for loc, root in self.projects.items():
             for rel in ("CLAUDE.md", ".mark/collaboration.md", ".mark/README.md", ".claude/agents/designer.md"):
                 text = (root / rel).read_text(encoding="utf-8")

@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import brief, flow, general, merge, states, tickets
+from . import brief, flow, general, merge, scaffold, states, tickets
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -298,6 +298,41 @@ def cmd_general(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> i
     return 2
 
 
+def cmd_init(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark init [--dry-run] [--<answer> <value>]...`: set up Mark in this git repository."""
+    given: dict[str, str] = {}
+    dry_run = "--dry-run" in args
+    rest = [a for a in args if a != "--dry-run"]
+    if len(rest) % 2 or any(not k.startswith("--") for k in rest[::2]):
+        err.write(t("en", "cli.usage") + "\n")
+        return 2
+    for flag, value in zip(rest[::2], rest[1::2]):
+        given[flag[2:].replace("-", "_")] = value
+    loc = given.get("locale") if given.get("locale") in scaffold.LOCALES else "en"
+    try:
+        p = scaffold.plan(cwd, given)
+        loc = p.answers["locale"]
+        out.write(t(loc, "init.plan", root=p.root, version=scaffold.version()) + "\n")
+        for key in scaffold.KEYS:
+            out.write(f"  --{key.replace('_', '-')} {json.dumps(p.answers[key], ensure_ascii=False)}\n")
+        out.write(t(loc, "init.writes", n=len(p.write)) + "\n")
+        for rel in p.kept:
+            out.write(t(loc, "init.kept", rel=rel) + "\n")
+        for rel, lines in p.append.items():
+            out.write(t(loc, "init.append", rel=rel, lines=", ".join(lines)) + "\n")
+        if dry_run:
+            out.write(t(loc, "init.dry_run") + "\n")
+            return 0
+        notes = scaffold.apply(p)
+    except flow.FlowError as exc:
+        err.write(t(loc, exc.key, **exc.params) + "\n")
+        return 1
+    for key, params in notes:
+        out.write(t(loc, key, **params) + "\n")
+    out.write(t(loc, "init.done", main=p.answers["main_branch"]) + "\n")
+    return 0
+
+
 _PLUGIN = Path(__file__).resolve().parents[2]
 RULES = {
     "orchestrator": _PLUGIN / "rules" / "orchestrator.md",
@@ -334,6 +369,8 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
         return 0 if argv else 2
     if argv[0] == "rules":
         return cmd_rules(argv[1:], out, err)
+    if argv[0] == "init":
+        return cmd_init(cwd or Path.cwd(), argv[1:], out, err)
     cfg = _load(cwd or Path.cwd(), err)
     if cfg is None:
         return 2

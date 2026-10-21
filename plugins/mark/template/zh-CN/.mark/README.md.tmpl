@@ -1,0 +1,16 @@
+# .mark
+
+{{ project_name }} 的多 agent 协作状态，由 Mark 插件管理。
+流程怎么跑：[collaboration.md](collaboration.md)。
+
+| 路径 | 用途 |
+|---|---|
+| `config.toml` | 引擎配置（角色、闸门、写域） |
+| `collaboration.md` | 人和 agent 在这里怎么协作 |
+| `prompts/` | 派活模板，每个场景一份 |
+| `formats/` | 制品格式（需求、设计、方案、交接、验收报告……） |
+| `features/<id>/`、`bugs/<id>/` | 每单一个目录：状态 + 制品 |
+| `gates/` | 人审放行记录（文件存在即放行）。不要删除 |
+| `locks/` | 运行时派活锁（不入库） |
+| `template.toml` | 模板版本和 `mark init` 时的答案（由 Mark 写入，不要手改） |
+| `.base/` | Mark 上次写入的模板原样副本，升级时据此保留你的改动（不要手改） |

@@ -2,11 +2,11 @@
 
 Guidance for anyone (human or agent) working **on this repository**. This file is
 not shipped to Mark users: plugins do not load a CLAUDE.md, and generated
-projects get their own from `template/`.
+projects get their own from `plugins/mark/template/`.
 
 ## What this repo is
 
-MarkSuits builds **Mark**, a Claude Code plugin plus a project template that set up a
+MarkSuits builds **Mark**, a Claude Code plugin (with a project template inside) that sets up a
 multi-agent development workflow: a main-thread orchestrator, stateless role
 subagents (designer / coder-plan / coder-impl / tester / fix-plan), per-ticket
 artifacts, human review gates, and hooks that enforce all of it with exit 2.
@@ -18,10 +18,10 @@ Design: `docs/architecture.md`.
 |---|---|---|
 | `.claude-plugin/marketplace.json` | Marketplace catalog (repo root = marketplace) | marketplace |
 | `plugins/mark/` | The engine plugin: hooks, skills, CLI, `lib/mark/` | plugin (upgradable) |
-| `copier.yml`, `template/project/` | Copier template: roles, prompts, artifact formats, `.mark/config.toml`; localized dirs are named `{% if locale == '<loc>' %}<name>{% endif %}` | generated once, owned by the project |
-| `tests/` | Engine and template tests (`unittest`, stdlib; template generation needs Copier) | dev only |
-| `.github/workflows/` | CI: tests on 3.11/3.13, template per locale, manifests, sensitive scan | dev only |
-| `tools/` | Repo tooling (sensitive-data check, git hooks) | dev only |
+| `plugins/mark/template/` | Project template `mark init` renders: `common/` plus one dir per locale; `*.tmpl` files get `{{ answer }}` filled in (`lib/mark/scaffold.py`) | written once by `mark init`, then owned by the project |
+| `tests/` | Engine and template tests (`unittest`, stdlib only) | dev only |
+| `.github/workflows/` | CI: tests on 3.11/3.13, manifests, sensitive scan | dev only |
+| `tools/` | Repo tooling (sensitive-data check, git hooks, `sync_example.py`) | dev only |
 | `docs/` | Architecture and decisions | dev only |
 
 ## Rules
@@ -43,8 +43,8 @@ Design: `docs/architecture.md`.
 ## Commands
 
 ```bash
-python3 -m unittest discover -s tests -t .     # engine tests
-MARK_COPIER=copier python3 -m unittest tests.test_template   # + generate the template per locale
+python3 -m unittest discover -s tests -t .     # engine + template tests
+python3 tools/sync_example.py                  # after a template change: re-render examples/todo
 claude plugin validate .                       # marketplace + plugin manifests
 claude --plugin-dir ./plugins/mark             # load the plugin for one session
 python3 tools/check_sensitive.py               # sensitive-data scan
