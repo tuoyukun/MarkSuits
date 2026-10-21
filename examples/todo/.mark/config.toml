@@ -1,11 +1,16 @@
-# Mark project configuration. The engine (plugin) reads this file; it never
-# hardcodes project paths. Keep it in git.
+# Mark project configuration: the facts about this project. Keep it in git.
+# The workflow itself (roles, review gates, required outputs, who writes which ticket
+# artifact) ships with the Mark plugin and updates with it. To change a part of it for this
+# project, add the key here and it replaces the default, for example:
+#   [gates]
+#   coder-plan = "design-approved"
+#   [outputs]
+#   designer = ["design.md", "preview.html"]
+# Role agents, dispatch prompts and artifact formats work the same way: add
+# .claude/agents/<role>.md, .mark/prompts/<scenario>.md or .mark/formats/<name>.md.
 mark_schema = 1
 locale = "en"
 profile = "web-fullstack"
-
-# Pipeline roles (file names of the agents in .claude/agents/, without ".md").
-roles = ["designer", "coder-plan", "coder-impl", "tester", "fix-plan"]
 
 [project]
 name = "todo"
@@ -17,23 +22,6 @@ frontend = "frontend"
 backend = "backend"
 ui = "frontend/src/ui"
 tests = "tests"
-
-# Gate each role needs before dispatch, as `.mark/gates/<id>.<gate>` (feature tickets only;
-# the bug chain has no review gates). A human may waive a gate that has nothing to
-# review by creating `<id>.<gate>.waived` instead.
-[gates]
-coder-plan = "design-approved"
-coder-impl = "plan-approved"
-tester = "plan-approved"
-
-# Files a role must leave in the ticket directory before it may stop.
-# A prompt can override this per dispatch with `<!-- mark:outputs a.md,b.md -->`.
-[outputs]
-designer = ["design.md", "preview.html"]
-coder-plan = ["tech-plan.md"]
-fix-plan = ["fix-plan.md"]
-coder-impl = ["handoff.md"]
-tester = ["verdict.md"]
 
 # A feature that has design.md and whose branch changes these paths goes through
 # design QA (designer checks the integrated UI) before testing.
@@ -62,7 +50,8 @@ main_writable = []
 setup = "npm ci"
 setup_timeout = 300
 
-# Doc budgets: byte limits for the docs every role loads, so their context does not
+# Doc budgets: byte limits for the docs every role loads (the agent, prompt and format
+# globs cover this project's own overrides of the built-ins), so their context does not
 # grow by one harmless line at a time. First matching glob wins; max_bytes = 0 exempts
 # a path from a broader rule. A write may not leave a doc over budget and larger than it
 # was (shrinking an oversized doc is fine), and `mark merge` refuses a branch that does.
@@ -72,10 +61,6 @@ setup_timeout = 300
 [[doc_budget]]
 glob = "**/CLAUDE.md"
 max_bytes = 16384
-
-[[doc_budget]]
-glob = ".mark/collaboration.md"
-max_bytes = 12288
 
 [[doc_budget]]
 glob = ".claude/agents/*.md"
@@ -95,48 +80,14 @@ glob = ".mark/bugs/*/fix-plan.md"
 max_bytes = 12288
 
 # Write scopes. First matching glob wins; paths that match nothing are open to all.
-# "main" is the orchestrator (main thread). The engine adds fixed rules before these
-# that no project can loosen: .claude/**, .mark/config.toml, gates, locks, status.md
-# and review-*.md are main-thread only.
-[[write_rules]]
-glob = "**/requirement.md"
-roles = ["main"]
-
-[[write_rules]]
-glob = "**/bug.md"
-roles = ["main"]
-
-[[write_rules]]
-glob = "**/design.md"
-roles = ["designer"]
-
-[[write_rules]]
-glob = "**/preview.html"
-roles = ["designer"]
-
-[[write_rules]]
-glob = "**/design-qa.md"
-roles = ["designer"]
-
+# "main" is the orchestrator (main thread). The engine checks fixed rules first that no
+# project can loosen (.claude/**, .mark/config.toml, gates, locks, status.md and review-*.md
+# are main-thread only), then who writes each ticket artifact (requirement.md and bug.md:
+# main, design.md: designer, tech-plan.md: coder-plan ...; a rule here with the same glob
+# replaces one), then these.
 [[write_rules]]
 glob = "frontend/src/ui/**"
 roles = ["designer"]
-
-[[write_rules]]
-glob = "**/tech-plan.md"
-roles = ["coder-plan"]
-
-[[write_rules]]
-glob = "**/fix-plan.md"
-roles = ["fix-plan"]
-
-[[write_rules]]
-glob = "**/handoff.md"
-roles = ["coder-impl"]
-
-[[write_rules]]
-glob = "**/verdict.md"
-roles = ["tester"]
 
 [[write_rules]]
 glob = "tests/**"

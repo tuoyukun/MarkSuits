@@ -1,5 +1,5 @@
 ---
-description: Bring this Mark project's files (role agents, prompts, formats, config) up to the installed Mark plugin, on a general lane the human reviews before it lands. Use when the human asks to upgrade Mark, or `mark status` / `mark next` say the project files are older than the plugin.
+description: Bring this Mark project's files (config, and any role agents, prompts or formats it keeps) up to the installed Mark plugin, on a general lane the human reviews before it lands. Use when the human asks to upgrade Mark, or `mark status` / `mark next` say the project files are older than the plugin.
 allowed-tools: Bash(mark:*)
 ---
 
@@ -22,7 +22,11 @@ lane. Main does not change until the human says to land it. Speak the human's la
    Never edit `.mark/.base/` or `.mark/template.toml`; `mark upgrade` owns them.
 4. **Show the human** what the upgrade changes: the rows, `git -C "<worktree>" diff <main>...HEAD --stat`,
    and in plain words what changed in the files they edited (merged or resolved). Mention rows
-   that say skipped or kept: those files did not get the template's change.
+   that say skipped: those files did not get the template's change. Rows that say kept are
+   files the project edited that Mark now ships itself (role agents, prompts, formats): the
+   project's copy overrides the built-in and stops receiving Mark's updates. Show the human
+   how it differs from the built-in (`mark format <name>`, or the file under the plugin's
+   `agents/` and `defaults/`) and suggest deleting it when the edit is no longer needed.
 5. **The human decides.**
    - Land it: `mark general merge <branch>` (regression, fast-forward, push, lane removed).
      If it fails, main is unchanged and the lane is kept: report the reason and stop.

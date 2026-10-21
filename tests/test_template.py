@@ -1,9 +1,9 @@
-"""The project template must produce files the engine accepts, in every locale.
+"""The built-ins and the project template must give files the engine accepts, in every locale.
 
 Two layers:
 
-- Source checks (always run): config, role agents, prompt templates and artifact
-  formats under `template/project/`, per locale, against what the engine expects.
+- Source checks (always run): the config template, the built-in role agents (`agents/`),
+  prompt templates and artifact formats (`defaults/<locale>/`) against what the engine expects.
 - Generated checks: generate a project per locale with the real `mark init`, then render
   every dispatch scenario through `mark.brief`.
 """
@@ -24,6 +24,8 @@ from mark.flow import SCENARIOS, Action, Ctx
 from mark.i18n import t
 
 TEMPLATE = PLUGIN_ROOT / "template"
+DEFAULTS = PLUGIN_ROOT / "defaults"
+AGENTS = PLUGIN_ROOT / "agents"
 LOCALES = ("en", "zh-CN")
 ANSWERS = {"locale": "en", "profile": "web-fullstack", "project_name": "demo", "main_branch": "main",
            "frontend_dir": "frontend", "backend_dir": "backend", "ui_dir": "frontend/src/ui",
@@ -42,16 +44,16 @@ FORMAT_ANCHORS = {
     "verdict.md": ["<!-- mark:verdict FAILED -->", "FAIL-3", "failureType:", "routeTo:"],
 }
 FAILURE_TYPES = ("impl-bug", "needs-unit-test", "design-flaw", "unclear")
-_FORMAT_REF = re.compile(r"\.mark/formats/([a-z-]+\.md)")
+_FORMAT_REF = re.compile(r"mark format ([a-z-]+\.md)")
 
 
 def render(text: str) -> str:
     return scaffold._fill(text, ANSWERS, toml=False)
 
 
-def localized(parent: str, name: str, locale: str) -> Path:
-    """Source dir of `<parent>/<name>` for `locale`."""
-    return TEMPLATE / locale / parent / name
+def localized(name: str, locale: str) -> Path:
+    """Built-in dir `defaults/<locale>/<name>`."""
+    return DEFAULTS / locale / name
 
 
 def frontmatter(text: str) -> dict[str, object]:
@@ -85,10 +87,11 @@ class TemplateConfigTest(unittest.TestCase):
     def test_setup_answer_reaches_worktree(self):
         self.assertEqual((self.cfg.worktree_setup, self.cfg.worktree_setup_timeout), ("npm ci", 300))
 
-    def test_roles_are_top_level(self):
-        # A `roles` line below a [table] header would silently become e.g. paths.roles.
-        self.assertIn("roles", self.cfg.data)
+    def test_workflow_comes_from_engine_defaults(self):
+        for key in ("roles", "gates", "outputs"):
+            self.assertNotIn(key, self.cfg.data)
         self.assertEqual(self.cfg.roles, {"designer", "coder-plan", "coder-impl", "tester", "fix-plan"})
+        self.assertEqual(self.cfg.outputs["designer"], ["design.md", "preview.html"])
 
     def test_rules_only_name_known_roles(self):
         known = self.cfg.roles | {MAIN}
@@ -122,12 +125,12 @@ class TemplateConfigTest(unittest.TestCase):
 class TemplatePromptsTest(unittest.TestCase):
     def test_every_scenario_in_every_locale(self):
         for loc in LOCALES:
-            names = {p.stem for p in localized(".mark", "prompts", loc).glob("*.md")} - {"README"}
+            names = {p.stem for p in localized("prompts", loc).glob("*.md")} - {"README"}
             self.assertEqual(names, set(SCENARIOS), loc)
 
     def test_role_placeholders_and_outputs(self):
         for loc in LOCALES:
-            for path in sorted(localized(".mark", "prompts", loc).glob("*.md")):
+            for path in sorted(localized("prompts", loc).glob("*.md")):
                 if path.stem == "README":
                     continue
                 with self.subTest(locale=loc, scenario=path.stem):
@@ -141,7 +144,7 @@ class TemplatePromptsTest(unittest.TestCase):
 
     def test_review_scenarios_name_the_open_rounds(self):
         for loc in LOCALES:
-            folder = localized(".mark", "prompts", loc)
+            folder = localized("prompts", loc)
             for name in ("designer-review-rework", "coder-plan-rework", "coder-impl-merge-rework"):
                 body = (folder / f"{name}.md").read_text(encoding="utf-8")
                 for ph in ("{{review_file}}", "{{pending_rounds}}", "{{pending_refs}}"):
@@ -149,42 +152,41 @@ class TemplatePromptsTest(unittest.TestCase):
 
     def test_integration_qa_overrides_outputs(self):
         for loc in LOCALES:
-            path = localized(".mark", "prompts", loc) / "designer-integration-qa.md"
+            path = localized("prompts", loc) / "designer-integration-qa.md"
             tpl = brief.parse_template(path.read_text(encoding="utf-8"))
             self.assertEqual(tpl.outputs, ["design-qa.md"])
             self.assertIn("<!-- mark:qa passed -->", tpl.body)
 
 
-class TemplateAgentsTest(unittest.TestCase):
+class BuiltinAgentsTest(unittest.TestCase):
     def setUp(self):
-        self.roles = set(tomllib.loads(scaffold.render(ANSWERS)[".mark/config.toml"])["roles"])
+        self.roles = set(MarkConfig(Path("."), {}).roles)
 
     def test_one_agent_per_role_with_role_rules(self):
-        for loc in LOCALES:
-            folder = localized(".claude", "agents", loc)
-            files = {p.name for p in folder.iterdir()}
-            self.assertEqual(files, {f"{r}.md.tmpl" for r in self.roles}, loc)
-            for role in self.roles:
-                with self.subTest(locale=loc, role=role):
-                    text = render((folder / f"{role}.md.tmpl").read_text(encoding="utf-8"))
-                    meta = frontmatter(text)
-                    self.assertEqual(meta["name"], role)
-                    self.assertIn("mark:role-rules", meta.get("skills", []))
-                    self.assertNotIn("Agent", str(meta.get("tools", "")))
-                    self.assertNotIn("{%", text)
-                    self.assertIn("mark rules role", text)
+        self.assertEqual({p.name for p in AGENTS.iterdir()}, {f"{r}.md" for r in self.roles})
+        for role in self.roles:
+            with self.subTest(role=role):
+                text = (AGENTS / f"{role}.md").read_text(encoding="utf-8")
+                meta = frontmatter(text)
+                self.assertEqual(meta["name"], role)
+                self.assertIn("mark:role-rules", meta.get("skills", []))
+                self.assertNotIn("Agent", str(meta.get("tools", "")))
+                # Ignored for plugin agents; Mark's guards live in hooks/hooks.json.
+                for field in ("hooks", "mcpServers", "permissionMode"):
+                    self.assertNotIn(field, meta)
+                self.assertNotIn("{{", text)
+                self.assertIn("mark rules role", text)
 
     def test_agents_name_failure_types_and_outcomes(self):
-        for loc in LOCALES:
-            tester = (localized(".claude", "agents", loc) / "tester.md.tmpl").read_text(encoding="utf-8")
-            for ft in FAILURE_TYPES:
-                self.assertIn(f"`{ft}`", tester, loc)
+        tester = (AGENTS / "tester.md").read_text(encoding="utf-8")
+        for ft in FAILURE_TYPES:
+            self.assertIn(f"`{ft}`", tester)
 
 
 class TemplateFormatsTest(unittest.TestCase):
     def test_same_formats_and_anchors_in_every_locale(self):
         for loc in LOCALES:
-            folder = localized(".mark", "formats", loc)
+            folder = localized("formats", loc)
             self.assertEqual({p.name for p in folder.glob("*.md")}, set(FORMAT_ANCHORS), loc)
             for name, anchors in FORMAT_ANCHORS.items():
                 text = (folder / name).read_text(encoding="utf-8")
@@ -194,17 +196,27 @@ class TemplateFormatsTest(unittest.TestCase):
     def test_referenced_formats_exist(self):
         for loc in LOCALES:
             texts = [p.read_text(encoding="utf-8")
-                     for d in (localized(".mark", "prompts", loc),
-                               localized(".claude", "agents", loc))
-                     for p in d.iterdir()]
+                     for d in (localized("prompts", loc), AGENTS) for p in d.iterdir()]
             refs = {m for text in texts for m in _FORMAT_REF.findall(text)}
             self.assertTrue(refs)
             self.assertLessEqual(refs, set(FORMAT_ANCHORS), loc)
 
     def test_locales_ship_the_same_files(self):
-        for name, parent in (("agents", ".claude"), ("prompts", ".mark"), ("formats", ".mark")):
-            sets = [{p.name for p in localized(parent, name, loc).iterdir()} for loc in LOCALES]
-            self.assertEqual(sets[0], sets[1], name)
+        sets = [{p.relative_to(DEFAULTS / loc).as_posix() for p in (DEFAULTS / loc).rglob("*") if p.is_file()}
+                for loc in LOCALES]
+        self.assertEqual(sets[0], sets[1])
+        self.assertIn("collaboration.md", sets[0])
+
+    def test_builtins_fit_the_default_budget(self):
+        cfg = MarkConfig(Path("."), tomllib.loads(scaffold.render(ANSWERS)[".mark/config.toml"]))
+        files = {f".claude/agents/{p.name}": p for p in AGENTS.iterdir()}
+        for loc in LOCALES:
+            for kind in ("prompts", "formats"):
+                files.update({f".mark/{kind}/{p.name}#{loc}": p for p in localized(kind, loc).iterdir()})
+        for rel, path in files.items():
+            limit = budget.limit_for(cfg, rel.split("#")[0])
+            self.assertTrue(limit, rel)
+            self.assertLessEqual(path.stat().st_size, limit, rel)
 
 
 class RoleRulesTest(unittest.TestCase):
@@ -244,12 +256,10 @@ class GeneratedProjectTest(unittest.TestCase):
                      if p.is_file() and ".git" not in p.relative_to(root).parts]
             for p in paths:
                 self.assertNotIn("{", p, f"{loc}: unrendered path {p}")
-            for want in ["CLAUDE.md", ".mark/config.toml", ".mark/collaboration.md", ".mark/README.md",
-                         ".mark/template.toml", ".mark/prompts/README.md", ".gitignore",
-                         *(f".claude/agents/{r}.md" for r in ("designer", "coder-plan", "coder-impl", "tester", "fix-plan")),
-                         *(f".mark/prompts/{s}.md" for s in SCENARIOS),
-                         *(f".mark/formats/{f}" for f in FORMAT_ANCHORS)]:
+            for want in ["CLAUDE.md", ".mark/config.toml", ".mark/README.md", ".mark/template.toml", ".gitignore"]:
                 self.assertIn(want, paths, loc)
+            for p in paths:  # built-ins stay in the plugin
+                self.assertFalse(p.startswith((".claude/", ".mark/prompts/", ".mark/formats/")), f"{loc}: {p}")
             record = tomllib.loads((root / ".mark/template.toml").read_text(encoding="utf-8"))
             self.assertEqual(record["answers"]["locale"], loc)
             self.assertEqual(record["version"], scaffold.version())
@@ -259,7 +269,7 @@ class GeneratedProjectTest(unittest.TestCase):
 
     def test_rendered_docs_have_no_placeholders_left(self):
         for loc, root in self.projects.items():
-            for rel in ("CLAUDE.md", ".mark/collaboration.md", ".mark/README.md", ".claude/agents/designer.md"):
+            for rel in ("CLAUDE.md", ".mark/README.md"):
                 text = (root / rel).read_text(encoding="utf-8")
                 self.assertNotIn("{%", text, f"{loc}/{rel}")
                 self.assertNotIn("{{ ", text, f"{loc}/{rel}")

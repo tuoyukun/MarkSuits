@@ -206,9 +206,9 @@ MESSAGES["en"].update({
     "guard.dedup.race": "Another `{role}` dispatch for `{id}` started at the same moment. Wait for it.",
     "guard.dispatch.not_loaded": (
         "The `{role}` agent is not loaded in this session, so the dispatch for `{id}` never started; its lock\n"
-        "is released. Claude Code only sees .claude/agents/ if that folder existed when the session started\n"
-        "(it did not before `mark init`). Do not substitute another agent type. Tell the human to restart\n"
-        "Claude Code (/exit, then `claude -c` to keep this conversation) and then run /mark:feature {id} again."
+        "is released. A session sees only the agents that existed when it started (for example, not one added\n"
+        "to .claude/agents/ or shipped by a Mark update since). Do not substitute another agent type. Tell the\n"
+        "human to restart Claude Code (/exit, then `claude -c` to keep this conversation) and run /mark:feature {id} again."
     ),
     "guard.dispatch.failed": (
         "The `{role}` dispatch for `{id}` failed before the agent started; its lock is released.\n"
@@ -217,7 +217,7 @@ MESSAGES["en"].update({
     "guard.output.missing": (
         "You (`{role}`) are about to stop, but required output is missing:\n{missing}\n"
         "Checked these ticket directories:\n{checked}\n"
-        "Do not stop yet: write the missing file(s) to the first location, then finish. If the file does\n"
+        "Do not stop yet: write the missing file(s) at the paths listed under \"missing\" above, then finish. If a file does\n"
         "exist somewhere above, say where in your result and finish; do not create a second copy."
     ),
     "guard.bash.merge_main": "Do not merge `{ref}` into {main} by hand. `mark merge <id>` checks merge order, runs the regression and lands it.",
@@ -230,6 +230,7 @@ MESSAGES["en"].update({
     ),
     "cli.unlock.ok": "Released lock {id}.{role}.",
     "cli.unlock.none": "No lock {id}.{role}.",
+    "cli.format.unknown": "No artifact format `{name}`.",
 })
 
 MESSAGES["zh-CN"].update({
@@ -321,15 +322,15 @@ MESSAGES["zh-CN"].update({
     ),
     "guard.dedup.race": "另一个 `{role}` 派发在同一时刻启动了 `{id}`，请等待它。",
     "guard.dispatch.not_loaded": (
-        "本会话没有加载 `{role}` agent，所以 `{id}` 的派发根本没启动；锁已释放。Claude Code 只在会话启动时\n"
-        "已经存在 .claude/agents/ 目录的情况下才会发现其中的 agent（`mark init` 之前它不存在）。不要换成别的\n"
-        "agent 类型。请 Human 重启 Claude Code（/exit，然后 `claude -c` 保留本次对话），再运行 /mark:feature {id}。"
+        "本会话没有加载 `{role}` agent，所以 `{id}` 的派发根本没启动；锁已释放。会话只认得启动时已存在的 agent\n"
+        "（之后新加进 .claude/agents/ 的、或 Mark 升级后新带来的都不算）。不要换成别的 agent 类型。请 Human\n"
+        "重启 Claude Code（/exit，然后 `claude -c` 保留本次对话），再运行 /mark:feature {id}。"
     ),
     "guard.dispatch.failed": "`{id}` 的 `{role}` 派发在 agent 启动前就失败了；锁已释放。按报错修好后，`mark next {id}` 再派一次。",
     "guard.output.missing": (
         "你（`{role}`）正要结束，但必交产物缺失：\n{missing}\n"
         "已查过这些工单目录：\n{checked}\n"
-        "先别结束：把缺的文件写到第一个位置，再结束。如果文件其实在上面某处，在结论里写明位置后直接结束，不要另写一份。"
+        "先别结束：把缺的文件写到上面「缺失」列出的路径，再结束。如果文件其实在上面某处，在结论里写明位置后直接结束，不要另写一份。"
     ),
     "guard.bash.merge_main": "不要手工把 `{ref}` 合进 {main}。`mark merge <编号>` 会检查合并顺序、跑回归再合入。",
     "guard.bash.merge_lane": "不要手工把 `{ref}` 合进 {main}。`mark general merge {ref}` 会跑回归、合入并拆掉车道。",
@@ -338,6 +339,7 @@ MESSAGES["zh-CN"].update({
     "guard.bash.checkout_main": "不要在主仓里检出 `{branch}`，主仓是所有会话共用的。请用 worktree：\n  git worktree add \"{wt}\" \"{branch}\"",
     "cli.unlock.ok": "已释放锁 {id}.{role}。",
     "cli.unlock.none": "没有锁 {id}.{role}。",
+    "cli.format.unknown": "没有制品格式 `{name}`。",
 })
 
 
@@ -361,7 +363,8 @@ _USAGE_EN = (
     "  mark general new | merge <branch> | drop <branch> [--force]\n"
     "                                                 no-ticket lane for docs/config (/mark:general)\n"
     "  mark unlock <id> <role>                        release a dead agent's lock (human)\n"
-    "  mark rules [orchestrator | role]               print a rulebook (orchestrator by default)"
+    "  mark rules [orchestrator | role | collaboration]  print a rulebook (orchestrator by default)\n"
+    "  mark format <name>                             print an artifact format (design.md, verdict.md ...)"
 )
 _USAGE_ZH = (
     "用法：mark <命令> [选项]\n"
@@ -380,7 +383,8 @@ _USAGE_ZH = (
     "  mark general new | merge <分支> | drop <分支> [--force]\n"
     "                                                 不属于任何工单的文档/配置改动车道（/mark:general）\n"
     "  mark unlock <编号> <角色>                      释放已死 agent 的锁（由人执行）\n"
-    "  mark rules [orchestrator | role]               打印规则（默认 orchestrator）"
+    "  mark rules [orchestrator | role | collaboration]  打印规则（默认 orchestrator）\n"
+    "  mark format <名字>                             打印制品格式（design.md、verdict.md ……）"
 )
 
 MESSAGES["en"].update({
@@ -741,11 +745,6 @@ MESSAGES["en"].update({
         "  - set `[merge] regression` and `[worktree] setup` in .mark/config.toml once the project has tests\n"
         "  - start work with /mark:feature or /mark:fix"
     ),
-    "init.restart": (
-        "Restart Claude Code before the first ticket: a running session does not see the new\n"
-        ".claude/agents/ folder, so it cannot dispatch the role agents. /exit, then `claude -c` keeps\n"
-        "this conversation."
-    ),
     "init.pushed": "Pushed {main} to origin.",
     "init.push_failed": "Pushing {main} to origin failed; push it yourself before opening tickets or lanes.",
     "init.already": "{root} is already a Mark project (.mark/config.toml exists).",
@@ -773,10 +772,6 @@ MESSAGES["zh-CN"].update({
         "  - 补完 CLAUDE.md 里的 TODO（技术栈、模块边界、命令），每个角色开工先读它\n"
         "  - 工程有了测试后，在 .mark/config.toml 里设置 `[merge] regression` 和 `[worktree] setup`\n"
         "  - 用 /mark:feature 或 /mark:fix 开始干活"
-    ),
-    "init.restart": (
-        "开第一张工单前先重启 Claude Code：正在运行的会话看不到新建的 .claude/agents/ 目录，派不出角色 agent。\n"
-        "/exit，然后 `claude -c` 可以保留本次对话。"
     ),
     "init.pushed": "已把 {main} 推到 origin。",
     "init.push_failed": "把 {main} 推到 origin 失败；开工单或车道之前请自己推一下。",
@@ -812,7 +807,7 @@ MESSAGES["en"].update({
     "upgrade.row.conflict": "  CONFLICT   {rel} (your edits and the template's change overlap)",
     "upgrade.row.deleted": "  skipped    {rel} (you deleted it; the template changed it)",
     "upgrade.row.removed": "  removed    {rel} (no longer in the template)",
-    "upgrade.row.orphaned": "  kept       {rel} (no longer in the template, but you edited it)",
+    "upgrade.row.orphaned": "  kept       {rel} (you edited it; Mark now ships its own copy, so this file overrides it from here on)",
     "upgrade.nothing": "  (no file changes; only the recorded version moves)",
     "upgrade.dry_run": "Dry run: nothing was written. Run `mark upgrade` to write it on a general lane.",
     "upgrade.done": (
@@ -848,7 +843,7 @@ MESSAGES["zh-CN"].update({
     "upgrade.row.conflict": "  冲突       {rel}（你的修改和模板的改动重叠）",
     "upgrade.row.deleted": "  跳过       {rel}（你删了它，模板改了它）",
     "upgrade.row.removed": "  删除       {rel}（模板已不再包含）",
-    "upgrade.row.orphaned": "  保留       {rel}（模板已不再包含，但你改过它）",
+    "upgrade.row.orphaned": "  保留       {rel}（你改过它；Mark 现在自带这个文件，此后由你的这份覆盖插件内置的）",
     "upgrade.nothing": "  （没有文件改动，只更新记录的版本）",
     "upgrade.dry_run": "试运行：什么都没写。运行 `mark upgrade` 会在一条通用车道上写入。",
     "upgrade.done": (

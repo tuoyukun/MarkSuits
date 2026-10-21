@@ -17,11 +17,11 @@
 
 | 层 | 内容 | 升级方式 |
 |---|---|---|
-| 插件 `plugins/mark/` | hooks、编排 skills、CLI | `claude plugin update` |
-| 模板 `plugins/mark/template/` | 角色定义、派活模板、制品格式、`.mark/config.toml`，由 `mark init` 写入项目 | `/mark:upgrade`（三方合并，保留你的改动，在通用车道里完成，由你决定是否合入） |
-| 项目内容 | 模块边界、写域、契约 | 不升级 |
+| 插件 `plugins/mark/` | hooks、编排 skills、CLI，以及内置的角色 agent、派活模板、制品格式和流程配置默认值 | 自动更新或 `claude plugin update` |
+| 模板 `plugins/mark/template/` | `CLAUDE.md`、`.mark/config.toml`（只含项目事实）、`.gitignore`，由 `mark init` 写入项目 | `/mark:upgrade`（三方合并，保留你的改动，在通用车道里完成，由你决定是否合入） |
+| 项目内容 | 模块边界、写域、契约，以及对内置文件的覆盖 | 不升级 |
 
-模板提供 `zh-CN` 与 `en` 两套文本，生成项目时选择。
+想为某个项目改内置的角色 agent、派活模板或制品格式，就在项目里放一个同名文件（`.claude/agents/<角色>.md`、`.mark/prompts/<场景>.md`、`.mark/formats/<名字>.md`），项目里的文件优先。派活模板和制品格式提供 `zh-CN` 与 `en` 两套，按项目语言选择；内置角色 agent 只有英文版，产物仍用项目语言书写。
 
 ## 安装
 

@@ -169,7 +169,9 @@ def verify(env: Env) -> str | None:
         path.unlink(missing_ok=True)
         return None
     _write(path, meta)  # keep the agent_id bound while it fixes its output
-    primary = next((d for d in dirs if d.is_dir()), dirs[0])
+    # Point at the checkout holding the most outputs; ties go to the ticket's own worktree, where roles write.
+    own = env.main / env.cfg.worktree_for(meta.get("kind", ""), meta.get("ticket", ""))
+    primary = max(dirs, key=lambda d: (sum((d / f).is_file() for f in required), d.is_relative_to(own), d.is_dir()))
     missing = "\n".join(f"  - {primary / f}" for f in required if not (primary / f).is_file())
     checked = "\n".join(f"  - {d}" for d in dirs[:6])
     return env.t("guard.output.missing", role=meta.get("role", "?"), missing=missing, checked=checked)

@@ -12,7 +12,7 @@ other agents. Files on disk are the only channel, so everything you decide must 
 your artifact, your commits, or your final report.
 
 Write artifacts and your report in the project's locale (`locale` in `.mark/config.toml`).
-Your role file and the formats in `.mark/formats/` are already in that language.
+The formats (`mark format <name>`) are already in that language; your role file is in English.
 
 ## 1. Before you start
 
@@ -27,7 +27,7 @@ Your role file and the formats in `.mark/formats/` are already in that language.
 3. **Read the project's `CLAUDE.md`** (in the worktree): stack, module boundaries, red
    lines, commands, commit format.
 4. **Read the artifacts your prompt lists**, and the format of every artifact you write
-   (`.mark/formats/<name>.md`).
+   (`mark format <name>.md` prints it).
 5. **Rework is targeted.** When the trigger names ids (`R-N` from a human review, `FAIL-N`
    from a verdict, `D-N` from design QA), those ids are the job. Everything else stays as
    it is.

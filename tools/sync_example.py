@@ -4,7 +4,8 @@
     python3 tools/sync_example.py [examples/todo]
 
 Overwrites every template file except the ones the project owns (CLAUDE.md, .gitignore),
-rewrites the pristine copies under .mark/.base/ and the version in .mark/template.toml.
+rewrites the pristine copies under .mark/.base/ and the version in .mark/template.toml, and
+removes files the template no longer ships (unless the example edited them).
 Review the diff of the project-owned files by hand. tests/test_example.py fails until this
 has been run after a template change.
 """
@@ -31,6 +32,19 @@ def main(argv: list[str]) -> int:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(text, encoding="utf-8")
                 print("updated", target)
+    base_dir = root / scaffold.BASE_DIR
+    for base in sorted(base_dir.rglob("*.base")):
+        rel = base.relative_to(base_dir).as_posix()[:-len(".base")]
+        if rel in files:
+            continue
+        # The template no longer ships it: drop the copy, and the file unless the project edited it.
+        own = root / rel
+        if own.is_file() and own.read_text(encoding="utf-8") == base.read_text(encoding="utf-8"):
+            own.unlink()
+            print("removed", rel)
+        elif own.is_file():
+            print("kept (edited, now an override)", rel)
+        base.unlink()
     (root / scaffold.RECORD).write_text(scaffold.record_text(scaffold.resolve(answers, root)), encoding="utf-8")
     return 0
 

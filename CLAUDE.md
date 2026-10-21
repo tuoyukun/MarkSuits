@@ -18,7 +18,8 @@ Design: `docs/architecture.md`.
 |---|---|---|
 | `.claude-plugin/marketplace.json` | Marketplace catalog (repo root = marketplace) | marketplace |
 | `plugins/mark/` | The engine plugin: hooks, skills, CLI, `lib/mark/` | plugin (upgradable) |
-| `plugins/mark/template/` | Project template `mark init` renders: `common/` plus one dir per locale; `*.tmpl` files get `{{ answer }}` filled in (`lib/mark/scaffold.py`) | written once by `mark init`, then owned by the project |
+| `plugins/mark/agents/`, `plugins/mark/defaults/` | Built-in role agents (English) and per-locale prompts, formats, collaboration guide; a project overrides one with a file of the same name (`lib/mark/defaults.py`) | plugin (upgradable) |
+| `plugins/mark/template/` | The few project files `mark init` renders: `common/` plus one dir per locale; `*.tmpl` files get `{{ answer }}` filled in (`lib/mark/scaffold.py`) | written once by `mark init`, then owned by the project |
 | `tests/` | Engine and template tests (`unittest`, stdlib only) | dev only |
 | `.github/workflows/` | CI: tests on 3.11/3.13, manifests, sensitive scan | dev only |
 | `tools/` | Repo tooling (sensitive-data check, git hooks, `sync_example.py`) | dev only |
@@ -31,7 +32,9 @@ Design: `docs/architecture.md`.
    which exits 0 when no `.mark/config.toml` is found.
 3. **Block with exit 2 only.** Never exit 1 to "warn"; it does not block.
 4. **No project-specific content in the plugin.** Paths, roles, gates and write scopes come
-   from the project's `.mark/config.toml`. If you need a new knob, add it to the config schema.
+   from the project's `.mark/config.toml`; the engine's defaults for them (and the built-in
+   agents, prompts, formats) stay generic, and a project overrides any of them. If you need a
+   new knob, add it to the config schema with a default.
 5. **Never write state under `${CLAUDE_PLUGIN_ROOT}`** (it changes on every update).
    Project state goes in `.mark/`; caches go in `${CLAUDE_PLUGIN_DATA}`.
 6. **Match role names after stripping the plugin prefix** (`mark.hookio.normalize_agent_type`).

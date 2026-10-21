@@ -1,5 +1,8 @@
 """Project scaffold: render the template that ships with the plugin into a project.
 
+Only project files live here (config, CLAUDE.md, .gitignore, .mark/README.md); role agents,
+prompts and formats are built into the plugin (see `defaults.py`).
+
 The template lives in `template/common/` plus `template/<locale>/`. A file ending in `.tmpl`
 has every `{{ answer }}` filled in and loses the suffix; every other file is copied as it is
 (dispatch prompts keep their own `{{placeholder}}`s for `mark dispatch`).

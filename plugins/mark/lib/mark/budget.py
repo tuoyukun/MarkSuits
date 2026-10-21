@@ -2,7 +2,7 @@
 
 Every appended rule looks harmless; together they make every cold start slower. A
 budget turns "add one more line" into a trade-off. Budgets belong on docs whose
-length follows process complexity (CLAUDE.md, collaboration.md, role files,
+length follows process complexity (CLAUDE.md, role files,
 prompts, formats, thin one-shot artifacts such as fix-plan.md), not on docs whose
 length follows delivered work: there the only way under a byte wall is deleting
 someone else's verified record.

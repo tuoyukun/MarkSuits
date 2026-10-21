@@ -8,7 +8,7 @@ allowed-tools: Bash(mark:*)
 
 Argument: `$ARGUMENTS`
 
-`mark init` writes Mark's project files (role agents, prompts, formats, `.mark/config.toml`)
+`mark init` writes the project's Mark files (`.mark/config.toml`, `CLAUDE.md`, `.gitignore`; role agents, prompts and formats ship with the plugin)
 and commits them on main. You decide the answers with the human; the command does the rest.
 Speak the human's language.
 
@@ -60,9 +60,6 @@ Speak the human's language.
    - New project: skip this step; there is nothing to describe yet.
 
 7. **Next step.**
-   - If `mark init` said to restart, say that first: this session cannot dispatch the role
-     agents until the human restarts Claude Code (`/exit`, then `claude -c`). Do not start a
-     ticket in this session.
    - Existing: work starts with `/mark:feature` or `/mark:fix`.
    - New: suggest the first ticket, `/mark:feature` for the project skeleton (framework,
      layout, first test, the commands in `CLAUDE.md`). It has no UI to design, so the human

@@ -45,7 +45,7 @@ class FreshDirectoryTest(unittest.TestCase):
         self.assertEqual(sh(root, "git", "status", "--porcelain"), "")
         self.assertEqual(load_config(root).data["project"]["name"], "demo")
         self.assertIn("TODO", (root / "CLAUDE.md").read_text(encoding="utf-8"))
-        self.assertIn("claude -c", out)  # the new .claude/agents/ needs a restart
+        self.assertFalse((root / ".claude").exists())  # role agents ship with the plugin
 
     def test_non_empty_dir_without_git_is_refused(self):
         root = tmpdir(self)
@@ -83,12 +83,17 @@ class ChecksTest(unittest.TestCase):
         self.assertEqual(init(root)[0], 0)
         self.assertEqual(load_config(root).main_branch, "trunk")
 
-    def test_existing_role_file_is_a_conflict(self):
-        root = repo(self, {".claude/agents/tester.md": "mine\n"})
+    def test_existing_template_file_is_a_conflict(self):
+        root = repo(self, {".mark/README.md": "mine\n"})
         code, _, err = init(root)
         self.assertEqual(code, 1)
-        self.assertIn(".claude/agents/tester.md", err)
-        self.assertFalse((root / ".mark").exists())
+        self.assertIn(".mark/README.md", err)
+        self.assertFalse((root / ".mark/config.toml").exists())
+        self.assertEqual((root / ".mark/README.md").read_text(), "mine\n")
+
+    def test_existing_role_agent_is_kept_as_an_override(self):
+        root = repo(self, {".claude/agents/tester.md": "mine\n"})
+        self.assertEqual(init(root)[0], 0)
         self.assertEqual((root / ".claude/agents/tester.md").read_text(), "mine\n")
 
     def test_bad_answers(self):

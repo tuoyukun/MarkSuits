@@ -43,9 +43,18 @@ def recorded(root: Path) -> tuple[str, dict[str, str]] | None:
 
 
 def stale(root: Path) -> str | None:
-    """The recorded template version when it is older than the plugin, else None."""
+    """The recorded template version when an upgrade would change a project file, else None.
+
+    Most releases change only the engine and the built-ins, which reach the project without an
+    upgrade, so an older recorded version alone is no reason to bother the human."""
     rec = recorded(root)
-    return rec[0] if rec and _ver(rec[0]) < _ver(scaffold.version()) else None
+    if not rec or _ver(rec[0]) >= _ver(scaffold.version()):
+        return None
+    try:
+        writes = plan(root).writes
+    except FlowError:
+        return None
+    return rec[0] if any(rel != scaffold.RECORD for rel in writes) else None
 
 
 def _read(path: Path) -> str | None:

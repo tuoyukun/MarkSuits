@@ -5,7 +5,9 @@ Hooks use this to stay silent in every other project, because a plugin's hooks
 fire in every session where the plugin is enabled.
 
 Every knob has an engine default here, so a minimal config (`mark_schema` only)
-still yields a working, strict setup. The project template writes the full set.
+still yields a working, strict setup. `mark init` writes only what is about the project
+(paths, commands, path write rules); the workflow (roles, gates, outputs, who writes which
+artifact) comes from these defaults, and a key in the project's config overrides its default.
 """
 from __future__ import annotations
 
@@ -26,9 +28,18 @@ MAIN = "main"
 DEFAULT_ROLES = ("designer", "coder-plan", "coder-impl", "tester", "fix-plan")
 DEFAULT_GATES = {"coder-plan": "design-approved", "coder-impl": "plan-approved",
                  "tester": "plan-approved"}
-DEFAULT_OUTPUTS = {"designer": ["design.md"], "coder-plan": ["tech-plan.md"],
+DEFAULT_OUTPUTS = {"designer": ["design.md", "preview.html"], "coder-plan": ["tech-plan.md"],
                    "fix-plan": ["fix-plan.md"], "coder-impl": ["handoff.md"],
                    "tester": ["verdict.md"]}
+# Who writes each ticket artifact. They come before the project's `[[write_rules]]`;
+# a project rule with the same glob replaces the default.
+DEFAULT_WRITE_RULES = (
+    ("**/requirement.md", ("main",)), ("**/bug.md", ("main",)),
+    ("**/design.md", ("designer",)), ("**/design-qa.md", ("designer",)),
+    ("**/preview.html", ("designer",)), ("**/tech-plan.md", ("coder-plan",)),
+    ("**/fix-plan.md", ("fix-plan",)), ("**/handoff.md", ("coder-impl",)),
+    ("**/verdict.md", ("tester",)),
+)
 
 
 class ConfigError(Exception):
@@ -96,8 +107,10 @@ class MarkConfig:
 
     @property
     def write_rules(self) -> list[WriteRule]:
-        return [WriteRule(str(r["glob"]), frozenset(r.get("roles", [])))
-                for r in self.data.get("write_rules", []) if "glob" in r]
+        own = [WriteRule(str(r["glob"]), frozenset(r.get("roles", [])))
+               for r in self.data.get("write_rules", []) if "glob" in r]
+        taken = {r.glob for r in own}
+        return [WriteRule(g, frozenset(roles)) for g, roles in DEFAULT_WRITE_RULES if g not in taken] + own
 
     @property
     def doc_budget(self) -> list[BudgetRule]:

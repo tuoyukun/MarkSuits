@@ -24,14 +24,60 @@ Invariants:
 
 | Layer | Contents | Owner | Upgrade |
 |---|---|---|---|
-| **Engine** (`plugins/mark`) | hooks, orchestration skills, CLI (`bin/`), shared role rules (`skills/role-rules`), `lib/mark` | Mark | plugin version bump → `claude plugin update` |
-| **Scaffold** (`plugins/mark/template/`) | `CLAUDE.md`, `.mark/collaboration.md`, role agents, prompt templates, artifact formats, `.mark/config.toml` | the project, after `mark init` | `mark upgrade` / `/mark:upgrade` (3-way merge on a general lane) |
-| **Project content** | module boundaries, contracts, write-scope exceptions, domain scripts | the project | — |
+| **Engine** (`plugins/mark`) | hooks, orchestration skills, CLI (`bin/`), shared role rules (`skills/role-rules`), `lib/mark`, and the built-ins: role agents (`agents/`), dispatch prompts, artifact formats and the collaboration guide (`defaults/<locale>/`), workflow config defaults (`config.py`) | Mark | plugin version bump → auto-update or `claude plugin update` |
+| **Scaffold** (`plugins/mark/template/`) | `CLAUDE.md`, `.mark/README.md`, `.mark/config.toml` (project facts only), `.gitignore` | the project, after `mark init` | `mark upgrade` / `/mark:upgrade` (3-way merge on a general lane) |
+| **Project content** | module boundaries, contracts, write-scope exceptions, domain scripts, and any override of a built-in | the project | — |
 
-Why role agents live in the scaffold, not the plugin: plugin agents are namespaced
-(`mark:coder-impl`), ignore `permissionMode`/`hooks`/`mcpServers` frontmatter, and role
-prompts always contain project facts (stack, paths). The engine normalizes role names, so
-either location works for enforcement.
+Up to v0.16 the role agents, prompts and formats were part of the scaffold. The next section
+says why they moved.
+
+### Built-ins and overrides (v0.17)
+
+**Problem.** Claude Code auto-update (once the user turns it on) replaces the engine, but
+the role agents, prompts and formats were copied into the project by `mark init`, so most
+improvements never reach a project unless someone runs `/mark:upgrade`. The copied
+`.claude/agents/` also does not exist when the init session starts, so that session cannot
+dispatch any role.
+
+**Rule.** The plugin ships every generic file; the project holds only its facts and the
+files it deliberately changed. For each file the project copy wins if it exists, else the
+built-in is used. Auto-update then upgrades everything the project did not override.
+
+| What | Built-in (plugin) | Project override | Resolved by |
+|---|---|---|---|
+| Role agents | `plugins/mark/agents/<role>.md`, loaded as `mark:<role>` | `.claude/agents/<role>.md` | `mark dispatch` prints `subagent_type: <role>` when the project file exists, else `mark:<role>` |
+| Dispatch prompts | `plugins/mark/defaults/<locale>/prompts/<scenario>.md` | `.mark/prompts/<scenario>.md` | `brief.load_template` |
+| Artifact formats | `plugins/mark/defaults/<locale>/formats/<name>.md` | `.mark/formats/<name>.md` | `mark format <name>` prints the effective one; agents and prompts point there instead of a path |
+| Collaboration guide | `plugins/mark/defaults/<locale>/collaboration.md` | none | `mark rules collaboration` |
+| Workflow config: `roles`, `[gates]`, `[outputs]`, artifact write rules (`requirement.md` → main, `design.md` → designer …) | engine defaults in `config.py` | the same keys in `.mark/config.toml` | `load_config` fills every missing key from the defaults |
+
+`mark init` writes only what is about this project: `.mark/config.toml` with `[project]`,
+`[paths]`, `[merge]`, `[worktree]`, `[design_qa]`, `[[doc_budget]]` and the path write rules
+(`frontend/**` → coder-impl …), plus `CLAUDE.md` and `.gitignore`. No `.claude/agents/`, so no
+restart. A config key added in a later version gets its engine default, so new knobs never
+need an upgrade.
+
+**Hooks are unaffected.** Hooks in a plugin's `hooks/hooks.json` apply inside every subagent,
+plugin subagents included ("Hooks from settings files, managed policy settings, and plugins
+all apply inside subagents"). Only the per-agent `hooks:` frontmatter is ignored for plugin
+agents, and Mark has never used it: all guards live in `hooks.json`. Hook payloads carry
+`agent_type: mark:<role>`, which `hookio.normalize_agent_type` already reduces to `<role>`.
+The first implementation step checks this live: a plugin designer writing outside its scope
+must be blocked with exit 2.
+
+**Agents carry no project facts.** Today they template only `project_name`, `ui_dir` and
+`tests_dir`; the dispatch brief names the directories instead, and `CLAUDE.md` holds the
+rest. A plugin cannot localize an agent per project, so built-in agents are written in
+English; artifacts and replies stay in the project's `locale` (already a role rule), and
+prompts and formats remain per locale.
+
+**Upgrade shrinks to the scaffold.** `/mark:upgrade` still 3-way merges the few scaffold files.
+An override belongs to the project: it does not follow later changes to the built-in it
+replaced. Migration from v0.16 and earlier: one `/mark:upgrade` deletes every copied agent,
+prompt, format and collaboration guide that still equals its `.base` (never edited), and the
+3-way merge of `config.toml` drops the workflow keys the project never changed. Edited copies
+stay and are reported as overrides. Old configs keep working unchanged in the meantime (their
+keys simply override), so `mark_schema` stays 1.
 
 ## 3. Engine ↔ project contract
 
@@ -96,7 +142,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 | `pre-dispatch` | PreToolUse `Agent\|Task` | **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **gate** (feature roles need `[gates]`; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
 | `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock |
-| `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates `.claude/agents/`: restart) |
+| `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates that agent: restart) |
 | `post-write` | PostToolUse writes | reminds to commit ticket state on main (feedback only) |
 | `user-prompt` | UserPromptSubmit | records a token when a human types `/mark:approve`, `/mark:reject`, `/mark:feature` or `/mark:fix` (never blocks) |
 | `subagent-stop` | SubagentStop | required outputs (`[outputs]`, or `mark:outputs` in the prompt) must exist in the ticket dir of some checkout; otherwise the subagent keeps running. Result goes to `.mark/locks/<id>.<role>.result.json`, with the agent's final report (`conclusion`, the default `--prev` of the next dispatch) |
@@ -140,7 +186,8 @@ Scenario (template) selection, from status plus artifacts: `designing` → `desi
 verdict or design QA) · `planning` → `coder-plan` / `coder-plan-rework`, bugs `fix-plan-initial` /
 `fix-plan-rework` · `developing` → `coder-impl` · `design-qa` → `designer-integration-qa` · `testing`
 → `tester-initial` / `tester-reverify` · `failed-impl` → `coder-impl-fix` / `coder-impl-merge-rework`.
-Templates live in `[paths] prompts` (default `.mark/prompts/<scenario>.md`), declare `role:` (checked)
+Templates are built in (`defaults/<locale>/prompts/<scenario>.md`; a project overrides one in
+`[paths] prompts`, default `.mark/prompts/`), declare `role:` (checked)
 and optional `outputs:`, and use `{{placeholders}}`; unknown placeholders are an error.
 
 Moves (`mark set`, `approve`, `reject`) validate, write `status.md` (owner derived from status), then
@@ -221,8 +268,8 @@ they track context cost and treat both locales the same.
   branch added or changed that end over budget and larger than on main fail with
   `merge.budget`, before the regression. Writes through Bash never reach the guard.
 
-What gets a budget: docs whose length follows process complexity (`CLAUDE.md`,
-`collaboration.md`, role files, prompts, formats) and one-shot artifacts that are thin by
+What gets a budget: docs whose length follows process complexity (`CLAUDE.md`, role
+files, prompts, formats: the project's overrides by glob, the built-ins by test) and one-shot artifacts that are thin by
 definition (`fix-plan.md`). Not docs whose length follows delivered work (module notes,
 indexes, logs, design or test artifacts, review rounds): a byte wall there can only be passed
 by deleting someone else's verified record. The template ships defaults with room above its
@@ -279,12 +326,13 @@ plugin install is the whole setup.
   (proposed from the manifests and CI config, confirmed by the human), and afterwards fills in
   `CLAUDE.md` in a general lane.
 
-| generated path | what | read by |
+| path | what | read by |
 |---|---|---|
-| `.claude/agents/<role>.md` | role definition: what it owns, rules, self-check, outcomes | the role (system prompt) |
-| `.mark/prompts/<scenario>.md` | one dispatch template per entry of `flow.SCENARIOS` (13) | `mark dispatch` |
-| `.mark/formats/<artifact>.md` | artifact formats: requirement, bug, design, design-qa, tech-plan, fix-plan, handoff, verdict | the producing and consuming roles |
-| `.mark/collaboration.md`, `CLAUDE.md` | workflow for humans; project facts and commands for every role | humans, every role |
+| `agents/<role>.md` (built-in) | role definition: what it owns, rules, self-check, outcomes | the role (system prompt) |
+| `defaults/<locale>/prompts/<scenario>.md` (built-in) | one dispatch template per entry of `flow.SCENARIOS` (13) | `mark dispatch` |
+| `defaults/<locale>/formats/<artifact>.md` (built-in) | artifact formats: requirement, bug, design, design-qa, tech-plan, fix-plan, handoff, verdict | the producing and consuming roles (`mark format <name>`) |
+| `defaults/<locale>/collaboration.md` (built-in) | workflow for humans | humans (`mark rules collaboration`) |
+| `CLAUDE.md` (generated) | project facts and commands | every role |
 
 Three layers of instructions reach a role, from durable to specific:
 
@@ -292,13 +340,16 @@ Three layers of instructions reach a role, from durable to specific:
    `skills: [mark:role-rules]` in its frontmatter (`mark rules role` prints it as a fallback). Brief
    trust, worktree anchoring, what roles never do, inline-fix criteria, finish (commit, push the
    ticket branch, clean worktree), report shape. Upgrades with the plugin.
-2. **Role file** (template): durable, project-shaped rules for one role, with project paths filled in
-   at generation.
-3. **Scenario template** (template): why this dispatch happens, done-when, what to read, what to write.
+2. **Role file** (built-in agent, English): durable rules for one role; project paths come from
+   `[paths]` in the config and `CLAUDE.md`, not from the file.
+3. **Scenario template** (built-in, per locale): why this dispatch happens, done-when, what to read, what to write.
    Only `{{placeholders}}` from `brief.PLACEHOLDERS`; never how to do the work.
 
 **Locales.** `template/common/` holds what is the same in every locale (`.mark/config.toml`,
-`.gitignore`); `template/<locale>/` holds the rest, one full set per locale. A `*.tmpl` file has
+`.gitignore`); `template/<locale>/` holds the rest (`CLAUDE.md`, `.mark/README.md`). Built-in
+prompts, formats and the collaboration guide have one full set per locale under `defaults/`;
+built-in agents are English only (a plugin cannot localize them per project), and roles write
+artifacts in the project's locale. A `*.tmpl` file has
 each `{{ answer }}` filled in (TOML-escaped in `.toml` files) and loses the suffix; an unknown
 name is an error. Other files are copied verbatim, which keeps the prompts' `{{placeholders}}` for
 `mark dispatch`. English is written first; `zh-CN` is its translation.

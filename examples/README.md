@@ -4,8 +4,8 @@
 |---|---|
 | [`todo/`](todo/) | A small todo app (vanilla JS frontend, Python standard-library backend, Playwright end-to-end tests), generated from the Mark template in `en` and filled in. It ships with one known bug so the bug chain has something to fix. |
 
-The scaffold files in `todo/` (`.claude/agents/`, `.mark/`) are exactly what `mark init`
-writes; `tests/test_example.py` re-renders them and fails if they drift. Only `CLAUDE.md`
+The scaffold files in `todo/` (`.mark/`) are exactly what `mark init` writes (role agents,
+prompts and formats come from the plugin); `tests/test_example.py` re-renders them and fails if they drift. Only `CLAUDE.md`
 and `.gitignore` are edited by hand, as a real project would.
 
 ## Run it

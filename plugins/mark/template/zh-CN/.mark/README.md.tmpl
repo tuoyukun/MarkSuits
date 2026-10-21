@@ -1,16 +1,16 @@
 # .mark
 
-{{ project_name }} 的多 agent 协作状态，由 Mark 插件管理。
-流程怎么跑：[collaboration.md](collaboration.md)。
+{{ project_name }} 的多 agent 协作状态，由 Mark 插件管理。工作流程见 `mark rules collaboration`。
 
 | 路径 | 用途 |
 |---|---|
-| `config.toml` | 引擎配置（角色、闸门、写域） |
-| `collaboration.md` | 人和 agent 在这里怎么协作 |
-| `prompts/` | 派活模板，每个场景一份 |
-| `formats/` | 制品格式（需求、设计、方案、交接、验收报告……） |
-| `features/<id>/`、`bugs/<id>/` | 每单一个目录：状态 + 制品 |
-| `gates/` | 人审放行记录（文件存在即放行）。不要删除 |
-| `locks/` | 运行时派活锁（不入库） |
-| `template.toml` | 模板版本和 `mark init` 时的答案（由 Mark 写入，不要手改） |
-| `.base/` | Mark 上次写入的模板原样副本，升级时据此保留你的改动（不要手改） |
+| `config.toml` | 本项目的事实（路径、命令、写入范围）；工作流默认值随 Mark 发布 |
+| `features/<id>/`、`bugs/<id>/` | 每张工单一个目录：状态 + 制品 |
+| `gates/` | 人审记录（文件存在即通过）。不要删除 |
+| `locks/` | 运行时派发锁（不提交） |
+| `template.toml` | Mark 版本和 `mark init` 时的答案（由 Mark 写入，不要编辑） |
+| `.base/` | Mark 上次写入时的原样副本，升级时据此保留你的改动（不要编辑） |
+
+角色 agent、派活模板和制品格式随插件发布、随插件升级。想为本项目改某一个，放一个同名文件即可，
+项目里的文件优先：`.claude/agents/<角色>.md`、`.mark/prompts/<场景>.md`、`.mark/formats/<名字>.md`
+（`mark format <名字>` 打印当前生效的格式）。

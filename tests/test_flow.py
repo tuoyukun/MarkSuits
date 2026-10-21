@@ -672,7 +672,7 @@ class DispatchTest(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("Created branch feature/0001-a from origin/main", err)
         head, prompt = out.split("--- prompt ---\n")
-        self.assertIn("subagent_type: coder-plan", head)
+        self.assertIn("subagent_type: mark:coder-plan", head)  # the plugin's agent
         self.assertTrue(prompt.startswith("<!-- mark:ticket features/0001-a -->"))
         wt = self.root / ".claude/worktrees/feature-0001-a"
         self.assertIn(f"Work on 0001-a in {wt}/.mark/features/0001-a.", prompt)
@@ -751,13 +751,27 @@ class DispatchTest(unittest.TestCase):
         self.set_setup("true")
         self.assertEqual(run(self.root, "dispatch", "0001")[0], 0)
 
+    def test_project_agent_overrides_the_builtin(self):
+        write(self.root / ".claude/agents/coder-plan.md", "---\nname: coder-plan\n---\nours\n")
+        sh(self.root, "git", "add", "-A")
+        sh(self.root, "git", "commit", "-q", "-m", "own coder-plan")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        code, out, err = run(self.root, "dispatch", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("subagent_type: coder-plan\n", out)
+
+    def test_builtin_prompt_when_the_project_has_none(self):
+        for p in (self.root / ".mark/prompts").iterdir():
+            p.unlink()
+        code, out, err = run(self.root, "dispatch", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("mark format tech-plan.md", out)
+
     def test_outputs_override_and_template_errors(self):
         (self.root / ".mark/prompts/coder-plan.md").write_text("---\nrole: designer\n---\nx\n")
         self.assertIn("declares role `designer`", run(self.root, "dispatch", "0001")[2])
         (self.root / ".mark/prompts/coder-plan.md").write_text("---\nrole: coder-plan\n---\n{{nope}}\n")
         self.assertIn("unknown placeholder(s): nope", run(self.root, "dispatch", "0001")[2])
-        (self.root / ".mark/prompts/coder-plan.md").unlink()
-        self.assertIn("No prompt template `.mark/prompts/coder-plan.md`", run(self.root, "dispatch", "0001")[2])
         self.assertFalse((self.root / ".claude/worktrees/feature-0001-a").exists())
 
     def test_scenario_outputs_anchor(self):

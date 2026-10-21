@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import brief, flow, general, merge, scaffold, states, tickets, updates, upgrade
+from . import brief, defaults, flow, general, merge, scaffold, states, tickets, updates, upgrade
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -215,7 +215,7 @@ def cmd_dispatch(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
     for key, params in flow.ensure_isolation(ctx):
         _say(cfg, err, key, **params)
     prompt = brief.render(ctx, action, prev=prev, trigger=trigger)
-    out.write(f"subagent_type: {action.role}\n")
+    out.write(f"subagent_type: {defaults.agent_type(cfg, action.role)}\n")
     out.write(f"description: {ctx.id} {action.scenario}\n")
     out.write("--- prompt ---\n")
     out.write(prompt)
@@ -338,7 +338,6 @@ def cmd_init(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
         if dry_run:
             out.write(t(loc, "init.dry_run") + "\n")
             return 0
-        new_agents = not (p.root / ".claude" / "agents").is_dir()
         notes = scaffold.apply(p)
     except flow.FlowError as exc:
         err.write(t(loc, exc.key, **exc.params) + "\n")
@@ -346,8 +345,6 @@ def cmd_init(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
     for key, params in notes:
         out.write(t(loc, key, **params) + "\n")
     out.write(t(loc, "init.done", main=p.answers["main_branch"]) + "\n")
-    if new_agents:
-        out.write(t(loc, "init.restart") + "\n")
     return 0
 
 
@@ -383,12 +380,20 @@ RULES = {
 }
 
 
-def cmd_rules(args: list[str], out: TextIO, err: TextIO) -> int:
-    """`mark rules [orchestrator|role]`: print a rulebook (frontmatter stripped)."""
+def cmd_rules(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark rules [orchestrator|role|collaboration]`: print a rulebook (frontmatter stripped)."""
     name = args[0] if args else "orchestrator"
-    if name not in RULES or len(args) > 1:
+    if name not in (*RULES, "collaboration") or len(args) > 1:
         err.write(t("en", "cli.usage") + "\n")
         return 2
+    if name == "collaboration":
+        try:
+            root = find_project_root(cwd)
+            locale = load_config(root).locale if root else "en"
+        except ConfigError:
+            locale = "en"
+        out.write(defaults.builtin(locale, "collaboration.md").read_text(encoding="utf-8"))
+        return 0
     text = RULES[name].read_text(encoding="utf-8")
     if text.startswith("---"):
         end = text.find("\n---", 3)
@@ -397,7 +402,20 @@ def cmd_rules(args: list[str], out: TextIO, err: TextIO) -> int:
     out.write(text)
     return 0
 
-COMMANDS = {"next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
+def cmd_format(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark format <name>`: print the artifact format in effect (the project's own, else built-in)."""
+    if len(args) != 1 or "/" in args[0]:
+        _say(cfg, err, "cli.usage")
+        return 2
+    path = defaults.format_path(cfg, args[0])
+    if not path.is_file():
+        _say(cfg, err, "cli.format.unknown", name=args[0])
+        return 1
+    out.write(path.read_text(encoding="utf-8"))
+    return 0
+
+
+COMMANDS = {"format": cmd_format, "next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
             "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim, "merge": cmd_merge,
             "general": cmd_general, "upgrade": cmd_upgrade}
 
@@ -411,7 +429,7 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
         out.write(t("en", "cli.usage") + "\n")
         return 0 if argv else 2
     if argv[0] == "rules":
-        return cmd_rules(argv[1:], out, err)
+        return cmd_rules(cwd or Path.cwd(), argv[1:], out, err)
     if argv[0] == "init":
         return cmd_init(cwd or Path.cwd(), argv[1:], out, err)
     cfg = _load(cwd or Path.cwd(), err)

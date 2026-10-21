@@ -48,6 +48,16 @@ class LoadConfigTest(unittest.TestCase):
         cfg = load_config(make_project('mark_schema = 1\n[worktree]\nsetup_timeout = "60"\n'))
         self.assertEqual(cfg.worktree_setup_timeout, 300)
 
+    def test_artifact_write_rules_default_and_project_rules_replace_them(self):
+        cfg = load_config(make_project('mark_schema = 1\n[[write_rules]]\nglob = "**/design.md"\n'
+                                       'roles = ["designer", "main"]\n[[write_rules]]\nglob = "src/**"\nroles = ["coder-impl"]\n'))
+        rules = {r.glob: r.roles for r in cfg.write_rules}
+        self.assertEqual(rules["**/requirement.md"], {"main"})
+        self.assertEqual(rules["**/design.md"], {"designer", "main"})
+        self.assertEqual([r.glob for r in cfg.write_rules].count("**/design.md"), 1)
+        self.assertEqual(cfg.write_rules[-1].glob, "src/**")   # defaults come first
+        self.assertEqual(cfg.outputs["designer"], ["design.md", "preview.html"])
+
     def test_rejects_invalid_toml(self):
         root = make_project("mark_schema = [\n")
         with self.assertRaises(ConfigError):

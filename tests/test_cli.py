@@ -55,6 +55,21 @@ class CliTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn(".mark/bugs/b0001-x/status.md", out)
 
+    def test_format_prints_the_override_else_the_builtin(self):
+        code, out, _ = run(self.root, "format", "design")
+        self.assertEqual(code, 0)
+        self.assertIn("<!-- mark:states -->", out)
+        self.assertIn("设计", out)  # locale zh-CN
+        (self.root / ".mark" / "formats").mkdir()
+        (self.root / ".mark" / "formats" / "design.md").write_text("ours\n")
+        self.assertEqual(run(self.root, "format", "design.md")[1], "ours\n")
+        self.assertEqual(run(self.root, "format", "nope")[0], 1)
+        self.assertEqual(run(self.root, "format", "../config.toml")[0], 2)
+
+    def test_rules_collaboration_follows_the_project_locale(self):
+        self.assertIn("协作", run(self.root, "rules", "collaboration")[1])
+        self.assertIn("How a Mark project is built", run(make_project(None), "rules", "collaboration")[1])
+
     def test_unlock_takes_a_short_id(self):
         run(self.root, "claim", "feature", "Add login")
         lock = self.root / ".mark" / "locks" / "0001-add-login.designer.lock"

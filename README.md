@@ -27,7 +27,8 @@ specialized agents to build software together without stepping on each other.
 ```
 .claude-plugin/marketplace.json   marketplace catalog (this repo)
 plugins/mark/                     the engine plugin (upgradable)
-plugins/mark/template/            project files `mark init` writes (en, zh-CN)
+plugins/mark/agents/, defaults/   built-in role agents, prompts, formats (en, zh-CN)
+plugins/mark/template/            the few project files `mark init` writes
 examples/todo/, examples/sandbox.py   example project and a script to run it in a sandbox
 docs/architecture.md              design
 ```
@@ -36,12 +37,13 @@ A generated project gets:
 
 ```
 CLAUDE.md                         stack, module boundaries, commands (fill in the TODOs)
-.claude/agents/                   designer, coder-plan, coder-impl, tester, fix-plan
-.mark/config.toml                 roles, gates, write scopes, paths
-.mark/collaboration.md            how humans and agents work together
-.mark/prompts/                    one dispatch template per scenario (13)
-.mark/formats/                    artifact formats with language-neutral anchors
+.mark/config.toml                 paths, commands, write scopes
 ```
+
+Role agents (designer, coder-plan, coder-impl, tester, fix-plan), dispatch prompts and artifact
+formats ship with the plugin, so they update with it. To change one for a project, add a file
+of the same name (`.claude/agents/<role>.md`, `.mark/prompts/<scenario>.md`,
+`.mark/formats/<name>.md`); the project's file wins.
 
 ## Install
 

@@ -210,6 +210,11 @@ class LifecycleTest(unittest.TestCase):
         self.assertIn("handoff.md", err)
         self.assertTrue(self.lock.exists())
 
+    def test_missing_output_points_at_the_worktree(self):
+        self.start()
+        code, err = self.stop()
+        self.assertIn(str(self.wt / ".mark/features/0001-a/handoff.md"), err)
+
     def test_output_in_worktree_releases_lock(self):
         self.start()
         (self.wt / ".mark/features/0001-a/handoff.md").write_text("done")

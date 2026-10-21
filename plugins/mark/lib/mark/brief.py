@@ -5,8 +5,9 @@ knows (worktree, branch, which artifacts exist, what triggered this round)
 goes into the prompt, so the subagent does not spend its first turns
 rediscovering them.
 
-Templates live in the project (`[paths] prompts`, default `.mark/prompts/`),
-one file per scenario, e.g. `coder-impl-fix.md`:
+Templates ship with the plugin (`defaults/<locale>/prompts/`), one file per scenario; a
+project overrides one with a file of the same name in `[paths] prompts` (default
+`.mark/prompts/`), e.g. `coder-impl-fix.md`:
 
     ---
     role: coder-impl
@@ -25,7 +26,7 @@ import os
 import re
 from dataclasses import dataclass
 
-from . import states
+from . import defaults, states
 from .flow import Action, Ctx, FlowError
 from .i18n import t
 
@@ -66,7 +67,7 @@ def placeholders(body: str) -> list[str]:
 
 
 def load_template(ctx: Ctx, scenario: str) -> Template:
-    path = ctx.cfg.prompts_dir / f"{scenario}.md"
+    path = defaults.prompt_path(ctx.cfg, scenario)
     try:
         return parse_template(path.read_text(encoding="utf-8"))
     except OSError:
