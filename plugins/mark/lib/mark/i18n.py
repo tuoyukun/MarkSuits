@@ -224,6 +224,15 @@ MESSAGES["en"].update({
     "guard.bash.merge_lane": "Do not merge `{ref}` into {main} by hand. `mark general merge {ref}` runs the regression, lands it and removes the lane.",
     "guard.bash.commit_main": "`{who}` may not commit on main. Run git in your worktree: `git -C <worktree> commit ...`.",
     "guard.bash.push_main": "`{who}` may not push to main. Push your ticket branch; merging into main has its own path.",
+    "guard.bash.shell_write": "This command writes `{rel}` through the shell. Shell writes follow the same rules as Edit/Write:\n{why}",
+    "guard.bash.discard_dirty": (
+        "Forced removal of `{wt}` would delete uncommitted changes. Commit and push them first; "
+        "if the human wants them gone, they run the command themselves."
+    ),
+    "guard.bash.discard_unpushed": (
+        "Forced removal of `{ref}` would lose {n} commit(s) that are on no remote and not on main. "
+        "Push them first; if the human wants them gone, they run the command themselves."
+    ),
     "guard.bash.checkout_main": (
         "Do not check out `{branch}` in the main checkout; every session shares it. Use a worktree:\n"
         "  git worktree add \"{wt}\" \"{branch}\""
@@ -336,6 +345,9 @@ MESSAGES["zh-CN"].update({
     "guard.bash.merge_lane": "不要手工把 `{ref}` 合进 {main}。`mark general merge {ref}` 会跑回归、合入并拆掉车道。",
     "guard.bash.commit_main": "`{who}` 不能在 main 上提交。请在你的 worktree 里执行：`git -C <worktree> commit ...`。",
     "guard.bash.push_main": "`{who}` 不能推送到 main。请推送工单分支，合并进 main 有专门的路径。",
+    "guard.bash.shell_write": "这条命令通过 shell 写 `{rel}`。shell 写入和 Edit/Write 守同一套规则：\n{why}",
+    "guard.bash.discard_dirty": "强制删除 `{wt}` 会丢掉未提交的改动。先提交并推送；如果 Human 确实要丢弃，请 Human 自己执行这条命令。",
+    "guard.bash.discard_unpushed": "强制删除 `{ref}` 会丢掉 {n} 个既不在任何远端、也不在 main 上的提交。先推送；如果 Human 确实要丢弃，请 Human 自己执行这条命令。",
     "guard.bash.checkout_main": "不要在主仓里检出 `{branch}`，主仓是所有会话共用的。请用 worktree：\n  git worktree add \"{wt}\" \"{branch}\"",
     "cli.unlock.ok": "已释放锁 {id}.{role}。",
     "cli.unlock.none": "没有锁 {id}.{role}。",
@@ -511,6 +523,10 @@ MESSAGES["en"].update({
     "flow.illegal": "Illegal move `{old}` -> `{new}`. Allowed from `{old}`: {allowed}.",
     "flow.human_gate": "{id} is at `{status}`, a human review gate. Only /mark:approve or /mark:reject move it.",
     "flow.need_design_qa": "{id} has a design and its branch changes UI paths, so it goes through design QA before testing:\n  mark set {id} design-qa",
+    "flow.qa_cap": (
+        "{id}: design QA is still blocked after round {n}. Stop iterating; the human decides. Record it and report:\n"
+        "  mark set {id} blocked-spec"
+    ),
     "flow.unmerged": "`{branch}` has {n} commit(s) not on {main}. `passed` means the work is on {main}: merge and push first.",
     "flow.no_human": (
         "`mark {verb}` needs a human decision, and nobody typed `/mark:{verb} {id}` in the last 12 hours.\n"
@@ -682,6 +698,7 @@ MESSAGES["zh-CN"].update({
     "flow.illegal": "非法跳转 `{old}` -> `{new}`。从 `{old}` 只能到：{allowed}。",
     "flow.human_gate": "{id} 停在 `{status}`，这是人审闸门。只有 /mark:approve 或 /mark:reject 能推动它。",
     "flow.need_design_qa": "{id} 有设计稿，且分支改到了 UI 路径，测试前要先过集成态设计验收：\n  mark set {id} design-qa",
+    "flow.qa_cap": "{id}：集成态设计验收第 {n} 轮仍未通过。不再迭代，交给 Human 决定。记录后报告：\n  mark set {id} blocked-spec",
     "flow.unmerged": "`{branch}` 还有 {n} 个提交不在 {main} 上。`passed` 意味着代码已在 {main}：先合并并推送。",
     "flow.no_human": (
         "`mark {verb}` 需要人的决定，但最近 12 小时内没有人输入 `/mark:{verb} {id}`。\n"

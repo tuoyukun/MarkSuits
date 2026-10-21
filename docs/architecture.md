@@ -104,7 +104,7 @@ text, so templates can be localized freely.
 | planning | tech plan | coder-plan | design-approved |
 | review-plan | stop, wait for human | — | — |
 | developing | implement | coder-impl | plan-approved |
-| design-qa | integration design check (UI changes only) | designer | — |
+| design-qa | integration design check (UI changes only); after 2 blocked rounds `mark set` refuses `failed-impl`, the human decides via `blocked-spec` | designer | — |
 | testing | verify | tester | plan-approved |
 | pending-merge | automated merge (regression → ff-only → push) | — | — |
 | passed | done | — | — |
@@ -140,7 +140,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 |---|---|---|
 | `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **status** (main checkout on the main branch, valid fields, legal move) · **budget** (`[[doc_budget]]`, see Doc budget) |
 | `pre-dispatch` | PreToolUse `Agent\|Task` | **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **gate** (feature roles need `[gates]`; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
-| `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout |
+| `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `sed -i`, `cp`, `mv`) follow the scope and worktree rules (unclear or quoted targets pass) |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock |
 | `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates that agent: restart) |
 | `post-write` | PostToolUse writes | reminds to commit ticket state on main (feedback only) |

@@ -49,4 +49,4 @@ Rules:
   since the last round are not repeated (git keeps the history); new ones continue from
   the previous highest `D-N`, so ids are never reused. States that no change could affect may be
   marked "not rechecked (unchanged)"; never in round 1.
-- After two blocked rounds, stop iterating: the human decides.
+- After two blocked rounds, stop iterating: the human decides (`mark set` refuses a third round).

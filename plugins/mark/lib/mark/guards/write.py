@@ -44,8 +44,10 @@ def builtin_rules(env: Env) -> list[tuple[str, frozenset[str]]]:
 def scope_guard(env: Env) -> str | None:
     """Role write scopes: first matching rule wins; unmatched paths are open."""
     loc = _located(env)
-    if loc is None:
-        return None
+    return None if loc is None else scope_block(env, loc)
+
+
+def scope_block(env: Env, loc: Location) -> str | None:
     rules = builtin_rules(env) + [(r.glob, r.roles) for r in env.cfg.write_rules]
     for glob, roles in rules:
         if globs.match(glob, loc.rel):
@@ -58,10 +60,12 @@ def scope_guard(env: Env) -> str | None:
 
 def worktree_guard(env: Env) -> str | None:
     """The main checkout is a state lane; real work happens in ticket worktrees."""
-    if not env.is_git:
-        return None
     loc = _located(env)
-    if loc is None or loc.checkout is None or not loc.in_main:
+    return None if loc is None else worktree_block(env, loc)
+
+
+def worktree_block(env: Env, loc: Location) -> str | None:
+    if not env.is_git or loc.checkout is None or not loc.in_main:
         return None
     if env.role in env.cfg.roles:
         return env.t("guard.worktree.role", who=env.who, path=loc.path,

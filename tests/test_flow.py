@@ -269,6 +269,18 @@ class MovesTest(unittest.TestCase):
         write(wt / ".mark/features/0001-a/design-qa.md", "<!-- mark:qa passed -->")
         self.assertEqual(run(self.root, "set", "0001", "testing", "--no-commit")[0], 0)
 
+    def test_design_qa_stops_after_two_blocked_rounds(self):
+        add_ticket(self.root, "feature", "0001-a", "design-qa", gates=ALL_GATES)
+        qa = self.root / ".mark/features/0001-a/design-qa.md"
+        write(qa, "<!-- mark:qa-round 1 -->\nD-1\n<!-- mark:qa blocked -->")
+        self.assertEqual(run(self.root, "set", "0001", "failed-impl", "--no-commit")[0], 0)
+        run(self.root, "set", "0001", "design-qa", "--no-commit")
+        write(qa, "<!-- mark:qa-round 2 -->\nD-2\n<!-- mark:qa blocked -->")
+        code, _, err = run(self.root, "set", "0001", "failed-impl", "--no-commit")
+        self.assertEqual(code, 1)
+        self.assertIn("mark set 0001-a blocked-spec", err)
+        self.assertEqual(run(self.root, "set", "0001", "blocked-spec", "--no-commit")[0], 0)
+
     def test_passed_requires_merged_branch(self):
         add_ticket(self.root, "bug", "b0001-x", "pending-merge", gates=["ticket-approved"])
         p = self.root / ".mark/bugs/b0001-x/status.md"

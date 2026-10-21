@@ -315,11 +315,82 @@ class BashTest(unittest.TestCase):
         self.assertEqual(bash(self.root, "git merge --abort")[0], 0)
 
     def test_heredoc_body_is_not_a_command(self):
-        cmd = "cat > notes.txt <<'EOF'\ngit commit -m x\nEOF"
+        cmd = "cat > /dev/null <<'EOF'\ngit commit -m x\nEOF"
         self.assertEqual(bash(self.root, cmd, "coder-impl")[0], 0)
 
     def test_env_prefix_and_global_options(self):
         self.assertEqual(bash(self.root, "GIT_EDITOR=true git -c core.x=1 commit -m x", "tester")[0], 2)
+
+
+class ShellWriteTest(unittest.TestCase):
+    """Shell writes follow the Edit/Write rules (scope + worktree)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = make_repo()
+        add_ticket(cls.root, "feature", "0001-a", "developing", gates=ALL_GATES)
+        cls.wt = add_worktree(cls.root, "feature", "0001-a")
+        (cls.wt / "frontend").mkdir(exist_ok=True)
+        (cls.wt / "frontend/app.ts").write_text("x")
+        (cls.wt / "notes.md").write_text("x")
+
+    def blocked(self, cmd, agent, cwd=None):
+        return bash(cwd or self.wt, cmd, agent)[0] == 2
+
+    def test_redirects_and_tee_out_of_scope_are_blocked(self):
+        self.assertTrue(self.blocked("echo x > frontend/app.ts", "coder-plan"))
+        self.assertTrue(self.blocked("echo x >>frontend/app.ts", "coder-plan"))
+        self.assertTrue(self.blocked("cat <<'EOF' > frontend/app.ts\nx\nEOF", "coder-plan"))
+        self.assertTrue(self.blocked("echo x | tee -a frontend/app.ts", "coder-plan"))
+        self.assertTrue(self.blocked(f'cd "{self.wt}" && echo x > .mark/features/0001-a/tech-plan.md', "coder-impl"))
+
+    def test_sed_cp_mv_out_of_scope_are_blocked(self):
+        self.assertTrue(self.blocked("sed -i '' 's/x/y/' frontend/app.ts", "coder-plan"))
+        self.assertTrue(self.blocked("cp notes.md frontend/app.ts", "coder-plan"))
+        self.assertTrue(self.blocked("cp notes.md frontend", "coder-plan"))      # into a dir
+        self.assertTrue(self.blocked("mv frontend/app.ts notes2.md", "coder-plan"))  # source removed
+
+    def test_role_writing_main_checkout_is_blocked(self):
+        self.assertTrue(self.blocked("echo x > notes.md", "coder-impl", cwd=self.root))
+
+    def test_allowed_writes_pass(self):
+        self.assertFalse(self.blocked("echo x > frontend/app.ts", "coder-impl"))
+        self.assertFalse(self.blocked("npm test > /tmp/out.log 2>&1", "tester"))
+        self.assertFalse(self.blocked("ls 2>/dev/null; echo x &>/dev/null", "coder-plan"))
+        self.assertFalse(self.blocked("echo 'a > frontend/app.ts'", "coder-plan"))   # quoted text
+        self.assertFalse(self.blocked("sed -n 's/x/y/p' frontend/app.ts", "coder-plan"))  # no -i
+        self.assertFalse(self.blocked("echo x > frontend/app.ts", None))          # main thread: Edit rules only
+
+
+class DiscardWorkTest(unittest.TestCase):
+    """Forced worktree/branch removal may not lose uncommitted or unpushed work."""
+
+    def setUp(self):
+        self.root = make_repo()
+        add_origin(self.root)
+        add_ticket(self.root, "feature", "0001-a", "developing", gates=ALL_GATES)
+        self.wt = add_worktree(self.root, "feature", "0001-a")
+
+    def test_dirty_worktree_is_kept(self):
+        (self.wt / "new.txt").write_text("x")
+        code, err = bash(self.root, f'git worktree remove --force "{self.wt}"')
+        self.assertEqual(code, 2)
+        self.assertIn("uncommitted", err)
+
+    def test_unpushed_commits_are_kept(self):
+        (self.wt / "new.txt").write_text("x")
+        sh(self.wt, "git", "add", ".")
+        sh(self.wt, "git", "commit", "-qm", "work")
+        self.assertEqual(bash(self.root, f'git worktree remove -f "{self.wt}"')[0], 2)
+        self.assertEqual(bash(self.root, "git branch -D feature/0001-a")[0], 2)
+        self.assertEqual(bash(self.root, "git branch -d --force feature/0001-a")[0], 2)
+        sh(self.wt, "git", "push", "-q", "origin", "feature/0001-a")
+        self.assertEqual(bash(self.root, f'git worktree remove -f "{self.wt}"')[0], 0)
+        self.assertEqual(bash(self.root, "git branch -D feature/0001-a")[0], 0)
+
+    def test_unforced_removal_is_left_to_git(self):
+        (self.wt / "new.txt").write_text("x")
+        self.assertEqual(bash(self.root, f'git worktree remove "{self.wt}"')[0], 0)
 
 
 if __name__ == "__main__":

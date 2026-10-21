@@ -27,6 +27,8 @@ from .gitutil import current_branch, dirty_paths, git, has_remote, patch_unique,
 TICKET_GATE = "ticket-approved"
 REQUIRED_BRIEF = {states.FEATURE: "requirement.md", states.BUG: "bug.md"}
 _QA_RE = re.compile(r"<!--\s*mark:qa\s+(passed|blocked)\s*-->")
+_QA_ROUND_RE = re.compile(r"<!--\s*mark:qa-round\s+(\d+)\s*-->")
+QA_MAX_ROUNDS = 2  # after this many blocked design-QA rounds the human decides
 
 
 class FlowError(Exception):
@@ -270,6 +272,14 @@ def qa_result(ctx: Ctx) -> str | None:
         return None
     m = _QA_RE.findall(path.read_text(encoding="utf-8"))
     return m[-1] if m else None
+
+
+def qa_round(ctx: Ctx) -> int:
+    path = ctx.find("design-qa.md")
+    if path is None:
+        return 0
+    rounds = _QA_ROUND_RE.findall(path.read_text(encoding="utf-8"))
+    return max(map(int, rounds), default=1)
 
 
 def _with_review(action: Action, ctx: Ctx, gates: tuple[str, ...]) -> bool:
@@ -580,6 +590,8 @@ def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None
     if new == "testing" and old in ("developing", "failed-impl") and design_qa_needed(ctx) \
             and qa_result(ctx) != "passed":
         raise FlowError("flow.need_design_qa", id=ctx.id)
+    if old == "design-qa" and new == "failed-impl" and (n := qa_round(ctx)) >= QA_MAX_ROUNDS:
+        raise FlowError("flow.qa_cap", id=ctx.id, n=n)
     if add_after:
         # Declaring a dependency is free; removing one is a human edit (status guard).
         bad = [r for r in add_after if tickets.parse_merge_after(f"[{r}]") is None]
