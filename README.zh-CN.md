@@ -18,7 +18,7 @@
 | 层 | 内容 | 升级方式 |
 |---|---|---|
 | 插件 `plugins/mark/` | hooks、编排 skills、CLI | `claude plugin update` |
-| 模板 `plugins/mark/template/` | 角色定义、派活模板、制品格式、`.mark/config.toml`，由 `mark init` 写入项目 | `/mark:upgrade`（三方合并，保留你的改动；v0.14 提供） |
+| 模板 `plugins/mark/template/` | 角色定义、派活模板、制品格式、`.mark/config.toml`，由 `mark init` 写入项目 | `/mark:upgrade`（三方合并，保留你的改动，在通用车道里完成，由你决定是否合入） |
 | 项目内容 | 模块边界、写域、契约 | 不升级 |
 
 模板提供 `zh-CN` 与 `en` 两套文本，生成项目时选择。

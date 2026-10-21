@@ -101,6 +101,17 @@ def base_path(rel: str) -> str:
     return f"{BASE_DIR}/{rel}.base"
 
 
+def missing_lines(have: str, text: str) -> list[str]:
+    """Lines of the template's `text` (not comments) that the project's `have` lacks."""
+    got = set(have.splitlines())
+    return [ln for ln in text.splitlines() if ln and not ln.startswith("#") and ln not in got]
+
+
+def appended(old: str, lines: list[str]) -> str:
+    sep = "" if not old or old.endswith("\n") else "\n"
+    return old + sep + "\n# Mark runtime state (never commit)\n" + "\n".join(lines) + "\n"
+
+
 def record_text(answers: dict[str, str]) -> str:
     lines = ["# Written by `mark init`; do not edit. Upgrades read the answers below.",
              f'version = "{version()}"', "", "[answers]"]
@@ -149,8 +160,7 @@ def plan(cwd: Path, given: dict[str, str]) -> Plan:
         if not target.exists():
             p.write[rel] = text
         elif rel in MERGED:
-            have = set(target.read_text(encoding="utf-8").splitlines())
-            missing = [ln for ln in text.splitlines() if ln and not ln.startswith("#") and ln not in have]
+            missing = missing_lines(target.read_text(encoding="utf-8"), text)
             if missing:
                 p.append[rel] = missing
         elif rel in KEPT:
@@ -174,10 +184,7 @@ def apply(p: Plan) -> list[tuple[str, dict]]:
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_text(text, encoding="utf-8")
     for rel, lines in p.append.items():
-        old = (root / rel).read_text(encoding="utf-8")
-        sep = "" if not old or old.endswith("\n") else "\n"
-        (root / rel).write_text(old + sep + "\n# Mark runtime state (never commit)\n" + "\n".join(lines) + "\n",
-                                encoding="utf-8")
+        (root / rel).write_text(appended((root / rel).read_text(encoding="utf-8"), lines), encoding="utf-8")
     paths = sorted(set(out) | set(p.append))
     if git(["add", "--", *paths], root)[0] != 0 or \
             git(["commit", "-q", "-m", f"chore: set up Mark v{version()}"], root)[0] != 0:

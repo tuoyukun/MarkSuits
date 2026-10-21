@@ -25,7 +25,7 @@ Invariants:
 | Layer | Contents | Owner | Upgrade |
 |---|---|---|---|
 | **Engine** (`plugins/mark`) | hooks, orchestration skills, CLI (`bin/`), shared role rules (`skills/role-rules`), `lib/mark` | Mark | plugin version bump → `claude plugin update` |
-| **Scaffold** (`plugins/mark/template/`) | `CLAUDE.md`, `.mark/collaboration.md`, role agents, prompt templates, artifact formats, `.mark/config.toml` | the project, after `mark init` | `mark upgrade` (3-way merge, v0.14) |
+| **Scaffold** (`plugins/mark/template/`) | `CLAUDE.md`, `.mark/collaboration.md`, role agents, prompt templates, artifact formats, `.mark/config.toml` | the project, after `mark init` | `mark upgrade` / `/mark:upgrade` (3-way merge on a general lane) |
 | **Project content** | module boundaries, contracts, write-scope exceptions, domain scripts | the project | — |
 
 Why role agents live in the scaffold, not the plugin: plugin agents are namespaced
@@ -317,10 +317,22 @@ name is an error. Other files are copied verbatim, which keeps the prompts' `{{p
 are never reused, and only open items carry ids, because the engine hands every `FAIL-N` / `D-N`
 it finds to the next role.
 
+**Upgrade** (v0.14, `lib/mark/upgrade.py`, driven by `/mark:upgrade`). `mark status` and `mark next`
+print a notice when `.mark/template.toml` records an older version than the plugin. `mark upgrade`
+re-renders the template with the recorded answers (keys added since get their defaults) and, per
+file, merges the template's change (base → new) into the project's file with `git merge-file`:
+unchanged template → nothing; untouched project file → replaced; both changed → merged, or left
+with conflict markers. A file the project deleted stays deleted; a file the template dropped is
+removed only if the project never changed it. A pre-existing `CLAUDE.md` (no base) is never
+touched; a pre-existing `.gitignore` only gains missing lines. Everything, including the new
+`.base` copies and record, is one commit on a general lane cut from main; main changes only
+when the human lands it with `mark general merge`, which refuses lines with conflict markers.
+`--dry-run` prints the same rows from the main checkout and writes nothing.
+
 **Tests.** `tests/test_template.py` checks the sources (every scenario in every locale, role
 declared, placeholders known, anchors present, locales ship the same files), generates a project
 per locale with `mark init` and renders every scenario through `brief.render`. `tests/test_scaffold.py`
-covers init's checks and the existing-project cases.
+covers init's checks and the existing-project cases; `tests/test_upgrade.py` covers the upgrade.
 
 ## 5. Distribution and versioning
 
@@ -350,8 +362,8 @@ worktree env provisioning ✅ (v0.11: `[worktree] setup`, dispatch and general l
 
 **Setup** (between Phase 2 and 3)
 template in the plugin + `mark init` / `/mark:init` ✅ (v0.13: new and existing repositories,
-no Copier) · `mark upgrade` / `/mark:upgrade` (v0.14: 3-way merge against `.mark/.base/`, in a
-general lane).
+no Copier) · `mark upgrade` / `/mark:upgrade` ✅ (v0.14: 3-way merge against `.mark/.base/`, in a
+general lane; stale notice in `status` / `next`).
 Versions stay below 1.0 until real end users have run Mark.
 
 **Phase 3 — optional plugins**

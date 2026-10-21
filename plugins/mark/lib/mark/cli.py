@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import brief, flow, general, merge, scaffold, states, tickets
+from . import brief, flow, general, merge, scaffold, states, tickets, upgrade
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -89,7 +89,14 @@ def cmd_status(cfg: MarkConfig, args: list[str], out: TextIO) -> int:
         out.write(json.dumps([i.as_dict() for i in items], ensure_ascii=False, indent=2) + "\n")
         return 0
     out.write(render(cfg, items, active_only="--active" in args))
+    _stale_notice(cfg, out)
     return 0
+
+
+def _stale_notice(cfg: MarkConfig, out: TextIO) -> None:
+    old = upgrade.stale(cfg.root)
+    if old:
+        out.write("\n" + t(cfg.locale, "upgrade.stale", old=old, new=scaffold.version()) + "\n")
 
 
 def cmd_claim(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
@@ -183,6 +190,7 @@ def cmd_next(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
         out.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     else:
         _say(cfg, out, action.message, **action.params)
+        _stale_notice(cfg, out)
     return 0
 
 
@@ -333,6 +341,31 @@ def cmd_init(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
     return 0
 
 
+def cmd_upgrade(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark upgrade [--dry-run]`: merge the installed template into a general lane."""
+    if args not in ([], ["--dry-run"]):
+        _say(cfg, err, "cli.usage")
+        return 2
+    if args:
+        p = upgrade.plan(cfg.root)
+    else:
+        branch, wt, p, notes = upgrade.run(cfg)
+        for key, params in notes:
+            _say(cfg, out, key, **params)
+    _say(cfg, out, "upgrade.plan", old=p.old, new=p.new)
+    for what, rel in p.report:
+        _say(cfg, out, f"upgrade.row.{what}", rel=rel)
+    if not p.report:
+        _say(cfg, out, "upgrade.nothing")
+    if args:
+        _say(cfg, out, "upgrade.dry_run")
+        return 0
+    _say(cfg, out, "upgrade.done", branch=branch, wt=wt)
+    if p.conflicts:
+        _say(cfg, out, "upgrade.conflicts", n=len(p.conflicts))
+    return 0
+
+
 _PLUGIN = Path(__file__).resolve().parents[2]
 RULES = {
     "orchestrator": _PLUGIN / "rules" / "orchestrator.md",
@@ -356,7 +389,7 @@ def cmd_rules(args: list[str], out: TextIO, err: TextIO) -> int:
 
 COMMANDS = {"next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
             "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim, "merge": cmd_merge,
-            "general": cmd_general}
+            "general": cmd_general, "upgrade": cmd_upgrade}
 
 
 def main(argv: list[str] | None = None, cwd: Path | None = None,

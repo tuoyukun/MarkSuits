@@ -57,8 +57,9 @@ the project files in one commit on main. An existing `CLAUDE.md` is kept and ext
 existing `.gitignore` only gains the lines Mark needs. The same step without the agent:
 `mark init --dry-run`, then `mark init --<answer> <value>...`.
 
-Upgrade the engine with `claude plugin update mark@marksuits`. Upgrading the generated files
-from a newer template (`/mark:upgrade`, a 3-way merge that keeps your edits) comes in v0.14.
+Upgrade the engine with `claude plugin update mark@marksuits`. `mark status` then says when
+the project files are older than the plugin; `/mark:upgrade` merges the new template into them
+(3-way, keeping your edits) on a general lane, and lands it only when you say so.
 
 ## Development
 

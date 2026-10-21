@@ -92,6 +92,9 @@ and land it with `mark general merge <branch>`. A lane that will not land is rem
 `mark general drop <branch>`; add `--force` only when the human says to discard its work. Code, tests and UI never go this way; they
 need `/mark:fix` or `/mark:feature`.
 
+When `mark status` or `mark next` says the project files are older than the plugin, tell the
+human once and offer `/mark:upgrade`; never land an upgrade lane without the human's yes.
+
 ## Hard rules
 
 1. **Never do a role's work.** Do not write code, designs, plans, handoffs or verdicts.

@@ -1,0 +1,30 @@
+---
+description: Bring this Mark project's files (role agents, prompts, formats, config) up to the installed Mark plugin, on a general lane the human reviews before it lands. Use when the human asks to upgrade Mark, or `mark status` / `mark next` say the project files are older than the plugin.
+allowed-tools: Bash(mark:*)
+---
+
+!`mark rules`
+
+## /mark:upgrade
+
+`mark upgrade` merges the new template into the project's files three ways (the pristine copy
+in `.mark/.base/`, the project's file, the new template) and commits the result on a general
+lane. Main does not change until the human says to land it. Speak the human's language.
+
+1. **Preview.** Run `mark upgrade --dry-run`. If it says there is nothing to upgrade or no
+   record, tell the human and stop.
+2. **Write the lane.** Run `mark upgrade`. It prints the branch, the worktree and one row per file.
+3. **Resolve conflicts**, if any rows say CONFLICT. In the lane (absolute paths under the
+   worktree, never the main checkout), open each file, keep what the project changed and add
+   what the template changed, and remove every `<<<<<<<` / `=======` / `>>>>>>>` line. When the
+   intent of either side is unclear, ask the human instead of guessing. Then commit in the lane:
+   `git -C "<worktree>" add -A && git -C "<worktree>" commit -m "chore: resolve upgrade conflicts"`.
+   Never edit `.mark/.base/` or `.mark/template.toml`; `mark upgrade` owns them.
+4. **Show the human** what the upgrade changes: the rows, `git -C "<worktree>" diff <main>...HEAD --stat`,
+   and in plain words what changed in the files they edited (merged or resolved). Mention rows
+   that say skipped or kept: those files did not get the template's change.
+5. **The human decides.**
+   - Land it: `mark general merge <branch>` (regression, fast-forward, push, lane removed).
+     If it fails, main is unchanged and the lane is kept: report the reason and stop.
+   - Not now: leave the lane; it can be landed later.
+   - Discard it: only when the human says so, `mark general drop <branch> --force`.

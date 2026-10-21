@@ -65,9 +65,25 @@ def merge_lane(cfg: MarkConfig, branch: str) -> Notes:
         raise FlowError("general.dirty", wt=str(wt), files="\n".join(f"  - {p}" for p in dirty[:10]))
     if git(["rev-list", "--count", f"{cfg.main_branch}..{branch}"], cfg.root)[1] == "0":
         raise FlowError("general.empty", branch=branch)
+    marked = _conflict_markers(cfg, branch)
+    if marked:
+        raise FlowError("general.markers", wt=str(wt), files="\n".join(f"  - {f}" for f in marked))
     conflict = FlowError("general.conflict", branch=branch, wt=str(wt))
     notes = merge.land(cfg, wt, branch, branch.removeprefix("chore/"), conflict)
     return notes + merge.cleanup(cfg, wt, branch)
+
+
+def _conflict_markers(cfg: MarkConfig, branch: str) -> list[str]:
+    """Files whose lines added on the lane include conflict markers (left by `mark upgrade`)."""
+    out = git(["diff", "-U0", f"{cfg.main_branch}...{branch}"], cfg.root)[1]
+    files: list[str] = []
+    current = ""
+    for line in out.splitlines():
+        if line.startswith("+++ "):
+            current = line[len("+++ b/"):]
+        elif line.startswith(("+<<<<<<< ", "+>>>>>>> ")) and current not in files:
+            files.append(current)
+    return files
 
 
 def drop(cfg: MarkConfig, branch: str, force: bool = False) -> Notes:

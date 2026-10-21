@@ -331,6 +331,7 @@ MESSAGES["zh-CN"].update({
 _USAGE_EN = (
     "usage: mark <command> [options]\n"
     "  mark init [--dry-run] [--<answer> <value>]...  set up Mark in this repository (/mark:init)\n"
+    "  mark upgrade [--dry-run]                       merge the new template into a general lane (/mark:upgrade)\n"
     "  mark status [--active | --json | --check]      ticket board\n"
     "  mark next <id> [--json]                        what happens next for a ticket\n"
     "  mark dispatch <id> [--prev \"<text>\"] [--trigger \"<text>\"] [--retry]\n"
@@ -349,6 +350,7 @@ _USAGE_EN = (
 _USAGE_ZH = (
     "用法：mark <命令> [选项]\n"
     "  mark init [--dry-run] [--<答案> <值>]...       在本仓库启用 Mark（/mark:init）\n"
+    "  mark upgrade [--dry-run]                       把新模板合进一条通用车道（/mark:upgrade）\n"
     "  mark status [--active | --json | --check]      工单看板\n"
     "  mark next <编号> [--json]                      这张工单下一步做什么\n"
     "  mark dispatch <编号> [--prev \"<文本>\"] [--trigger \"<文本>\"] [--retry]\n"
@@ -764,4 +766,70 @@ MESSAGES["zh-CN"].update({
     "init.unknown_var": "模板用了未知的答案 `{name}`（Mark 模板的 bug）。",
     "init.bad_config": "这组答案生成的 .mark/config.toml 不合法：{error}",
     "init.git_failed": "`{step}` 失败；已写入的文件保留在原处。解决问题后手动提交。",
+})
+
+# --------------------------------------------------------------------------
+# mark upgrade
+# --------------------------------------------------------------------------
+MESSAGES["en"].update({
+    "upgrade.stale": "> Mark project files are from v{old}; the plugin is v{new}. Run /mark:upgrade to bring them up to date.",
+    "upgrade.plan": "Upgrade Mark project files v{old} -> v{new}:",
+    "upgrade.row.added": "  added      {rel}",
+    "upgrade.row.updated": "  updated    {rel}",
+    "upgrade.row.merged": "  merged     {rel} (template change merged into your edits)",
+    "upgrade.row.conflict": "  CONFLICT   {rel} (your edits and the template's change overlap)",
+    "upgrade.row.deleted": "  skipped    {rel} (you deleted it; the template changed it)",
+    "upgrade.row.removed": "  removed    {rel} (no longer in the template)",
+    "upgrade.row.orphaned": "  kept       {rel} (no longer in the template, but you edited it)",
+    "upgrade.nothing": "  (no file changes; only the recorded version moves)",
+    "upgrade.dry_run": "Dry run: nothing was written. Run `mark upgrade` to write it on a general lane.",
+    "upgrade.done": (
+        "Upgrade committed on lane `{branch}`, worktree {wt}. Main is unchanged.\n"
+        "Review it:  git -C \"{wt}\" show --stat HEAD\n"
+        "Land it:    mark general merge {branch}\n"
+        "Discard it: mark general drop {branch} --force"
+    ),
+    "upgrade.conflicts": (
+        "{n} file(s) have conflict markers. Resolve them in the lane (keep the project's edits and add the\n"
+        "template's change), remove every marker, commit; `mark general merge` refuses markers."
+    ),
+    "upgrade.no_record": "No {record}, so the template version and answers are unknown. Projects set up before v0.13 need the migration note in docs/architecture.md.",
+    "upgrade.current": "Mark project files are already at v{version} (plugin v{plugin}); nothing to upgrade.",
+    "upgrade.merge_failed": "`git merge-file` failed: {error}",
+    "upgrade.git_failed": "Committing the upgrade in {wt} failed; the lane was dropped and main is unchanged.",
+    "general.markers": (
+        "The lane {wt} still has conflict markers in:\n{files}\n"
+        "Resolve them, commit in the lane, then merge again."
+    ),
+})
+MESSAGES["zh-CN"].update({
+    "upgrade.stale": "> Mark 项目文件来自 v{old}，插件已是 v{new}。运行 /mark:upgrade 升级。",
+    "upgrade.plan": "升级 Mark 项目文件 v{old} -> v{new}：",
+    "upgrade.row.added": "  新增       {rel}",
+    "upgrade.row.updated": "  更新       {rel}",
+    "upgrade.row.merged": "  合并       {rel}（模板的改动已并入你的修改）",
+    "upgrade.row.conflict": "  冲突       {rel}（你的修改和模板的改动重叠）",
+    "upgrade.row.deleted": "  跳过       {rel}（你删了它，模板改了它）",
+    "upgrade.row.removed": "  删除       {rel}（模板已不再包含）",
+    "upgrade.row.orphaned": "  保留       {rel}（模板已不再包含，但你改过它）",
+    "upgrade.nothing": "  （没有文件改动，只更新记录的版本）",
+    "upgrade.dry_run": "试运行：什么都没写。运行 `mark upgrade` 会在一条通用车道上写入。",
+    "upgrade.done": (
+        "升级已提交到车道 `{branch}`，worktree {wt}。main 未改动。\n"
+        "查看：git -C \"{wt}\" show --stat HEAD\n"
+        "合入：mark general merge {branch}\n"
+        "丢弃：mark general drop {branch} --force"
+    ),
+    "upgrade.conflicts": (
+        "{n} 个文件有冲突标记。在车道里解决（保留项目的修改，再加上模板的改动），删掉所有标记后提交；\n"
+        "`mark general merge` 会拒绝带冲突标记的车道。"
+    ),
+    "upgrade.no_record": "没有 {record}，无法得知模板版本和答案。v0.13 之前搭建的项目请看 docs/architecture.md 里的迁移说明。",
+    "upgrade.current": "Mark 项目文件已是 v{version}（插件 v{plugin}），无需升级。",
+    "upgrade.merge_failed": "`git merge-file` 失败：{error}",
+    "upgrade.git_failed": "在 {wt} 提交升级失败；车道已丢弃，main 未改动。",
+    "general.markers": (
+        "车道 {wt} 里这些文件还有冲突标记：\n{files}\n"
+        "解决后在车道里提交，再合并。"
+    ),
 })
