@@ -800,6 +800,11 @@ MESSAGES["zh-CN"].update({
 # --------------------------------------------------------------------------
 MESSAGES["en"].update({
     "upgrade.stale": "> Mark project files are from v{old}; the plugin is v{new}. Run /mark:upgrade to bring them up to date.",
+    "update.available": (
+        "> Mark v{new} is published (installed: v{old}); Claude Code does not update it on its own. Tell the human:\n"
+        ">   /plugin marketplace update {market}, restart Claude Code, then /mark:upgrade.\n"
+        "> For automatic updates: /plugin > Marketplaces > {market} > Enable auto-update."
+    ),
     "upgrade.plan": "Upgrade Mark project files v{old} -> v{new}:",
     "upgrade.row.added": "  added      {rel}",
     "upgrade.row.updated": "  updated    {rel}",
@@ -831,6 +836,11 @@ MESSAGES["en"].update({
 })
 MESSAGES["zh-CN"].update({
     "upgrade.stale": "> Mark 项目文件来自 v{old}，插件已是 v{new}。运行 /mark:upgrade 升级。",
+    "update.available": (
+        "> Mark v{new} 已发布（当前安装 v{old}），Claude Code 不会自动更新它。请告诉 Human：\n"
+        ">   /plugin marketplace update {market}，重启 Claude Code，再运行 /mark:upgrade。\n"
+        "> 想自动更新：/plugin > Marketplaces > {market} > Enable auto-update。"
+    ),
     "upgrade.plan": "升级 Mark 项目文件 v{old} -> v{new}：",
     "upgrade.row.added": "  新增       {rel}",
     "upgrade.row.updated": "  更新       {rel}",

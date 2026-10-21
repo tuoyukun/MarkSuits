@@ -32,6 +32,8 @@ claude plugin install mark@marksuits --scope project
 
 然后在仓库里打开 Claude Code，运行 `/mark:init`。它会先读项目（新工程或已有工程），确认是 web 全栈应用（目前唯一的角色包），给出一份答案草案（语言、目录、测试和安装命令），你确认后在 main 上一次提交写入项目文件。已有的 `CLAUDE.md` 保留并补充，已有的 `.gitignore` 只追加 Mark 需要的行。不经 agent 也可以：先 `mark init --dry-run`，再 `mark init --<答案> <值>...`。
 
+Claude Code 不会自己更新这个 marketplace 里的插件。可以在 `/plugin` > Marketplaces > marksuits > Enable auto-update 打开一次自动更新，或者手动 `claude plugin update mark@marksuits` 后重启。`mark status` 和 `mark next` 每天查一次已发布的版本，有新版就提示（`MARK_NO_UPDATE_CHECK=1` 关闭）；项目文件落后于插件时也会提示，`/mark:upgrade` 在通用车道里把新模板三方合并进来，你点头才落地。
+
 开发说明见 [README.md](README.md#development)。
 
 ## 许可证

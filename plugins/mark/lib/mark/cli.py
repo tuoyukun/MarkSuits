@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import brief, flow, general, merge, scaffold, states, tickets, upgrade
+from . import brief, flow, general, merge, scaffold, states, tickets, updates, upgrade
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -97,6 +97,10 @@ def _stale_notice(cfg: MarkConfig, out: TextIO) -> None:
     old = upgrade.stale(cfg.root)
     if old:
         out.write("\n" + t(cfg.locale, "upgrade.stale", old=old, new=scaffold.version()) + "\n")
+    published = updates.newer()
+    if published:
+        out.write("\n" + t(cfg.locale, "update.available", new=published[1], old=scaffold.version(),
+                            market=published[0]) + "\n")
 
 
 def cmd_claim(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:

@@ -57,8 +57,11 @@ the project files in one commit on main. An existing `CLAUDE.md` is kept and ext
 existing `.gitignore` only gains the lines Mark needs. The same step without the agent:
 `mark init --dry-run`, then `mark init --<answer> <value>...`.
 
-Upgrade the engine with `claude plugin update mark@marksuits`. `mark status` then says when
-the project files are older than the plugin; `/mark:upgrade` merges the new template into them
+Claude Code does not update plugins from this marketplace on its own. Turn that on once in
+`/plugin` > Marketplaces > marksuits > Enable auto-update, or update by hand with
+`claude plugin update mark@marksuits` and restart. `mark status` and `mark next` look up the
+published version once a day and say when a newer one is out (`MARK_NO_UPDATE_CHECK=1` turns
+that off). They also say when the project files are older than the plugin; `/mark:upgrade` merges the new template into them
 (3-way, keeping your edits) on a general lane, and lands it only when you say so.
 
 ## Development
