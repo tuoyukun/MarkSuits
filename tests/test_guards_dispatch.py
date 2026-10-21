@@ -284,6 +284,9 @@ class BashTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("mark merge", err)
         self.assertEqual(bash(self.root, "git merge origin/bug/b0002-x")[0], 2)
+        code, err = bash(self.root, "git merge chore/general-20260101-000000")
+        self.assertEqual(code, 2)
+        self.assertIn("mark general merge", err)
         self.assertEqual(bash(self.wt, "git merge main")[0], 0)   # main into the ticket branch
         self.assertEqual(bash(self.root, "git merge --abort")[0], 0)
 

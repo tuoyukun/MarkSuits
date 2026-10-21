@@ -355,6 +355,67 @@ class MergeTest(unittest.TestCase):
         self.assertIn("0002-y (testing)", err)
 
 
+class GeneralLaneTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_repo()
+        self.origin = add_origin(self.root)
+
+    def new_lane(self):
+        code, out, err = run(self.root, "general", "new")
+        self.assertEqual(code, 0, err)
+        branch = next(w.strip("`,") for w in out.split() if w.startswith("`chore/general-"))
+        wt = self.root / sh(self.root, "git", "worktree", "list").splitlines()[1].split()[0]
+        return branch, wt
+
+    def commit(self, wt, name="README.md", text="docs"):
+        write(wt / name, text)
+        sh(wt, "git", "add", ".")
+        sh(wt, "git", "commit", "-qm", name)
+
+    def test_lane_lands_through_regression_and_is_removed(self):
+        cfg = self.root / ".mark/config.toml"
+        cfg.write_text(cfg.read_text() + '\n[merge]\nregression = "test -f README.md"\n')
+        sh(self.root, "git", "commit", "-qam", "regression")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        branch, wt = self.new_lane()
+        self.assertTrue(wt.is_dir())
+        self.commit(wt)
+        code, out, err = run(self.root, "general", "merge", branch)
+        self.assertEqual(code, 0, err + out)
+        self.assertIn("Regression passed", out)
+        self.assertEqual((self.root / "README.md").read_text(), "docs")
+        self.assertEqual(sh(self.root, "git", "rev-parse", "main"), sh(self.root, "git", "rev-parse", "origin/main"))
+        self.assertFalse(wt.exists())
+        self.assertEqual(sh(self.root, "git", "branch", "--list", "chore/*"), "")
+
+    def test_red_regression_keeps_lane_and_main(self):
+        cfg = self.root / ".mark/config.toml"
+        cfg.write_text(cfg.read_text() + '\n[merge]\nregression = "exit 4"\n')
+        sh(self.root, "git", "commit", "-qam", "regression")
+        branch, wt = self.new_lane()
+        self.commit(wt)
+        before = sh(self.root, "git", "rev-parse", "main")
+        code, _, err = run(self.root, "general", "merge", branch)
+        self.assertEqual(code, 1)
+        self.assertIn("exit 4", err)
+        self.assertEqual(sh(self.root, "git", "rev-parse", "main"), before)
+        self.assertTrue(wt.is_dir())
+
+    def test_refusals(self):
+        branch, wt = self.new_lane()
+        code, _, err = run(self.root, "general", "merge", branch)
+        self.assertEqual(code, 1)
+        self.assertIn("no commits beyond main", err)
+        write(wt / "notes.md", "x")
+        code, _, err = run(self.root, "general", "merge", branch)
+        self.assertIn("uncommitted", err)
+        code, _, err = run(self.root, "general", "merge", "feature/0001-a")
+        self.assertIn("not a general lane", err)
+        code, _, err = run(self.root, "general", "merge", "chore/general-19990101-000000")
+        self.assertIn("no worktree", err)
+        self.assertEqual(run(self.root, "general")[0], 2)
+
+
 class MergeOrderTest(unittest.TestCase):
     def setUp(self):
         self.root = make_repo()

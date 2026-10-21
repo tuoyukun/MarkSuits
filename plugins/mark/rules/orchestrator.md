@@ -82,6 +82,13 @@ never resolve conflicts, fix tests or merge by hand yourself. `mark next` keeps 
 this one waits for. `--merge-after` on `mark set` only adds entries; removing one, or
 breaking a cycle, is the human's edit.
 
+## General mode
+
+A change that belongs to no ticket (docs, prompts, role files, config) goes through
+`/mark:general`: you edit it yourself on a throwaway lane (`mark general new`), commit there,
+and land it with `mark general merge <branch>`. Code, tests and UI never go this way; they
+need `/mark:fix` or `/mark:feature`.
+
 ## Hard rules
 
 1. **Never do a role's work.** Do not write code, designs, plans, handoffs or verdicts.
@@ -97,7 +104,7 @@ breaking a cycle, is the human's edit.
 6. **Facts only.** `--prev`, when you pass it, is a conclusion verbatim. Do not add your
    own diagnosis or tell a role how to do its job.
 7. **Stay in the main checkout.** Agents work in the ticket's worktree; their brief has the
-   absolute paths.
+   absolute paths. The one exception is your own general-mode lane.
 
 ## When a hook blocks (`[BLOCKED] …`)
 

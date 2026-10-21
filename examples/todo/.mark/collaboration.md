@@ -14,6 +14,7 @@ human opens tickets and approves or rejects at two review gates; merging is auto
 | `/mark:approve <id>` | Approves the opening of a ticket, the design, the plan, or a blocked ticket's way back; then continues |
 | `/mark:reject <id> <comments>` | Sends a design, plan or finished branch back with your comments; then continues |
 | `/mark:status` | The board: what waits on you, what is in progress |
+| `/mark:general <change>` | A docs/config change that belongs to no ticket: the orchestrator edits it on a throwaway lane and lands it through the regression. Code never goes this way |
 
 Approvals count only when a person types them. An agent cannot approve anything.
 

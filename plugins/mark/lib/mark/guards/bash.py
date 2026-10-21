@@ -10,6 +10,7 @@ import re
 import shlex
 from pathlib import Path
 
+from ..general import PREFIX as LANE_PREFIX
 from ..gitutil import checkout_root, current_branch
 from .common import Env
 
@@ -92,6 +93,9 @@ def git_guard(env: Env) -> str | None:
             ticket_ref = next((r for r in refs if r.removeprefix("origin/").startswith(("feature/", "bug/"))), None)
             if ticket_ref:
                 return env.t("guard.bash.merge_main", ref=ticket_ref, main=main)
+            lane_ref = next((r for r in refs if r.removeprefix("origin/").startswith(LANE_PREFIX)), None)
+            if lane_ref:
+                return env.t("guard.bash.merge_lane", ref=lane_ref, main=main)
         if sub in ("checkout", "switch"):
             names = [a for a in args[1:] if not a.startswith("-")]
             ticket_branch = next((n for n in names if n.startswith(("feature/", "bug/"))), None)

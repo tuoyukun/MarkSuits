@@ -15,6 +15,7 @@ human opens tickets and approves or rejects at two review gates; merging is auto
 | `/mark:approve <id>` | Approves the opening of a ticket, the design, the plan, or a blocked ticket's way back; then continues |
 | `/mark:reject <id> <comments>` | Sends a design, plan or finished branch back with your comments; then continues |
 | `/mark:status` | The board: what waits on you, what is in progress |
+| `/mark:general <change>` | A docs/config change that belongs to no ticket: the orchestrator edits it on a throwaway lane and lands it through the regression. Code never goes this way |
 
 Approvals count only when a person types them. An agent cannot approve anything.
 
@@ -95,6 +96,7 @@ orchestrator stops for you: fix the cause and ask it to merge again, or
 | `/mark:approve <编号>` | 放行开单、设计、方案，或让阻塞的工单原路退回；随后继续推进 |
 | `/mark:reject <编号> <意见>` | 带着你的意见把设计、方案或已完成的分支打回；随后继续推进 |
 | `/mark:status` | 看板：哪些在等你、哪些在进行中 |
+| `/mark:general <改动>` | 不属于任何工单的文档/配置改动：orchestrator 在一次性车道上改完，经回归合入。代码永远不走这条路 |
 
 只有人亲手输入的放行才算数。agent 无法放行任何东西。
 

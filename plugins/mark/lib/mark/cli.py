@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import brief, flow, merge, states, tickets
+from . import brief, flow, general, merge, states, tickets
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -276,6 +276,21 @@ def cmd_merge(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
     return 1 if any(key == "flow.push_failed" for key, _ in notes) else 0
 
 
+def cmd_general(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark general new` | `mark general merge <branch>`: the no-ticket lane."""
+    if args == ["new"]:
+        branch, wt = general.new(cfg)
+        _say(cfg, out, "general.new", branch=branch, wt=wt)
+        return 0
+    if len(args) == 2 and args[0] == "merge":
+        for key, params in general.merge_lane(cfg, args[1]):
+            _say(cfg, out, key, **params)
+        _say(cfg, out, "general.done", branch=args[1])
+        return 0
+    _say(cfg, err, "cli.usage")
+    return 2
+
+
 _PLUGIN = Path(__file__).resolve().parents[2]
 RULES = {
     "orchestrator": _PLUGIN / "rules" / "orchestrator.md",
@@ -298,7 +313,8 @@ def cmd_rules(args: list[str], out: TextIO, err: TextIO) -> int:
     return 0
 
 COMMANDS = {"next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
-            "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim, "merge": cmd_merge}
+            "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim, "merge": cmd_merge,
+            "general": cmd_general}
 
 
 def main(argv: list[str] | None = None, cwd: Path | None = None,

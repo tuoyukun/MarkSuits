@@ -2,8 +2,8 @@
 
 **Mark** 是一套给 [Claude Code](https://code.claude.com) 用的多 agent 研发流程，由一个插件和一份项目模板组成，类似 starter：新工程装上就有完整的多 agent 协作架构。
 
-> 状态：v0.8.0。引擎、项目模板（`en` 与 `zh-CN`）和示例工程已完成，bug 链与 feature 链都已在
-> 示例工程上端到端跑通，见 [examples/](examples/)。工单已能自动合并（`mark merge`）。尚不可用于生产。
+> 状态：v0.9.0。引擎、项目模板（`en` 与 `zh-CN`）和示例工程已完成，bug 链与 feature 链都已在
+> 示例工程上端到端跑通，见 [examples/](examples/)。工单已能自动合并（`mark merge`），不属于任何工单的文档/配置改动走 `/mark:general`。尚不可用于生产。
 
 ## 核心机制
 

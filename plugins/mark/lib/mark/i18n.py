@@ -109,7 +109,8 @@ MESSAGES["en"].update({
         "`{rel}` may not be written in the main checkout. The main checkout is a state lane: only ticket\n"
         "directories, gates and locks change here. Make the change in a ticket worktree (under `{wt_dir}/`)\n"
         "so it reaches main through the normal merge path. If this path is meant to be edited on main,\n"
-        "add it to `[worktree] main_writable` in .mark/config.toml."
+        "add it to `[worktree] main_writable` in .mark/config.toml. For a docs/config change that belongs\n"
+        "to no ticket, open a throwaway lane with `mark general new` (/mark:general)."
     ),
     "guard.ticket": (
         "Opening {kind} `{id}` has not been approved by a human (missing `{gate}`).\n"
@@ -203,6 +204,7 @@ MESSAGES["en"].update({
         "exist somewhere above, say where in your result and finish; do not create a second copy."
     ),
     "guard.bash.merge_main": "Do not merge `{ref}` into {main} by hand. `mark merge <id>` checks merge order, runs the regression and lands it.",
+    "guard.bash.merge_lane": "Do not merge `{ref}` into {main} by hand. `mark general merge {ref}` runs the regression, lands it and removes the lane.",
     "guard.bash.commit_main": "`{who}` may not commit on main. Run git in your worktree: `git -C <worktree> commit ...`.",
     "guard.bash.push_main": "`{who}` may not push to main. Push your ticket branch; merging into main has its own path.",
     "guard.bash.checkout_main": (
@@ -227,7 +229,8 @@ MESSAGES["zh-CN"].update({
     "guard.worktree.main": (
         "主仓里不能写 `{rel}`。主仓只是状态车道：只改工单目录、gates 和 locks。\n"
         "请在工单的 worktree（`{wt_dir}/` 下）里改，走正常合并进 main。\n"
-        "如果这个路径本来就该在 main 上改，把它加进 .mark/config.toml 的 `[worktree] main_writable`。"
+        "如果这个路径本来就该在 main 上改，把它加进 .mark/config.toml 的 `[worktree] main_writable`。\n"
+        "不属于任何工单的文档/配置改动，用 `mark general new`（/mark:general）开一条一次性车道。"
     ),
     "guard.ticket": (
         "{kind} `{id}` 的建单还没有经过人同意（缺少 `{gate}`）。\n"
@@ -299,6 +302,7 @@ MESSAGES["zh-CN"].update({
         "先别结束：把缺的文件写到第一个位置，再结束。如果文件其实在上面某处，在结论里写明位置后直接结束，不要另写一份。"
     ),
     "guard.bash.merge_main": "不要手工把 `{ref}` 合进 {main}。`mark merge <编号>` 会检查合并顺序、跑回归再合入。",
+    "guard.bash.merge_lane": "不要手工把 `{ref}` 合进 {main}。`mark general merge {ref}` 会跑回归、合入并拆掉车道。",
     "guard.bash.commit_main": "`{who}` 不能在 main 上提交。请在你的 worktree 里执行：`git -C <worktree> commit ...`。",
     "guard.bash.push_main": "`{who}` 不能推送到 main。请推送工单分支，合并进 main 有专门的路径。",
     "guard.bash.checkout_main": "不要在主仓里检出 `{branch}`，主仓是所有会话共用的。请用 worktree：\n  git worktree add \"{wt}\" \"{branch}\"",
@@ -322,6 +326,7 @@ _USAGE_EN = (
     "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
     "  mark commit <id> [-m \"<message>\"]             commit + push the ticket's state on main\n"
     "  mark merge <id>                                pending-merge -> passed: merge main in, regression, ff-only, push\n"
+    "  mark general new | merge <branch>              no-ticket lane for docs/config (/mark:general)\n"
     "  mark unlock <id> <role>                        release a dead agent's lock (human)\n"
     "  mark rules [orchestrator | role]               print a rulebook (orchestrator by default)"
 )
@@ -337,6 +342,7 @@ _USAGE_ZH = (
     "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
     "  mark commit <编号> [-m \"<说明>\"]               在 main 上提交并推送工单状态\n"
     "  mark merge <编号>                              pending-merge -> passed：合入 main、回归、ff-only、推送\n"
+    "  mark general new | merge <分支>                不属于任何工单的文档/配置改动车道（/mark:general）\n"
     "  mark unlock <编号> <角色>                      释放已死 agent 的锁（由人执行）\n"
     "  mark rules [orchestrator | role]               打印规则（默认 orchestrator）"
 )
@@ -390,6 +396,21 @@ MESSAGES["en"].update({
     "merge.kept_branch": "Could not delete branch {branch}. Delete it by hand.",
     "merge.kept_remote": "Could not delete origin/{branch}. Delete it by hand.",
     "merge.done": "{id} merged: `pending-merge` -> `passed`.",
+    "general.new": (
+        "Lane ready: branch `{branch}`, worktree {wt}\n"
+        "Edit there with absolute paths, commit, then land it:\n"
+        "  git -C \"{wt}\" add -A && git -C \"{wt}\" commit -m \"<message>\"\n"
+        "  mark general merge {branch}"
+    ),
+    "general.not_lane": "`{branch}` is not a general lane (lanes are `{prefix}<stamp>`). Tickets merge with `mark merge <id>`.",
+    "general.no_lane": "`{branch}` has no worktree. Lanes are created by `mark general new`.",
+    "general.dirty": "The lane {wt} has uncommitted changes:\n{files}\nCommit them first:\n  git -C \"{wt}\" add -A && git -C \"{wt}\" commit -m \"<message>\"",
+    "general.empty": "`{branch}` has no commits beyond main; nothing to merge. Commit in the lane first, or drop it:\n  git worktree remove <lane> && git branch -d {branch}",
+    "general.conflict": (
+        "Merging {base} into `{branch}` conflicts; the merge was aborted and nothing changed.\n"
+        "Report it to the human. The lane is kept at {wt}."
+    ),
+    "general.done": "`{branch}` landed and the lane was removed.",
     "next.blocked_spec": "{id} is `blocked-spec`: the design contract has a problem. Report it to the human and stop. /mark:approve {id} sends it back to the designer.",
     "next.blocked_plan": "{id} is `blocked-plan`: the plan has a hole. Report it to the human and stop. /mark:approve {id} sends it back to planning.",
     "next.blocked_unclear": (
@@ -526,6 +547,21 @@ MESSAGES["zh-CN"].update({
     "merge.kept_branch": "无法删除分支 {branch}。请手工删除。",
     "merge.kept_remote": "无法删除 origin/{branch}。请手工删除。",
     "merge.done": "{id} 已合并：`pending-merge` -> `passed`。",
+    "general.new": (
+        "车道已就绪：分支 `{branch}`，worktree {wt}\n"
+        "用绝对路径在那里改，提交后合入：\n"
+        "  git -C \"{wt}\" add -A && git -C \"{wt}\" commit -m \"<说明>\"\n"
+        "  mark general merge {branch}"
+    ),
+    "general.not_lane": "`{branch}` 不是通用车道（车道一律是 `{prefix}<时间戳>`）。工单用 `mark merge <编号>` 合并。",
+    "general.no_lane": "`{branch}` 没有 worktree。车道由 `mark general new` 创建。",
+    "general.dirty": "车道 {wt} 有未提交的改动：\n{files}\n先提交：\n  git -C \"{wt}\" add -A && git -C \"{wt}\" commit -m \"<说明>\"",
+    "general.empty": "`{branch}` 相对 main 没有新提交，没有可合并的东西。先在车道里提交，或者丢弃：\n  git worktree remove <车道> && git branch -d {branch}",
+    "general.conflict": (
+        "把 {base} 合进 `{branch}` 时冲突；已中止合并，什么都没改。\n"
+        "报告给人。车道保留在 {wt}。"
+    ),
+    "general.done": "`{branch}` 已合入，车道已拆除。",
     "next.blocked_spec": "{id} 是 `blocked-spec`：设计契约有问题。报告 Human 后停下。/mark:approve {id} 会退回 designer 返工。",
     "next.blocked_plan": "{id} 是 `blocked-plan`：方案有洞。报告 Human 后停下。/mark:approve {id} 会退回出方案的环节。",
     "next.blocked_unclear": (

@@ -64,7 +64,7 @@ text, so templates can be localized freely.
 | passed | done | — | — |
 
 Bug chain: fix-plan → coder-impl → tester, no review gates. General mode: no subagents,
-non-code changes only, on a throwaway branch.
+non-code changes only, on a throwaway lane (see General mode below).
 
 Failure routing is decided by the orchestrator from the tester's `failureType`
 (`impl-bug` → coder-impl, `design-flaw` → designer via human, `unclear` → human).
@@ -117,6 +117,7 @@ decision that can be computed is computed by the `mark` CLI and tested.
 | `/mark:approve <id>` | `mark approve`, then continues | next human gate or stop |
 | `/mark:reject <id> <text>` | splits comments into items, `mark reject`, dispatches the rework | next human gate or stop |
 | `/mark:status` | board summary | — |
+| `/mark:general <text>` | no-ticket docs/config change on a throwaway lane, then `mark general merge` | landed or a stop |
 
 Each skill injects `mark rules` (the shared orchestrator rulebook, `plugins/mark/rules/orchestrator.md`)
 and the live board with `!` commands. `approve` and `reject` set `disable-model-invocation`.
@@ -179,6 +180,21 @@ once its dependencies land. Adding entries is free (`mark set --merge-after`, co
 reports them); removing one is a human edit (the status guard refuses it from Claude). The
 bash guard refuses `git merge feature/…|bug/…` on main in the main checkout: tickets land only
 through `mark merge`.
+
+### General mode (v0.9)
+
+A change that belongs to no ticket (docs, prompts, role files, config) runs through
+`/mark:general` (`lib/mark/general.py`). `mark general new` cuts `chore/general-<stamp>` from
+the latest main with a worktree at `<worktree dir>/general-<stamp>`; the main thread edits and
+commits there; `mark general merge <branch>` reuses the ticket merge steps (`merge.land`:
+merge main in, `[merge] regression`, `--ff-only`, push; then `merge.cleanup`). It refuses a
+branch without the prefix, a lane without a worktree, uncommitted work, and a lane with no
+commits. There is no ticket, status or result file; a failed merge keeps the lane and says why.
+
+"Non-code only" needs no new guard: `[[write_rules]]` already keep code, tests and UI paths
+to their roles, and the main thread is `main`. The worktree guard's refusal on the main
+checkout points to `mark general new`, and the bash guard refuses `git merge chore/general-…`
+on main, so a lane lands only through `mark general merge`.
 
 ### Project template (v0.5)
 
@@ -250,7 +266,8 @@ agents, role rules, 13 prompt templates, artifact formats, en + zh-CN, CI) · ex
 `examples/todo`, sandbox script, feature + bug chains run live, recorded in `examples/README.md`).
 
 **Phase 2 — merge and hygiene**
-auto-merge with pluggable regression contract ✅ (v0.7: `mark merge`, `merge-after` checked) · merge-order ✅ (v0.8: cycles, superseded, guards) · doc-budget · general-mode lane ·
+auto-merge with pluggable regression contract ✅ (v0.7: `mark merge`, `merge-after` checked) · merge-order ✅ (v0.8: cycles, superseded, guards) · general-mode lane ✅ (v0.9: `/mark:general`,
+`mark general new|merge`) · doc-budget ·
 worktree env provisioning interface.
 
 **Phase 3 — optional plugins**

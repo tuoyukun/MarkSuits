@@ -87,6 +87,25 @@ class WorktreeTest(unittest.TestCase):
         self.assertEqual(write(root, root / "docs/guide.md")[0], 0)
 
 
+class GeneralLaneWriteTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = make_repo()
+        cls.lane = cls.root / ".claude/worktrees/general-1"
+        sh(cls.root, "git", "worktree", "add", "-q", "-b", "chore/general-1", str(cls.lane), "main")
+
+    def test_main_thread_writes_docs_in_lane_but_never_code(self):
+        self.assertEqual(write(self.lane, self.lane / "docs/guide.md")[0], 0)
+        code, err = write(self.lane, self.lane / "frontend/app.ts")
+        self.assertEqual(code, 2)
+        self.assertIn("coder-impl", err)
+
+    def test_main_checkout_refusal_points_to_lane(self):
+        code, err = write(self.root, self.root / "docs/guide.md")
+        self.assertEqual(code, 2)
+        self.assertIn("mark general new", err)
+
+
 class TicketTest(unittest.TestCase):
     def setUp(self):
         self.root = make_repo()

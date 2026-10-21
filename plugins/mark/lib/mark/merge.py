@@ -17,10 +17,11 @@ import json
 import re
 import subprocess
 import time
+from pathlib import Path
 
 from . import flow
 from .flow import Ctx, FlowError
-from .gitutil import dirty_paths, git, has_remote, worktrees
+from .gitutil import dirty_paths, git, has_remote, ref_exists, worktrees
 from .i18n import t
 
 _VERDICT_RE = re.compile(r"<!--\s*mark:verdict\s+(PASSED|FAILED)\s*-->")
@@ -70,55 +71,68 @@ def _precheck(ctx: Ctx) -> None:
                         files="\n".join(f"  - {p}" for p in dirty[:10]))
 
 
-def _regression(ctx: Ctx, notes: Notes) -> None:
-    cmd = ctx.cfg.merge_regression
+def _regression(cfg, worktree: Path, log_name: str, notes: Notes) -> None:
+    cmd = cfg.merge_regression
     if not cmd:
         notes.append(("merge.no_regression", {}))
         return
-    log = ctx.cfg.state_dir / "locks" / f"{ctx.id}.merge.log"
+    log = cfg.state_dir / "locks" / f"{log_name}.merge.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("w", encoding="utf-8") as fh:
-        code = subprocess.run(cmd, shell=True, cwd=ctx.worktree, stdout=fh,
+        code = subprocess.run(cmd, shell=True, cwd=worktree, stdout=fh,
                               stderr=subprocess.STDOUT).returncode
     if code != 0:
         tail = "\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-LOG_TAIL:])
-        raise FlowError("merge.red", cmd=cmd, code=code, log=log.relative_to(ctx.main).as_posix(), tail=tail)
+        raise FlowError("merge.red", cmd=cmd, code=code, log=log.relative_to(cfg.root).as_posix(), tail=tail)
     notes.append(("merge.green", {"cmd": cmd}))
 
 
-def _merge(ctx: Ctx) -> Notes:
-    _precheck(ctx)
+def land(cfg, worktree: Path, branch: str, log_name: str, conflict: FlowError) -> Notes:
+    """Merge the latest main into `branch` (in its worktree), run the regression there,
+    fast-forward main and push it. Main is untouched unless every step passes."""
     notes: Notes = []
-    main, branch, main_branch = ctx.main, ctx.branch, ctx.cfg.main_branch
-    remote = has_remote(main)
+    main, main_branch = cfg.root, cfg.main_branch
     base = main_branch
-    if remote:
+    if has_remote(main):
         if git(["fetch", "-q", "origin", main_branch], main)[0] != 0:
             raise FlowError("merge.fetch_failed", main=main_branch)
         base = f"origin/{main_branch}"
 
-    if git(["merge", "-q", "--no-edit", base], ctx.worktree)[0] != 0:
-        git(["merge", "--abort"], ctx.worktree)
-        raise FlowError("merge.conflict", id=ctx.id, base=base, branch=branch)
-    _regression(ctx, notes)
+    if git(["merge", "-q", "--no-edit", base], worktree)[0] != 0:
+        git(["merge", "--abort"], worktree)
+        conflict.params["base"] = base
+        raise conflict
+    _regression(cfg, worktree, log_name, notes)
 
     before = git(["rev-parse", "HEAD"], main)[1]
     if git(["merge", "-q", "--ff-only", branch], main)[0] != 0:
         raise FlowError("merge.ff_failed", main=main_branch, branch=branch)
-    if remote and git(["push", "-q", "origin", main_branch], main)[0] != 0:
+    if has_remote(main) and git(["push", "-q", "origin", main_branch], main)[0] != 0:
         git(["reset", "-q", "--keep", before], main)
         raise FlowError("merge.push_failed", main=main_branch)
     notes.append(("merge.landed", {"branch": branch, "main": main_branch}))
+    return notes
 
-    flow.set_status(ctx, "passed")
-    notes += [(key, {}) for key in flow.commit(ctx, f"{ctx.id}: merged, pending-merge -> passed")]
 
-    # Cleanup never fails the merge: the work is already on main.
+def cleanup(cfg, worktree: Path, branch: str) -> Notes:
+    """Remove the remote branch, worktree and local branch. Never fails: the work is on main."""
+    notes: Notes = []
+    main = cfg.root
     # Remote first: `branch -d` checks the upstream, which lacks the merge commit.
-    if remote and git(["push", "-q", "origin", "--delete", branch], main)[0] != 0:
+    if ref_exists(main, f"refs/remotes/origin/{branch}") and \
+            git(["push", "-q", "origin", "--delete", branch], main)[0] != 0:
         notes.append(("merge.kept_remote", {"branch": branch}))
-    if git(["worktree", "remove", str(ctx.worktree)], main)[0] != 0:
-        notes.append(("merge.kept_worktree", {"wt": str(ctx.worktree)}))
+    if git(["worktree", "remove", str(worktree)], main)[0] != 0:
+        notes.append(("merge.kept_worktree", {"wt": str(worktree)}))
     elif git(["branch", "-q", "-d", branch], main)[0] != 0:
         notes.append(("merge.kept_branch", {"branch": branch}))
     return notes
+
+
+def _merge(ctx: Ctx) -> Notes:
+    _precheck(ctx)
+    conflict = FlowError("merge.conflict", id=ctx.id, branch=ctx.branch)
+    notes = land(ctx.cfg, ctx.worktree, ctx.branch, ctx.id, conflict)
+    flow.set_status(ctx, "passed")
+    notes += [(key, {}) for key in flow.commit(ctx, f"{ctx.id}: merged, pending-merge -> passed")]
+    return notes + cleanup(ctx.cfg, ctx.worktree, ctx.branch)
