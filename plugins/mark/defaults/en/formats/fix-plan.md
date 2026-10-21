@@ -35,5 +35,7 @@ the way, it does not contain the implementation.
 Rules:
 
 - At least one acceptance point is a regression check.
+- Tag an acceptance point `[unit]` when no user action can reach it; coder-impl covers it with
+  a unit test. Untagged points are verified end to end.
 - If the fix needs a data model, cross-module contract or framework change, it is not a bug
   fix: say so in open questions.

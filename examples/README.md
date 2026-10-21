@@ -16,8 +16,9 @@ repository, never inside this one:
 ```bash
 python3 examples/sandbox.py ~/mark-sandbox/todo      # copy + git init + local bare origin
 cd ~/mark-sandbox/todo
-npm ci && npx playwright install chromium            # Node 18+, Python 3.11+
-npm test                                             # baseline: everything green
+npm --prefix tests ci                                # Node 18+, Python 3.11+
+npm --prefix tests exec playwright install chromium
+npm --prefix tests test                              # baseline: everything green
 claude --plugin-dir <path to this repo>/plugins/mark
 ```
 
@@ -47,12 +48,12 @@ Now it opens `b0001-…`, writes `bug.md`, and runs the bug chain without stoppi
 |---|---|---|
 | plan the fix | fix-plan | `fix-plan.md`: root cause, `AC-N`, the change |
 | implement | coder-impl | the fix, a unit test, `handoff.md` |
-| verify | tester | an end-to-end test, `verdict.md` (`PASSED` after merging main and running `npm test`) |
+| verify | tester | an end-to-end test, `verdict.md` (`PASSED` after merging main and running the full regression) |
 
 At `pending-merge` the orchestrator runs `mark merge b0001`: it merges the latest main into
-the ticket branch, runs `npm test` there (`[merge] regression` in `.mark/config.toml`),
+the ticket branch, runs `npm --prefix tests test` there (`[merge] regression` in `.mark/config.toml`),
 fast-forwards main, pushes, marks the ticket `passed` and removes its worktree and branch.
-If the merge conflicts or `npm test` fails, main is untouched and the orchestrator stops and
+If the merge conflicts or the regression fails, main is untouched and the orchestrator stops and
 tells you why.
 
 (`mark` is on PATH inside Claude Code; outside it, run `<repo>/plugins/mark/bin/mark`.)

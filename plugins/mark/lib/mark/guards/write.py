@@ -42,12 +42,14 @@ def builtin_rules(env: Env) -> list[tuple[str, frozenset[str]]]:
 
 
 def scope_guard(env: Env) -> str | None:
-    """Role write scopes: first matching rule wins; unmatched paths are open."""
+    """Role write scopes: first matching rule wins; unmatched paths are the main thread's."""
     loc = _located(env)
     return None if loc is None else scope_block(env, loc)
 
 
 def scope_block(env: Env, loc: Location) -> str | None:
+    """First matching rule wins. A path no rule assigns is the main thread's; pipeline roles
+    may still keep working files in a ticket dir."""
     rules = builtin_rules(env) + [(r.glob, r.roles) for r in env.cfg.write_rules]
     for glob, roles in rules:
         if globs.match(glob, loc.rel):
@@ -55,6 +57,8 @@ def scope_block(env: Env, loc: Location) -> str | None:
                 return None
             allowed = ", ".join(sorted(roles)) or "-"
             return env.t("guard.scope", who=env.who, rel=loc.rel, glob=glob, allowed=allowed)
+    if env.role in env.cfg.roles and env.ticket_of_rel(loc.rel) is None:
+        return env.t("guard.scope_unassigned", who=env.who, rel=loc.rel)
     return None
 
 

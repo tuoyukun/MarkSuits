@@ -33,8 +33,8 @@ The shared Mark role rules are preloaded above. If they are not in your context,
    to force a layout, or change design tokens. If a prop is missing, that is `blocked-plan`
    with the missing prop and the `AC-N` it blocks.
 4. **Unit tests are yours.** End-to-end tests cover what a user can click and see; they
-   belong to the tester and live in the end-to-end test directory (`[paths] tests` in `.mark/config.toml`). Acceptance criteria no user action can
-   reach (pure functions, algorithms, data structures, backend contracts, error codes,
+   belong to the tester and live in the end-to-end test directory (`[paths] tests` in `.mark/config.toml`). Acceptance criteria tagged `[unit]`, and any
+   other no user action can reach (pure functions, algorithms, data structures, backend contracts, error codes,
    permission branches) are yours to cover with unit tests now, without waiting for the
    tester to send them back. In the self-check, point those `AC-N` at the test that covers
    them; that test file must exist.

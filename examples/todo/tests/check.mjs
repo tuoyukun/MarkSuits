@@ -1,4 +1,5 @@
-// Syntax check for every JS file and every Python module. Exit 1 on the first failure list.
+// Syntax check for every JS file and every Python module in the app. Run from tests/.
+// Exit 1 with the list of failures.
 import { execFileSync } from "node:child_process";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -15,7 +16,7 @@ function walk(dir, ext, out = []) {
 }
 
 const failures = [];
-for (const file of [...walk("frontend", ".js"), ...walk("tests", ".js"), ...walk("scripts", ".mjs")]) {
+for (const file of [...walk("../frontend", ".js"), ...walk(".", ".js"), ...walk(".", ".mjs")]) {
   try {
     execFileSync(process.execPath, ["--check", file], { stdio: "pipe" });
   } catch (err) {
@@ -23,7 +24,7 @@ for (const file of [...walk("frontend", ".js"), ...walk("tests", ".js"), ...walk
   }
 }
 try {
-  execFileSync("python3", ["-m", "py_compile", ...walk("backend", ".py")], { stdio: "pipe" });
+  execFileSync("python3", ["-m", "py_compile", ...walk("../backend", ".py")], { stdio: "pipe" });
 } catch (err) {
   failures.push(`backend\n${err.stderr}`);
 }

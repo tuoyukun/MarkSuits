@@ -37,7 +37,9 @@ The shared Mark role rules are preloaded above. If they are not in your context,
    tasks cover the container side (data, timing, wiring the components with the right
    props), no "make it look like the design" tasks. The tester owns the end-to-end test
    directory (`[paths] tests`): its cases, config and setup. Plan no `T-N` there; where an
-   `AC-N` needs an end-to-end test, write "tester" next to it in the task list.
+   `AC-N` needs an end-to-end test, write "tester" next to it in the task list. Every file
+   goes where the layout in `CLAUDE.md` puts it, inside a module; a new top-level path is an
+   open question for the human, not a task.
 5. **Reuse before you build.** Before planning a new module, helper or type, search the code
    for an existing one. Record what you reused, what you build anyway and why, and where you
    looked, under "Self-check" in the plan. An unsearched "nothing to reuse" does not count.

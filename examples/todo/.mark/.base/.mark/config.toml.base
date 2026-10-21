@@ -32,7 +32,7 @@ exclude = ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"]
 # `mark merge` runs this shell command in the ticket's worktree after merging the latest
 # main into the branch; exit 0 = green. Empty: merge on the tester's verdict alone.
 [merge]
-regression = "npm test"
+regression = "npm --prefix tests test"
 
 [worktree]
 dir = ".claude/worktrees"
@@ -47,7 +47,7 @@ main_writable = []
 # Everything it creates must be gitignored (a symlink matches `node_modules`, not
 # `node_modules/`). On failure the new worktree is removed and the log is kept in
 # .mark/locks/<id>.setup.log. Empty: no setup.
-setup = "npm ci"
+setup = "npm --prefix tests ci"
 setup_timeout = 300
 
 # Doc budgets: byte limits for the docs every role loads (the agent, prompt and format
@@ -79,12 +79,13 @@ max_bytes = 6144
 glob = ".mark/bugs/*/fix-plan.md"
 max_bytes = 12288
 
-# Write scopes. First matching glob wins; paths that match nothing are open to all.
+# Write scopes. First matching glob wins. A path no rule matches is the main thread's: roles
+# may write it only inside their ticket dir. Assign every directory a role works in here.
 # "main" is the orchestrator (main thread). The engine checks fixed rules first that no
 # project can loosen (.claude/**, .mark/config.toml, gates, locks, status.md and review-*.md
 # are main-thread only), then who writes each ticket artifact (requirement.md and bug.md:
-# main, design.md: designer, tech-plan.md: coder-plan ...; a rule here with the same glob
-# replaces one), then these.
+# main, design.md: designer, tech-plan.md: coder-plan ...) and the shared docs (CLAUDE.md,
+# **/CONTEXT.md, docs/adr/**); a rule here with the same glob replaces one. Then these.
 [[write_rules]]
 glob = "frontend/src/ui/**"
 roles = ["designer"]

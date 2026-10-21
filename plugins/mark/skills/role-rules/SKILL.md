@@ -54,6 +54,9 @@ Hooks block most of these with exit 2. The rest are on you.
 - Write outside your role's scope. When a hook blocks a write, do not route around it with
   Bash (`cat >`, `sed -i`, `cp`): that is the same violation by another door. Report what
   you needed and why.
+- Put files outside the layout in `CLAUDE.md`. Each module keeps its own dependencies, config
+  and scripts in its own directory; nothing new goes at the repository root. A path no role
+  is assigned to is the main thread's, and the hook says so.
 - Lower the bar. There is no third outcome between done and not done. Something unfinished
   is reported as unfinished; calling it a "known limitation" and passing yourself is the one
   thing this workflow is built to catch. Only the human may lower an acceptance criterion.

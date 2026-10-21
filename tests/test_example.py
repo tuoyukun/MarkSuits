@@ -50,7 +50,8 @@ class ExampleProjectTest(unittest.TestCase):
     def test_claude_md_is_filled_in(self):
         text = (EXAMPLE / "CLAUDE.md").read_text(encoding="utf-8")
         self.assertNotIn("TODO", text)
-        for command in ("npm ci", "npm run test:unit", "npm run check", "npx playwright test", "npm test"):
+        for command in ("npm --prefix tests ci", "npm --prefix tests run test:unit", "npm --prefix tests run check",
+                        "npx playwright test", "npm --prefix tests test"):
             self.assertIn(command, text)
 
     def test_answers_are_recorded(self):

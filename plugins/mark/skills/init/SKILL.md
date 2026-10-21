@@ -45,11 +45,23 @@ Speak the human's language.
    Also say which existing files it keeps (`CLAUDE.md`) or extends (`.gitignore`); the dry run
    lists them.
 
+   In the same message, propose the **layout**: every top-level path and the role that
+   writes it. A role may write only paths a write rule assigns to it; everything else is the
+   main thread's.
+   - New: frontend, backend and end-to-end tests are each self-contained (own dependencies,
+     config and scripts); the root holds only `CLAUDE.md`, `README.md`, `.gitignore`, `.mark/`
+     and `.claude/`. No shared package manifest or tool config at the root.
+   - Existing: list the top-level paths that are not the frontend, backend, tests or
+     `docs/adr/`, and propose an owner for each (a `[[write_rules]]` entry), or say it stays
+     with the main thread.
+
 5. **Apply.** Run `mark init` with the confirmed answers, each as `--<answer> "<value>"`.
    Report the result in two lines.
 
-6. **Fill in CLAUDE.md.** Every role reads it first: stack, module boundaries, and the exact
-   commands (install, dev server, UI preview, unit tests, lint, end-to-end, full regression).
+6. **Fill in CLAUDE.md.** Every role reads it first: stack, layout, module boundaries, and the
+   exact commands (install, dev server, UI preview, unit tests, lint, end-to-end, full
+   regression). Write the confirmed layout into its Layout section, and add the write rules
+   the human agreed to `.mark/config.toml` in the same lane.
    The main checkout is now a Mark project, so edit it in a general lane, as in /mark:general:
    `mark general new`, edit `<worktree>/CLAUDE.md`, commit in the lane, `mark general merge <branch>`.
    - Existing project with its own `CLAUDE.md`: keep everything there and add only what is
@@ -57,12 +69,15 @@ Speak the human's language.
      human's text.
    - Existing project without one: fill in every TODO from what you read; leave a TODO only
      where you could not tell, and name it in your report.
-   - New project: skip this step; there is nothing to describe yet.
+   - New project: fill in the overview, the stack the human chose and the Layout section;
+     leave the commands as TODO for the skeleton ticket.
 
 7. **Next step.**
    - Existing: work starts with `/mark:feature` or `/mark:fix`.
    - New: suggest the first ticket, `/mark:feature` for the project skeleton (framework,
-     layout, first test, the commands in `CLAUDE.md`). It has no UI to design, so the human
+     each module set up in its own directory as the Layout section says, the commands in
+     `CLAUDE.md`). Its acceptance criteria describe what works, such as "the home page lists
+     the posts"; the tester writes the end-to-end tests. It has no UI to design, so the human
      may waive design review with `.mark/gates/<id>.design-approved.waived`; the stack choice is
      reviewed at plan review. Once it lands, set `[merge] regression` and `[worktree] setup`
      with `/mark:general`.

@@ -7,7 +7,7 @@ const port = Number(process.env.PORT) ||
   8100 + (createHash("sha1").update(process.cwd()).digest().readUInt16BE(0) % 800);
 
 export default defineConfig({
-  testDir: "tests/e2e",
+  testDir: "e2e",
   fullyParallel: false,
   workers: 1,
   reporter: [["list"]],
@@ -18,7 +18,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `python3 backend/server.py --port ${port}`,
+    command: `python3 ../backend/server.py --port ${port}`,
     url: `http://127.0.0.1:${port}/api/todos`,
     reuseExistingServer: false,
   },

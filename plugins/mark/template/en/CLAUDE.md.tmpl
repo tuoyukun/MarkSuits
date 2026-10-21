@@ -16,13 +16,29 @@ TODO: one paragraph on what {{ project_name }} does and for whom.
 | Backend (`{{ backend_dir }}/`) | TODO | |
 | End-to-end tests (`{{ tests_dir }}/`) | TODO | |
 
-## 3. Module boundaries
+## 3. Layout
+
+Each module is self-contained: its dependencies, config and scripts live in its own
+directory, and it installs, runs and tests from there. The repository root holds only what
+this table lists. A path no write rule assigns (`[[write_rules]]` in `.mark/config.toml`) is
+written by the main thread only, so a new top-level path needs a row here and a write rule.
+
+| Path | What | Written by |
+|---|---|---|
+| `{{ frontend_dir }}/` | frontend app, with its own dependencies and config | coder-impl (`{{ ui_dir }}/`: designer) |
+| `{{ backend_dir }}/` | backend service, with its own dependencies and config | coder-impl |
+| `{{ tests_dir }}/` | end-to-end tests, with their own dependencies and config | tester |
+| `docs/adr/` | architecture decision records | coder-plan |
+| `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
+| `README.md`, `.gitignore`, `.mark/`, `.claude/` | project docs and workflow files | main thread |
+
+## 4. Module boundaries
 
 | Module | Owns | May depend on | Must not |
 |---|---|---|---|
 | `{{ ui_dir }}` | Presentational components and their preview (designer only) | design tokens, props types | requests, routing, global state |
 
-## 4. Commands
+## 5. Commands
 
 Role agents run exactly these. Keep them working from a fresh worktree.
 
@@ -36,13 +52,15 @@ Role agents run exactly these. Keep them working from a fresh worktree.
 | End-to-end tests (selected specs) | TODO |
 | Full regression (everything a merge must pass; also `[merge] regression` in `.mark/config.toml`) | TODO |
 
-## 5. Red lines
+## 6. Red lines
 
 1. No architecture-level decision without an ADR (`docs/adr/`).
 2. No reaching across module boundaries outside defined contracts.
 3. Changing a module requires updating its `CONTEXT.md`.
+4. Nothing at the repository root that the Layout table does not list: no shared
+   dependencies, tool config or scripts there.
 
-## 6. Commit format
+## 7. Commit format
 
 ```
 type(module): what changed

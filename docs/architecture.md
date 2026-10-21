@@ -49,7 +49,7 @@ built-in is used. Auto-update then upgrades everything the project did not overr
 | Dispatch prompts | `plugins/mark/defaults/<locale>/prompts/<scenario>.md` | `.mark/prompts/<scenario>.md` | `brief.load_template` |
 | Artifact formats | `plugins/mark/defaults/<locale>/formats/<name>.md` | `.mark/formats/<name>.md` | `mark format <name>` prints the effective one; agents and prompts point there instead of a path |
 | Collaboration guide | `plugins/mark/defaults/<locale>/collaboration.md` | none | `mark rules collaboration` |
-| Workflow config: `roles`, `[gates]`, `[outputs]`, artifact write rules (`requirement.md` → main, `design.md` → designer …) | engine defaults in `config.py` | the same keys in `.mark/config.toml` | `load_config` fills every missing key from the defaults |
+| Workflow config: `roles`, `[gates]`, `[outputs]`, artifact write rules (`requirement.md` → main, `design.md` → designer …) and the shared-doc rules (`CLAUDE.md`, `**/CONTEXT.md`, `docs/adr/**`) | engine defaults in `config.py` | the same keys in `.mark/config.toml` | `load_config` fills every missing key from the defaults |
 
 `mark init` writes only what is about this project: `.mark/config.toml` with `[project]`,
 `[paths]`, `[merge]`, `[worktree]`, `[design_qa]`, `[[doc_budget]]` and the path write rules
@@ -138,7 +138,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 
 | group | event / matcher | guards, in order |
 |---|---|---|
-| `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **status** (main checkout on the main branch, valid fields, legal move) · **budget** (`[[doc_budget]]`, see Doc budget) |
+| `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins; a path no rule assigns is the main thread's, except a role's working files in a ticket dir — v0.19) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **status** (main checkout on the main branch, valid fields, legal move) · **budget** (`[[doc_budget]]`, see Doc budget) |
 | `pre-dispatch` | PreToolUse `Agent\|Task` | **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **gate** (feature roles need `[gates]`; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
 | `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `sed -i`, `cp`, `mv`) follow the scope and worktree rules (unclear or quoted targets pass) |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock |
@@ -419,6 +419,12 @@ template in the plugin + `mark init` / `/mark:init` ✅ (v0.13: new and existing
 no Copier) · `mark upgrade` / `/mark:upgrade` ✅ (v0.14: 3-way merge against `.mark/.base/`, in a
 general lane; stale notice in `status` / `next`).
 Versions stay below 1.0 until real end users have run Mark.
+
+**Write scopes default to closed** (v0.19): a role writes only paths a rule assigns to it.
+Before, unmatched paths were open to every role, which let a skeleton ticket put a shared
+package manifest and tool config at the repository root. Migration: list every directory a
+role works in under `[[write_rules]]`; the CLAUDE.md template gained a Layout section
+(`mark upgrade` brings it in), and `/mark:init` agrees the layout with the human.
 
 **Phase 3 — optional plugins**
 `mark-web-e2e` (interaction floor, verdict criteria registry) · `mark-design-system`

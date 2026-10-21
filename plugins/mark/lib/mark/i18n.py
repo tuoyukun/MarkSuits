@@ -93,6 +93,12 @@ def t(locale: str, key: str, **params: object) -> str:
 # Guard messages. Each one says what was blocked, why, and the exact way out.
 # --------------------------------------------------------------------------
 MESSAGES["en"].update({
+    "guard.scope_unassigned": (
+        "`{who}` may not write `{rel}`: no write rule assigns this path to a role, so only the main thread writes it.\n"
+        "Each module keeps its own dependencies, config and scripts in its own directory (layout: `CLAUDE.md`). "
+        "If the file belongs to a module, put it there. Otherwise do not route around this with another tool: "
+        "say in your result what you need and why; the human can assign the path in `[[write_rules]]`."
+    ),
     "guard.scope": (
         "`{who}` may not write `{rel}` (rule `{glob}` allows: {allowed}).\n"
         "Write scopes keep roles apart: planning never writes code, implementation never rewrites the plan,\n"
@@ -243,6 +249,11 @@ MESSAGES["en"].update({
 })
 
 MESSAGES["zh-CN"].update({
+    "guard.scope_unassigned": (
+        "`{who}` 不能写 `{rel}`：没有写入规则把这个路径分给任何角色，所以只有主线程能写。\n"
+        "每个模块的依赖、配置和脚本都放在自己的目录里（布局见 `CLAUDE.md`）。这个文件属于某个模块，就放进那个模块；"
+        "否则不要换个工具绕过去，在结论里写明需要什么、为什么，由 Human 在 `[[write_rules]]` 里分配。"
+    ),
     "guard.scope": (
         "`{who}` 不能写 `{rel}`（规则 `{glob}` 只允许：{allowed}）。\n"
         "写域用来隔开角色：出方案的不写代码，写代码的不改方案，流程控制文件只有主线程能动。不要换个工具绕过去。\n"

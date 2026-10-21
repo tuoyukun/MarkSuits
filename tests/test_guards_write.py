@@ -53,8 +53,23 @@ class ScopeTest(unittest.TestCase):
     def test_main_thread_may_edit_control_files_in_worktree(self):
         self.assertEqual(write(self.wt, self.wt / ".claude/agents/designer.md")[0], 0)
 
-    def test_unmatched_path_is_open(self):
-        self.assertEqual(write(self.wt, self.wt / "README.md", "tester")[0], 0)
+    def test_unassigned_path_is_the_main_threads(self):
+        for rel in ("package.json", "README.md", "scripts/x.mjs"):
+            code, err = write(self.wt, self.wt / rel, "coder-impl")
+            self.assertEqual(code, 2, rel)
+            self.assertIn("no write rule assigns this path", err)
+        self.assertEqual(write(self.wt, self.wt / "package.json")[0], 0)            # main thread
+        self.assertEqual(write(self.wt, self.wt / "package.json", "Explore")[0], 0)  # not a pipeline role
+
+    def test_role_keeps_working_files_in_its_ticket_dir(self):
+        self.assertEqual(write(self.wt, self.tdir / "notes.md", "tester")[0], 0)
+
+    def test_default_doc_rules(self):
+        self.assertEqual(write(self.wt, self.wt / "CLAUDE.md", "coder-impl")[0], 0)
+        self.assertEqual(write(self.wt, self.wt / "CLAUDE.md", "tester")[0], 2)
+        self.assertEqual(write(self.wt, self.wt / "backend/CONTEXT.md", "coder-plan")[0], 0)
+        self.assertEqual(write(self.wt, self.wt / "docs/adr/0001-x.md", "coder-plan")[0], 0)
+        self.assertEqual(write(self.wt, self.wt / "docs/adr/0001-x.md", "coder-impl")[0], 2)
 
     def test_general_purpose_agent_cannot_write_role_files(self):
         self.assertEqual(write(self.wt, self.tdir / "verdict.md", "general-purpose")[0], 2)
@@ -215,24 +230,24 @@ class BudgetTest(unittest.TestCase):
         cls.doc.parent.mkdir(parents=True, exist_ok=True)
 
     def test_write_over_budget_is_blocked_with_how_much_to_cut(self):
-        code, err = write(self.wt, self.doc, "tester", content="short line\n" + "y" * 30 + "\n")
+        code, err = write(self.wt, self.doc, None, content="short line\n" + "y" * 30 + "\n")
         self.assertEqual(code, 2)
         self.assertIn("`docs/guide.md` would be 42 bytes; its doc budget is 20", err)
         self.assertIn("Cut at least 22 bytes", err)
         self.assertIn("L2 (30 B)", err)
 
     def test_within_budget_exempt_and_unbudgeted_paths_pass(self):
-        self.assertEqual(write(self.wt, self.doc, "tester", content="ok")[0], 0)
-        self.assertEqual(write(self.wt, self.wt / "docs/archive.md", "tester", content="z" * 99)[0], 0)
-        self.assertEqual(write(self.wt, self.wt / "README.md", "tester", content="z" * 99)[0], 0)
+        self.assertEqual(write(self.wt, self.doc, None, content="ok")[0], 0)
+        self.assertEqual(write(self.wt, self.wt / "docs/archive.md", None, content="z" * 99)[0], 0)
+        self.assertEqual(write(self.wt, self.wt / "README.md", None, content="z" * 99)[0], 0)
 
     def test_doc_already_over_budget_may_shrink_but_not_grow(self):
         self.doc.write_text("x" * 40)
         self.addCleanup(self.doc.unlink)
         shrink = {"old_string": "xxxxx", "new_string": ""}
-        self.assertEqual(write(self.wt, self.doc, "tester", tool="Edit", **shrink)[0], 0)
+        self.assertEqual(write(self.wt, self.doc, None, tool="Edit", **shrink)[0], 0)
         grow = {"old_string": "x", "new_string": "xx"}
-        self.assertEqual(write(self.wt, self.doc, "tester", tool="Edit", **grow)[0], 2)
+        self.assertEqual(write(self.wt, self.doc, None, tool="Edit", **grow)[0], 2)
 
 
 class EntryTest(unittest.TestCase):

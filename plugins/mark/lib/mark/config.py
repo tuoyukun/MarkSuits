@@ -31,14 +31,18 @@ DEFAULT_GATES = {"coder-plan": "design-approved", "coder-impl": "plan-approved",
 DEFAULT_OUTPUTS = {"designer": ["design.md", "preview.html"], "coder-plan": ["tech-plan.md"],
                    "fix-plan": ["fix-plan.md"], "coder-impl": ["handoff.md"],
                    "tester": ["verdict.md"]}
-# Who writes each ticket artifact. They come before the project's `[[write_rules]]`;
-# a project rule with the same glob replaces the default.
+# Who writes each ticket artifact, plus the docs every project has. They come before the
+# project's `[[write_rules]]`; a project rule with the same glob replaces the default.
+# A path no rule matches is the main thread's (see `guards.write.scope_block`).
 DEFAULT_WRITE_RULES = (
     ("**/requirement.md", ("main",)), ("**/bug.md", ("main",)),
     ("**/design.md", ("designer",)), ("**/design-qa.md", ("designer",)),
     ("**/preview.html", ("designer",)), ("**/tech-plan.md", ("coder-plan",)),
     ("**/fix-plan.md", ("fix-plan",)), ("**/handoff.md", ("coder-impl",)),
     ("**/verdict.md", ("tester",)),
+    ("CLAUDE.md", ("main", "coder-plan", "coder-impl")),
+    ("**/CONTEXT.md", ("main", "designer", "coder-plan", "coder-impl", "tester")),
+    ("docs/adr/**", ("main", "coder-plan")),
 )
 
 

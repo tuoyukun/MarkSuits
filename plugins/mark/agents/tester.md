@@ -41,7 +41,7 @@ The one valid method is to drive the app like a user and assert on the result:
 
 ## Criteria a user cannot reach
 
-Some criteria no user action can drive: pure functions, algorithms, data structures,
+Criteria tagged `[unit]`, and some others, no user action can drive: pure functions, algorithms, data structures,
 backend contracts, static facts. Do not invent an action-free end-to-end test for them.
 If `handoff.md` points them at a unit test that exists and passes, accept that. Otherwise
 open a failure with `failureType: needs-unit-test`, `routeTo: coder-impl`.

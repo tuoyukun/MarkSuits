@@ -1,5 +1,5 @@
 # Written by `mark init`; do not edit. Upgrades read the answers below.
-version = "0.18.1"
+version = "0.19.0"
 
 [answers]
 project_name = "todo"
@@ -10,5 +10,5 @@ frontend_dir = "frontend"
 backend_dir = "backend"
 ui_dir = "frontend/src/ui"
 tests_dir = "tests"
-regression_cmd = "npm test"
-worktree_setup = "npm ci"
+regression_cmd = "npm --prefix tests test"
+worktree_setup = "npm --prefix tests ci"
