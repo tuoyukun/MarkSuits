@@ -362,6 +362,10 @@ class BashTest(unittest.TestCase):
     def test_subagent_commit_in_worktree_is_allowed(self):
         self.assertEqual(bash(self.root, f'git -C "{self.wt}" commit -m x', "coder-impl")[0], 0)
         self.assertEqual(bash(self.root, f'cd "{self.wt}" && git commit -m x', "coder-impl")[0], 0)
+        self.assertEqual(bash(self.root, f'W="{self.wt}"; git -C "$W" commit -m x', "coder-impl")[0], 0)
+
+    def test_variables_reach_git_dash_c(self):
+        self.assertEqual(bash(self.wt, f'M="{self.root}"; git -C "$M" commit -m x', "coder-impl")[0], 2)
 
     def test_main_thread_commits_state_on_main(self):
         self.assertEqual(bash(self.root, "git commit -m 'status'")[0], 0)
@@ -432,6 +436,26 @@ class ShellWriteTest(unittest.TestCase):
         self.assertFalse(self.blocked("echo 'a > frontend/app.ts'", "coder-plan"))   # quoted text
         self.assertFalse(self.blocked("sed -n 's/x/y/p' frontend/app.ts", "coder-plan"))  # no -i
         self.assertFalse(self.blocked("echo x > frontend/app.ts", None))          # main thread: Edit rules only
+
+    def test_shell_variables_are_expanded(self):
+        # The live failure: a variable holding the worktree, then `cd "$W"` from the main checkout.
+        w = f'W="{self.wt}"; cd "$W" && '
+        self.assertFalse(self.blocked(w + "cat > .mark/features/0001-a/handoff.md <<'EOF'\nx\nEOF", "coder-impl",
+                                      cwd=self.root))
+        self.assertTrue(self.blocked(w + "echo x > frontend/app.ts", "coder-plan", cwd=self.root))
+        self.assertTrue(self.blocked(f'export W="{self.wt}"; cd "${{W}}/frontend" && touch app.ts', "coder-plan",
+                                     cwd=self.root))
+        self.assertTrue(self.blocked(f'W={self.wt}; echo x > $W/frontend/app.ts', "coder-plan", cwd=self.root))
+        self.assertTrue(self.blocked(f'W={self.wt}; cp notes.md "$W/frontend/"', "coder-plan"))
+        self.assertTrue(self.blocked(f'cd "$HOME" && cd {self.wt} && echo x > frontend/app.ts', "coder-plan"))
+
+    def test_paths_only_the_shell_knows_are_not_guessed(self):
+        self.assertFalse(self.blocked('cd "$MARK_UNSET_VAR" && echo x > notes.md', "coder-impl", cwd=self.root))
+        self.assertFalse(self.blocked('cd "$(git rev-parse --show-toplevel)" && echo x > notes.md', "coder-impl",
+                                      cwd=self.root))
+        self.assertFalse(self.blocked('echo x > "$MARK_UNSET_VAR/notes.md"', "coder-impl", cwd=self.root))
+        # An absolute target is still checked after an unknown `cd`.
+        self.assertTrue(self.blocked(f'cd "$MARK_UNSET_VAR" && echo x > {self.wt}/frontend/app.ts', "coder-plan"))
 
 
 class DiscardWorkTest(unittest.TestCase):

@@ -35,42 +35,73 @@ def _strip_heredocs(cmd: str) -> str:
     return "\n".join(out)
 
 
-def _commands(command: str, cwd: Path) -> list[tuple[Path, str, list[str]]]:
-    """[(directory, raw segment, words)] per simple command; follows `cd`."""
-    out: list[tuple[Path, str, list[str]]] = []
-    here = cwd
+_ASSIGN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.S)
+_VAR_REF = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
+
+
+def expand(word: str, values: dict[str, str]) -> str | None:
+    """`~`, `$NAME` and `${NAME}` from the command's own assignments, then the environment;
+    None when the shell alone knows the result (`$(...)`, backticks, an unknown name)."""
+    missing = False
+
+    def sub(m: re.Match[str]) -> str:
+        nonlocal missing
+        name = m.group(1) or m.group(2)
+        value = values.get(name, os.environ.get(name))
+        missing = missing or value is None
+        return value or ""
+    out = _VAR_REF.sub(sub, word)
+    return None if missing or "$" in out or "`" in out else os.path.expanduser(out)
+
+
+def _commands(command: str, cwd: Path) -> list[tuple[Path | None, str, list[str], dict[str, str]]]:
+    """[(directory, raw segment, words, variables set so far)] per simple command; follows
+    `cd`. The directory is None after a `cd` whose target only the shell knows."""
+    out: list[tuple[Path | None, str, list[str], dict[str, str]]] = []
+    here: Path | None = cwd
+    values: dict[str, str] = {}
     for segment in _SEGMENT_SPLIT.split(_strip_heredocs(command)):
         try:
             words = shlex.split(segment)
         except ValueError:
             continue
-        while words and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[0]):
-            words = words[1:]  # env assignments
-        if not words:
+        sets = words[0] == "export" if words else False
+        if sets:
+            words = words[1:]
+        while words and (m := _ASSIGN.match(words[0])):
+            value = expand(m.group(2), values)
+            if value is not None:   # shortcut: `A=1 cmd` also sets A for later segments; harmless for finding paths
+                values[m.group(1)] = value
+            else:
+                values.pop(m.group(1), None)
+            words = words[1:]
+        if not words or sets:
             continue
         if words[0] == "cd" and len(words) > 1:
-            here = Path(os.path.join(here, os.path.expanduser(words[1])))
+            target = expand(words[1], values)
+            here = None if here is None or target is None else Path(os.path.join(here, target))
             continue
-        out.append((here, segment, words))
+        out.append((here, segment, words, dict(values)))
     return out
 
 
 def git_calls(command: str, cwd: Path) -> list[tuple[Path, list[str]]]:
     """[(directory the git call runs in, git args after global options)]."""
     calls: list[tuple[Path, list[str]]] = []
-    for here, _, words in _commands(command, cwd):
+    for here, _, words, values in _commands(command, cwd):
         if words[0] != "git":
             continue
         args, where = words[1:], here
         while args and args[0].startswith("-"):
             if args[0] == "-C" and len(args) > 1:
-                where = Path(os.path.join(where, os.path.expanduser(args[1])))
+                target = expand(args[1], values)
+                where = None if where is None or target is None else Path(os.path.join(where, target))
                 args = args[2:]
             elif args[0] == "-c" and len(args) > 1:
                 args = args[2:]
             else:
                 args = args[1:]
-        if args:
+        if args and where is not None:
             calls.append((where, args))
     return calls
 
@@ -149,27 +180,33 @@ def _discards_work(env: Env, where: Path, args: list[str]) -> str | None:
 
 
 # Shell writes: `> f`, `>> f`, `tee f`, `touch f`, `sed -i … f`, `cp/mv … dest`. Quoted text is
-# dropped first, so a quoted target is never checked (allowed, like any unclear case).
+# dropped first, so a quoted target is never checked (allowed, like any unclear case); so is a
+# target only the shell can resolve, or a relative one after a `cd` only the shell can resolve.
 _QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"")
-_REDIRECT = re.compile(r"""(?:^|[^<>\d&])[\d&]?>>?\|?\s*([^\s<>&|;()`$*'"]+)""")
+_REDIRECT = re.compile(r"""(?:^|[^<>\d&])[\d&]?>>?\|?\s*([^\s<>&|;()`*'"]+)""")
 
 
-def _shell_targets(here: Path, segment: str, words: list[str]) -> list[str]:
+def _shell_targets(here: Path | None, segment: str, words: list[str], values: dict[str, str]) -> list[str]:
+    def full(word: str) -> str | None:
+        path = expand(word, values)
+        if path is None or (here is None and not os.path.isabs(path)):
+            return None
+        return path if here is None else os.path.join(here, path)
+
     found = _REDIRECT.findall(_QUOTED.sub("''", segment))
     cmd, args = os.path.basename(words[0]), [w for w in words[1:] if not w.startswith("-")]
     if cmd in ("tee", "touch"):
         found += args
     elif cmd == "sed" and any(w == "--in-place" or w.startswith("--in-place=")
                               or re.match(r"^-[a-zA-Z]*i", w) for w in words[1:]):
-        found += [a for a in args if (here / os.path.expanduser(a)).is_file()]
+        found += [a for a in args if (f := full(a)) and os.path.isfile(f)]
     elif cmd in ("cp", "mv") and len(args) >= 2:
         *srcs, dest = args
-        dest_dir = (here / os.path.expanduser(dest)).is_dir()
+        dest_dir = (f := full(dest)) is not None and os.path.isdir(f)
         found += [os.path.join(dest, os.path.basename(s)) for s in srcs] if dest_dir else [dest]
         if cmd == "mv":
             found += srcs
-    return [os.path.join(here, os.path.expanduser(f)) for f in found
-            if f and not f.startswith("/dev/")]
+    return [f for w in found if w and not w.startswith("/dev/") and (f := full(w))]
 
 
 def shell_write_guard(env: Env) -> str | None:
@@ -178,8 +215,8 @@ def shell_write_guard(env: Env) -> str | None:
     command = str(env.tool_input.get("command") or "")
     if ">" not in command and not re.search(r"\b(tee|touch|sed|cp|mv)\b", command):
         return None
-    for here, segment, words in _commands(command, env.cwd):
-        for target in _shell_targets(here, segment, words):
+    for here, segment, words, values in _commands(command, env.cwd):
+        for target in _shell_targets(here, segment, words, values):
             loc = env.locate(target)
             if loc.rel is None:
                 continue

@@ -71,11 +71,14 @@ sentence, and report the blocked outcome your role file names.
 
 ## 5. Inline fixes
 
-You will find problems outside your task. Fix one on the spot only if both hold:
+You will find problems outside your task. Fix one on the spot only if all three hold:
 
 1. **In scope:** every file you would change is one your role may write.
 2. **No contract change:** it does not change an API signature, schema, component props,
    design states (`S-N`) or acceptance criteria (`AC-N`).
+3. **No behaviour change:** nothing a user or client can observe changes (a typo, dead code,
+   a lint warning, a log message). A bug a user could hit is a ticket of its own, with its
+   own criteria and end-to-end test, even when the fix is one line.
 
 Then fix it and list it under your artifact's "Inline fixes" section. Otherwise describe it
 (problem, files, whose scope, suggested fix) and leave it for the orchestrator. Do not
