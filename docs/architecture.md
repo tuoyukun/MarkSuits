@@ -148,7 +148,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 |---|---|---|
 | `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins; a path no rule assigns is the main thread's, except a role's working files in a ticket dir — v0.19; CLI-only files are nobody's, see below) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **budget** (`[[doc_budget]]`, see Doc budget) · **e2e** / **journey** (tester writes, v0.22–0.23) |
 | `pre-dispatch` | PreToolUse `Agent\|Task` | **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **gate** (feature roles need `[gates]`; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
-| `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `touch`, `sed -i`, `cp`, `mv`) follow the scope and worktree rules, and the main thread's never reach a CLI-only file (`$VAR` and `cd` are followed through the command's own assignments and the environment; unclear or quoted targets pass) |
+| `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `touch`, `sed -i`, `cp`, `mv`) follow the scope and worktree rules, and the tester writes test code under the tests directory with Edit/Write only, so the end-to-end rules see it; the main thread's never reach a CLI-only file (`$VAR` and `cd` are followed through the command's own assignments and the environment; unclear or quoted targets pass) |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock; a foreground agent (`status: completed`) whose stop could not be matched is settled here instead, so no finished agent leaves a bound lock |
 | `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates that agent: restart) |
 | `post-write` | PostToolUse writes | reminds to commit ticket state on main (feedback only) |
@@ -285,7 +285,12 @@ page state set inside `evaluate`. A local helper whose body acts (or asserts), d
 through another helper, counts as acting (or asserting); helpers are read from the spec and
 the files it imports relatively, since suites often keep gestures in `helpers/`.
 Comments and string contents are blanked before matching. Measured on a 602-block legacy
-Playwright suite: no false positives besides real network stubs.
+Playwright suite: no false positives besides real network stubs. `[tests] profile =
+"maestro"` (v0.27) reads Maestro flows instead: a flow file (`*.yaml`, not under `subflows/`,
+not `config.yaml`) is one test, titled by its `name:` or its file name; each new or changed
+flow needs a user action (`tapOn`, `inputText`, `swipe`...) and an assertion after it, where
+a `runFlow` counts as what the flow it runs does (`e2e.flow_problems`), and no `runFlow` /
+`runScript` / `file:` path may leave the test directory. Journeys work as below.
 
 **Extend before adding (v0.23).** Suites grow because the cheapest move for a tester is one
 more test per criterion, and nothing pushes back; a cap on the count does not work either,
@@ -297,7 +302,7 @@ it cannot be extended, or `unit`. The planner reads `<tests>/JOURNEYS.md`
 (`<!-- mark:journeys -->`, tester-owned: every test's title, file, path through the app and
 covers), and the human sees each new journey at plan review; a bug has no review, but the
 reason is on record. No separate test review: the human could not judge one. Enforcement,
-with `[tests] profile = "playwright"`: the tester's write may add only tests titled as the
+with `[tests] profile = "playwright"` or `"maestro"`: the tester's write may add only tests titled as the
 plan's `new` rows (`guards.write.journey_guard`; a title already present in another spec is a
 move, not an addition; changing a test keeps its title); `mark merge` re-checks that the
 branch adds no test beyond them against the merged base (`merge._journeys`; shell writes
@@ -402,7 +407,8 @@ plugin install is the whole setup.
 
 - **Answers** (`scaffold.keys(profile)`): project name, locale, profile, main branch, the profile's
   module directories (`scaffold.PROFILES`: `web-fullstack` frontend / backend / UI / tests,
-  `web-frontend` frontend / UI / tests, `service` service / tests), worktree setup command. `mark init
+  `web-frontend` frontend / UI / tests, `service` service / tests, `mobile-fullstack` app /
+  backend / UI / tests), worktree setup command. `mark init
   --<answer> <value>`; defaults fill the rest; `--dry-run` shows the plan and writes nothing.
 - **Checks before writing**: a git repository (an empty directory is `git init`ed), on the main
   branch, clean tree, git identity set, not already a Mark project, and no template file already
@@ -525,5 +531,8 @@ instead of optional plugins; the interaction floor of the planned `mark-web-e2e`
 v0.22–v0.23, its verdict criteria registry and `mark-design-system` token guards were dropped)
 `service` ✅ (v0.25: designer optional, `[paths]` modules not hard-coded, `examples/notes`) ·
 `web-frontend` ✅ (v0.26: web-fullstack without the backend; third-party APIs are faked from the
-test directory, never stubbed in the browser; `examples/expenses`) · `mobile`. `cli` (CLIs and
-libraries) was dropped.
+test directory, never stubbed in the browser; `examples/expenses`) · `mobile-fullstack` ✅
+(v0.27: a mobile app and its backend; `[tests] profile = "maestro"`; the designer's preview is
+the web build of the real components, or simulator screenshots when the stack has none;
+`examples/habits`, Expo + Maestro) · `mobile` (the app alone). `cli` (CLIs and libraries) was
+dropped.

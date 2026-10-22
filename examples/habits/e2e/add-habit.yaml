@@ -1,0 +1,15 @@
+appId: host.exp.Exponent
+name: add a habit
+# covers: baseline/add
+---
+- runFlow: subflows/open-app.yaml
+- tapOn:
+    id: new-habit
+- inputText: Read
+- tapOn:
+    id: add-habit
+- assertVisible:
+    id: habit-Read
+- assertVisible:
+    id: streak-Read
+    text: No streak yet

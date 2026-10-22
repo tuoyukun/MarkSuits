@@ -1,0 +1,102 @@
+# CLAUDE.md — {{ project_name }}
+
+> This file explains **what the project is and how to build it**: stack, layout, module
+> boundaries, commands, docs and commit conventions. Every Mark role agent reads it first.
+> How the agents collaborate: `mark rules collaboration`, not here.
+
+## 1. Overview
+
+TODO: one paragraph on what {{ project_name }} does and for whom.
+
+## 2. Tech stack
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Mobile app (`{{ app_dir }}/`) | TODO | platforms, how it runs on a simulator |
+| Backend (`{{ backend_dir }}/`) | TODO | |
+| End-to-end tests (`{{ tests_dir }}/`) | TODO (Maestro) | |
+
+## 3. Layout
+
+Each module is self-contained: its dependencies, config and scripts live in its own
+directory, and it installs, runs and tests from there. The repository root holds only what
+this table lists. A path no write rule assigns (`[[write_rules]]` in `.mark/config.toml`) is
+written by the main thread only, so a new top-level path needs a row here and a write rule.
+
+| Path | What | Written by |
+|---|---|---|
+| `{{ app_dir }}/` | mobile app, with its own dependencies and config (native projects included) | coder-impl (`{{ ui_dir }}/`: designer) |
+| `{{ backend_dir }}/` | backend service, with its own dependencies and config | coder-impl |
+| `{{ tests_dir }}/` | end-to-end flows, one per journey; shared steps in `subflows/`; `JOURNEYS.md` lists them | tester |
+| `docs/adr/` | architecture decision records | coder-plan |
+| `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
+| `scripts/` | the entry points below; shipped by Mark, never edited by a ticket | main thread |
+| `README.md`, `.gitignore`, `.mark/`, `.claude/` | project docs and workflow files | main thread |
+
+`scripts/` only calls each module's own entry point, run from inside the module with the
+checkout's `.env` exported (each worktree's own ports among them):
+
+| Entry point | Who provides it | Does |
+|---|---|---|
+| `selftest.sh` | `{{ app_dir }}/`, `{{ backend_dir }}/` (required once the module exists) | white-box self-test: the module's lint, type check, unit tests |
+| `regression.sh` | `{{ tests_dir }}/` (required once it exists) | black-box regression: the whole end-to-end suite on a simulator, under the device lock |
+| `start.sh`, `stop.sh` | `{{ backend_dir }}/`, and `{{ app_dir }}/` for its dev server (bundler) | start it in the background on its port from `.env` and return once it answers; stop it |
+
+## 4. Module boundaries
+
+| Module | Owns | May depend on | Must not |
+|---|---|---|---|
+| `{{ ui_dir }}` | Presentational components and their preview (designer only) | design tokens, props types | requests, navigation, global state |
+| rest of `{{ app_dir }}` | API calls, state, navigation, native config, wiring the UI components (coder-impl) | `{{ ui_dir }}` through its props | changing `{{ ui_dir }}` props types |
+
+## 5. Mobile specifics
+
+- **Backend URL.** The app reads the backend's base URL from `.env` when it is bundled or
+  built (with `[worktree] ports`, each worktree has its own). Never hard-code it.
+- **Testable UI.** Every element a flow taps or checks has a stable accessibility id (React
+  Native `testID`, Flutter `Semantics`, iOS `accessibilityIdentifier`...). Flows find
+  elements by it or by visible text, never by coordinates.
+- **One device, one run.** A simulator or emulator shows one app at a time: every
+  end-to-end run takes the device lock (command below), so worktrees queue for it instead
+  of fighting over the screen.
+- **Design preview.** `preview.html` is built from the real UI components: TODO (the web
+  build of the UI preview screen, inlined into one file; or, with no web build, simulator
+  screenshots of every `S-N` inlined). It is close to the device, not the same: design QA
+  on the simulator decides.
+- **End-to-end flows.** One Maestro flow per journey; its `name:` is the title in
+  `JOURNEYS.md`. Steps that several flows share live in `{{ tests_dir }}/subflows/` and run
+  through `runFlow`.
+
+## 6. Commands
+
+Role agents run exactly these. Keep them working from a fresh worktree.
+
+| Purpose | Command |
+|---|---|
+| Install dependencies | TODO |
+| Start / stop / restart the backend and the app's dev server | `bash scripts/start.sh` / `bash scripts/stop.sh` / `bash scripts/restart.sh` |
+| Open the app on the simulator | TODO |
+| Build the UI preview (`preview.html`) | TODO |
+| Self-test (white-box, every module) | `bash scripts/selftest.sh` |
+| End-to-end tests (selected flows, under the device lock) | TODO |
+| Full regression (what a merge must pass, `[merge] regression`) | `bash scripts/selftest.sh && bash scripts/regression.sh` |
+
+## 7. Red lines
+
+1. No architecture-level decision without an ADR (`docs/adr/`).
+2. No reaching across module boundaries outside defined contracts.
+3. Changing a module requires updating its `CONTEXT.md`.
+4. Nothing at the repository root that the Layout table does not list: no shared
+   dependencies, tool config or scripts there. A module's commands go in its own entry
+   points, never in `scripts/`.
+
+## 8. Commit format
+
+```
+type(module): what changed
+
+Why:
+How:
+Rejected:
+Refs: <ticket id> <R-N / FAIL-N / D-N>
+```

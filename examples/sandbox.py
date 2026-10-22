@@ -18,7 +18,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 PLUGIN = HERE.parent / "plugins" / "mark"
-IGNORE = shutil.ignore_patterns("node_modules", "test-results", "playwright-report", "__pycache__",
+IGNORE = shutil.ignore_patterns("node_modules", "test-results", "playwright-report", "__pycache__", ".expo",
                                 ".numbers", "locks", "worktrees")
 
 

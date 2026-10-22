@@ -193,7 +193,7 @@ class MarkConfig:
         """End-to-end framework whose test blocks the tester guard reads; "none" checks only
         that tests stay out of production code."""
         value = str(self._section("tests").get("profile", "none"))
-        return value if value in ("none", "playwright") else "none"
+        return value if value in ("none", "playwright", "maestro") else "none"
 
     @property
     def prompts_dir(self) -> Path:

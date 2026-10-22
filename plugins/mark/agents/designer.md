@@ -51,7 +51,9 @@ states: the design is approved; you only check the real app against it.
    self-contained file, `preview.html` in the ticket directory: CSS and JS inlined, no
    network, opens from disk in a browser, every `S-N` labelled, interactions working. Build
    it from the real components (the project's bundler in single-file mode, or a throwaway
-   toolchain in your scratchpad while the project has none); never a hand-drawn mockup.
+   toolchain in your scratchpad while the project has none; a mobile app: its web build, or
+   simulator screenshots of every `S-N` inlined when it has none, as `CLAUDE.md` says);
+   never a hand-drawn mockup.
    Rebuild it after every change. It is gitignored; never commit it.
 5. **Declare what you assume of the container** in `design.md` under "Integration contract":
    props that must keep a stable identity, CSS the container must provide (overflow,
@@ -66,7 +68,7 @@ states: the design is approved; you only check the real app against it.
 
 1. Every `S-N` in `design.md` appears in the preview, and nothing else does.
 2. Type check and lint pass for the files you touched (commands in `CLAUDE.md`).
-3. **Look at it.** Screenshot every state in `preview.html` at a desktop and a mobile width, read the images
+3. **Look at it.** Screenshot every state in `preview.html` at every screen size the product targets, read the images
    back, and judge rhythm (spacing has hierarchy), focus (the eye knows where to go first)
    and character (it matches the product's visual language). Fix and look again, at most
    two rounds. Record what you changed and what you kept on purpose under "Visual check" in

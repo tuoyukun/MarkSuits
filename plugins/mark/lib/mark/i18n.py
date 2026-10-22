@@ -120,7 +120,7 @@ MESSAGES["en"].update({
         "add it to `[worktree] main_writable` in .mark/config.toml. For a docs/config change that belongs\n"
         "to no ticket, open a throwaway lane with `mark general new` (/mark:general)."
     ),
-    "cli.journeys.off": "Journey checks are off: `[tests] profile` is not \"playwright\".",
+    "cli.journeys.off": "Journey checks are off: `[tests] profile` is \"none\".",
     "cli.journeys.ok": "`{index}` lists exactly the end-to-end tests there are.",
     "cli.journeys.drift": (
         "`{index}` does not match the suite. Rows to add (write the path column):\n{add}\n"
@@ -142,7 +142,7 @@ MESSAGES["en"].update({
     "e2e.import": "imports production code",
     "e2e.read_source": "reads production source",
     "e2e.skipped": "skipped test (it verifies nothing but still looks like coverage)",
-    "e2e.no_action": "no user action (click, fill, press, check, select, drag...); navigation alone does not count",
+    "e2e.no_action": "no user action (click, fill, press, tap, input, swipe, drag...); opening a page or launching the app alone does not count",
     "e2e.no_assert_after": "no assertion after the first user action",
     "e2e.sleep": "fixed sleep over 200 ms; wait for a condition instead",
     "e2e.stub": "stubs the network or fires synthetic events (route, fulfill, dispatchEvent)",
@@ -250,6 +250,7 @@ MESSAGES["en"].update({
     "guard.bash.commit_main": "`{who}` may not commit on main. Run git in your worktree: `git -C <worktree> commit ...`.",
     "guard.bash.push_main": "`{who}` may not push to main. Push your ticket branch; merging into main has its own path.",
     "guard.bash.shell_write": "This command writes `{rel}` through the shell. Shell writes follow the same rules as Edit/Write:\n{why}",
+    "guard.bash.tests_via_tools": "End-to-end test code is written with Edit/Write, so the black-box and journey rules can check it.",
     "guard.bash.discard_dirty": (
         "Forced removal of `{wt}` would delete uncommitted changes. Commit and push them first; "
         "if the human wants them gone, they run the command themselves."
@@ -289,7 +290,7 @@ MESSAGES["zh-CN"].update({
         "如果这个路径本来就该在 main 上改，把它加进 .mark/config.toml 的 `[worktree] main_writable`。\n"
         "不属于任何工单的文档/配置改动，用 `mark general new`（/mark:general）开一条一次性车道。"
     ),
-    "cli.journeys.off": "旅程检查未开启：`[tests] profile` 不是 \"playwright\"。",
+    "cli.journeys.off": "旅程检查未开启：`[tests] profile` 为 \"none\"。",
     "cli.journeys.ok": "`{index}` 恰好列出了全部端到端用例。",
     "cli.journeys.drift": (
         "`{index}` 与用例不一致。需要添加的行（请补上路径一栏）：\n{add}\n"
@@ -310,7 +311,7 @@ MESSAGES["zh-CN"].update({
     "e2e.import": "引用了生产代码",
     "e2e.read_source": "读取了生产代码源文件",
     "e2e.skipped": "跳过的用例（什么都没验证，却看起来像有覆盖）",
-    "e2e.no_action": "没有用户操作（click、fill、press、check、select、拖拽……），只打开页面不算",
+    "e2e.no_action": "没有用户操作（click、fill、press、tap、输入、滑动、拖拽……），只打开页面或启动 App 不算",
     "e2e.no_assert_after": "第一次用户操作之后没有断言",
     "e2e.sleep": "固定等待超过 200 ms；改成等待某个条件",
     "e2e.stub": "打桩网络或派发合成事件（route、fulfill、dispatchEvent）",
@@ -399,6 +400,7 @@ MESSAGES["zh-CN"].update({
     "guard.bash.commit_main": "`{who}` 不能在 main 上提交。请在你的 worktree 里执行：`git -C <worktree> commit ...`。",
     "guard.bash.push_main": "`{who}` 不能推送到 main。请推送工单分支，合并进 main 有专门的路径。",
     "guard.bash.shell_write": "这条命令通过 shell 写 `{rel}`。shell 写入和 Edit/Write 守同一套规则：\n{why}",
+    "guard.bash.tests_via_tools": "端到端测试代码要用 Edit/Write 写，这样黑盒规则和旅程规则才能检查它。",
     "guard.bash.discard_dirty": "强制删除 `{wt}` 会丢掉未提交的改动。先提交并推送；如果 Human 确实要丢弃，请 Human 自己执行这条命令。",
     "guard.bash.discard_unpushed": "强制删除 `{ref}` 会丢掉 {n} 个既不在任何远端、也不在 main 上的提交。先推送；如果 Human 确实要丢弃，请 Human 自己执行这条命令。",
     "guard.bash.checkout_main": "不要在主仓里检出 `{branch}`，主仓是所有会话共用的。请用 worktree：\n  git worktree add \"{wt}\" \"{branch}\"",

@@ -1,0 +1,22 @@
+appId: host.exp.Exponent
+name: check-ins build a streak
+# covers: baseline/streak, baseline/undo
+---
+- runFlow: subflows/open-app.yaml
+- tapOn:
+    id: new-habit
+- inputText: Stretch
+- tapOn:
+    id: add-habit
+- tapOn:
+    id: day-Stretch-2026-03-01
+- tapOn:
+    id: day-Stretch-2026-03-02
+- assertVisible:
+    id: streak-Stretch
+    text: 2-day streak
+- tapOn:
+    id: day-Stretch-2026-03-02
+- assertVisible:
+    id: streak-Stretch
+    text: 1-day streak

@@ -16,7 +16,7 @@ role: designer
 - 组件已在 UI 目录里，props 类型完整，每个用户交互都有对外回调。
 - 预览用 mock props、断网渲染每一个 `S-N`，且没有多余的。
 - `{{ticket_dir}}/preview.html` 已从组件构建，断网、从磁盘直接能打开。
-- 你看过每个状态的截图（桌面和移动），并把视觉自查写进 `design.md`。
+- 你看过每个状态的截图（产品面向的每种屏幕尺寸），并把视觉自查写进 `design.md`。
 - 待确认为空。不为空就报 `blocked-unclear`（自相矛盾报 `blocked-spec`），不要猜。
 
 ## 要读

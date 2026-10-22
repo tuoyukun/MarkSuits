@@ -94,11 +94,11 @@ def _suite_at(cfg, worktree: Path, ref: str, tests_dir: str) -> set[str]:
     code, out = git(["ls-tree", "-r", "--name-only", ref, "--", tests_dir], worktree)
     titles: set[str] = set()
     for rel in out.splitlines() if code == 0 else []:
-        if "node_modules/" in rel or not e2e._SPEC.search(rel):
+        if "node_modules/" in rel or not e2e.holds_tests(rel, cfg.tests_profile):
             continue
         ok, text = git(["show", f"{ref}:{rel}"], worktree)
         if ok == 0:
-            titles |= {b.title for b in e2e.extract_tests(text)}
+            titles |= {b.title for b in e2e.tests_in(rel, text, cfg.tests_profile)}
     return titles
 
 
@@ -106,9 +106,9 @@ def _journeys(cfg, worktree: Path, base: str, plan: str | None) -> None:
     """The branch adds only the end-to-end tests its plan names as new, and JOURNEYS.md lists
     exactly the tests there are. `plan` None: a general lane, no plan to hold it to."""
     tests_dir = cfg.path("tests")
-    if cfg.tests_profile != "playwright" or not tests_dir:
+    if cfg.tests_profile == "none" or not tests_dir:
         return
-    now = e2e.suite(worktree, tests_dir)
+    now = e2e.suite(worktree, tests_dir, cfg.tests_profile)
     if plan is not None:
         extra = sorted(set(now) - _suite_at(cfg, worktree, base, tests_dir) - e2e.planned_new(plan))
         if extra:

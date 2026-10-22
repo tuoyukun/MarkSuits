@@ -228,5 +228,136 @@ class MergeJourneyTest(unittest.TestCase):
         self.assertIn("Rows with no test:\n  - gone", err)
 
 
+MAESTRO_CONFIG = CONFIG.replace('profile = "playwright"', 'profile = "maestro"')
+FLOW = """appId: host.exp.Exponent
+name: add a habit
+# covers: 0001/AC-1
+---
+- launchApp
+- tapOn: "New habit"
+- inputText: "Read"
+- assertVisible: "Read"
+"""
+
+
+def flow_keys(rel, old, new, flows=None):
+    return [p.key for p in e2e.problems(rel, old, new, "tests", ["app", "backend"], "maestro", flows or {})]
+
+
+class MaestroRulesTest(unittest.TestCase):
+    def test_a_user_journey_passes(self):
+        self.assertEqual(flow_keys("tests/add.yaml", None, FLOW), [])
+
+    def test_launch_and_assert_alone_is_not_a_test(self):
+        new = "appId: x\n---\n- launchApp\n- assertVisible: Hi\n"
+        self.assertEqual(flow_keys("tests/a.yaml", None, new), ["e2e.no_action"])
+
+    def test_assertion_must_follow_the_first_action(self):
+        new = "appId: x\n---\n- assertVisible: Hi\n- tapOn: Go\n"
+        self.assertEqual(flow_keys("tests/a.yaml", None, new), ["e2e.no_assert_after"])
+
+    def test_header_commands_and_comments_do_not_count(self):
+        new = "appId: x\nonFlowStart:\n  - tapOn: Skip\n---\n- launchApp\n# - tapOn: Go\n"
+        self.assertEqual(flow_keys("tests/a.yaml", None, new), ["e2e.no_action"])
+
+    def test_subflows_count_as_what_they_do(self):
+        login = "appId: x\n---\n- tapOn: Login\n- runFlow: check.yaml\n"
+        check = "appId: x\n---\n- assertVisible: Home\n"
+        inline = "appId: x\n---\n- runFlow: subflows/login.yaml\n"
+        block_style = "appId: x\n---\n- runFlow:\n    file: subflows/login.yaml\n"
+        flows = {"tests/subflows/login.yaml": login, "tests/subflows/check.yaml": check}
+        self.assertEqual(flow_keys("tests/a.yaml", None, inline, flows), [])
+        self.assertEqual(flow_keys("tests/a.yaml", None, block_style, flows), [])
+        self.assertEqual(flow_keys("tests/a.yaml", None, inline, {"tests/subflows/login.yaml": login}),
+                         ["e2e.no_assert_after"])
+
+    def test_optional_steps_prove_nothing(self):
+        inline = "appId: x\n---\n- launchApp\n- tapOn: {text: Open, optional: true}\n- assertVisible: Hi\n"
+        block = "appId: x\n---\n- launchApp\n- tapOn:\n    text: Open\n    optional: true\n- assertVisible: Hi\n"
+        self.assertEqual(flow_keys("tests/a.yaml", None, inline), ["e2e.no_action"])
+        self.assertEqual(flow_keys("tests/a.yaml", None, block), ["e2e.no_action"])
+        later = "appId: x\n---\n- tapOn:\n    text: Go\n- assertVisible:\n    text: Hi\n    optional: true\n"
+        self.assertEqual(flow_keys("tests/a.yaml", None, later), ["e2e.no_assert_after"])
+        self.assertEqual(flow_keys("tests/a.yaml", None, later.replace("true", "false")), [])
+
+    def test_a_flow_that_runs_itself_does_not_loop(self):
+        new = "appId: x\n---\n- tapOn: Go\n- runFlow: a.yaml\n"
+        self.assertEqual(flow_keys("tests/a.yaml", None, new, {"tests/a.yaml": new}), ["e2e.no_assert_after"])
+
+    def test_subflows_config_and_unchanged_flows_are_not_judged(self):
+        bare = "appId: x\n---\n- launchApp\n"
+        self.assertEqual(flow_keys("tests/subflows/login.yaml", None, bare), [])
+        self.assertEqual(flow_keys("tests/config.yaml", None, "flows:\n  - '*'\n"), [])
+        self.assertEqual(flow_keys("tests/a.yaml", bare, bare), [])
+
+    def test_paths_out_of_the_test_directory(self):
+        new = FLOW + "- runScript: ../app/src/seed.js\n- runFlow: ../backend/x.yaml\n"
+        self.assertEqual(flow_keys("tests/a.yaml", None, new), ["e2e.import", "e2e.import"])
+        text = FLOW.replace("Read", "app/settings")
+        self.assertEqual(flow_keys("tests/a.yaml", None, text), [])
+
+    def test_title_is_the_name_or_the_file(self):
+        self.assertEqual([b.title for b in e2e.tests_in("tests/add.yaml", FLOW, "maestro")], ["add a habit"])
+        self.assertEqual([b.title for b in e2e.tests_in("tests/x/edit-habit.yml", "- tapOn: a", "maestro")],
+                         ["edit-habit"])
+        self.assertEqual(e2e.tests_in("tests/a.spec.ts", GOOD, "maestro"), [])
+
+
+class MaestroSuiteTest(unittest.TestCase):
+    def test_suite_and_index_drift_read_flows(self):
+        import tempfile
+        from pathlib import Path
+        root = Path(tempfile.mkdtemp())
+        write(root / "e2e/add.yaml", FLOW)
+        write(root / "e2e/subflows/login.yaml", "- tapOn: a\n")
+        write(root / "e2e/config.yaml", "flows: ['*']\n")
+        write(root / "e2e/JOURNEYS.md", index("gone"))
+        self.assertEqual(e2e.suite(root, "e2e", "maestro"), {"add a habit": "e2e/add.yaml"})
+        add, drop = e2e.index_drift(root, "e2e", "maestro")
+        self.assertEqual(add, ["| add a habit | add.yaml | TODO: entry → steps → outcome | 0001/AC-1 |"])
+        self.assertEqual(drop, ["gone"])
+
+
+class MaestroGuardTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = make_repo(MAESTRO_CONFIG)
+        add_ticket(cls.root, "feature", "0001-a", "testing",
+                   gates=["ticket-approved", "design-approved", "plan-approved"])
+        cls.wt = add_worktree(cls.root, "feature", "0001-a")
+        write(cls.wt / ".mark/features/0001-a/tech-plan.md",
+              plan(("AC-1", "new", "add a habit", "closest: none, first journey")))
+        write(cls.wt / "tests/old.yaml", "appId: x\nname: old one\n---\n- tapOn: a\n- assertVisible: b\n")
+        write(cls.wt / "tests/subflows/login.yaml", "appId: x\n---\n- tapOn: Login\n- assertVisible: Home\n")
+
+    def write(self, rel, content):
+        return hook("pre-write", {"hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": str(self.wt),
+                                  "agent_type": "tester",
+                                  "tool_input": {"file_path": str(self.wt / rel), "content": content}})
+
+    def test_planned_flow_and_subflow_helpers_pass(self):
+        self.assertEqual(self.write("tests/add.yaml", FLOW)[0], 0)
+        self.assertEqual(self.write("tests/login.yaml", "appId: x\nname: old one\n---\n- runFlow: subflows/login.yaml\n")[0], 0)
+
+    def test_unplanned_flow_is_blocked(self):
+        code, err = self.write("tests/extra.yaml", FLOW.replace("add a habit", "extra"))
+        self.assertEqual(code, 2)
+        self.assertIn("  - extra", err)
+
+    def test_test_code_is_written_with_edit_write_only(self):
+        # The live gap: `cat >> e2e/flow.yaml <<EOF` slipped past the black-box and journey rules.
+        def shell(cmd):
+            return hook("pre-bash", {"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(self.wt),
+                                     "agent_type": "tester", "tool_input": {"command": cmd}})[0]
+        self.assertEqual(shell("cat >> tests/old.yaml <<'EOF'\n- tapOn: c\nEOF"), 2)
+        self.assertEqual(shell("sed -i '' 's/a/b/' tests/old.yaml"), 2)
+        self.assertEqual(shell("bash tests/regression.sh > tests/run.log 2>&1"), 0)
+
+    def test_flow_without_action_is_blocked(self):
+        code, err = self.write("tests/add.yaml", "appId: x\nname: add a habit\n---\n- launchApp\n")
+        self.assertEqual(code, 2)
+        self.assertIn("no user action", err)
+
+
 if __name__ == "__main__":
     unittest.main()

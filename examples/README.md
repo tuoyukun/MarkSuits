@@ -5,6 +5,7 @@
 | [`todo/`](todo/) | A small todo app (vanilla JS frontend, Python standard-library backend, Playwright end-to-end tests), generated from the Mark template (`web-fullstack` profile) in `en` and filled in. It ships with one known bug so the bug chain has something to fix. |
 | [`notes/`](notes/) | A notes JSON API with no UI (Python standard library; end-to-end tests over HTTP with `unittest`), from the `service` profile. No designer: features go straight to planning. It also ships with one known bug. See [the notes walkthrough](#the-notes-service-service-profile). |
 | [`expenses/`](expenses/) | An expense tracker with no backend (vanilla JS, data in localStorage, Playwright end-to-end tests), from the `web-frontend` profile. Designer and design review as in `todo/`. One known bug. See [the expenses walkthrough](#the-expense-tracker-web-frontend-profile). |
+| [`habits/`](habits/) | A habit tracker: an Expo (React Native) app and a Python standard-library backend, Maestro end-to-end tests on the iOS simulator, from the `mobile-fullstack` profile. Designer and design review as in `todo/`; the preview is the web build of the real components. One known bug. See [the habits walkthrough](#the-habit-tracker-mobile-fullstack-profile). |
 
 The scaffold files in `todo/` (`.mark/`) are exactly what `mark init` writes (role agents,
 prompts and formats come from the plugin); `tests/test_example.py` re-renders them and fails if they drift. Only `CLAUDE.md`
@@ -187,6 +188,41 @@ A feature, with a design step:
 
 The designer builds the category picker and the subtotals in `frontend/src/ui/` and stops at
 design review; coder-plan plans the store and wiring; coder-impl, design QA and the tester follow.
+
+## The habit tracker (`mobile-fullstack` profile)
+
+Needs macOS with Xcode (an iOS simulator runtime), Node, and the Maestro CLI
+(`brew tap mobile-dev-inc/tap && brew install mobile-dev-inc/tap/maestro`, Java 17+).
+
+```bash
+python3 examples/sandbox.py ~/mark-sandbox/habits --example habits
+cd ~/mark-sandbox/habits
+(cd app && npm ci && npx expo start --ios)   # once: installs Expo Go on the simulator; Ctrl-C when the app shows
+bash scripts/selftest.sh && bash scripts/regression.sh   # baseline: everything green
+claude --plugin-dir <path to this repo>/plugins/mark
+```
+
+The end-to-end run (`e2e/regression.sh`) takes a device lock, starts its own backend with
+the date pinned to 2026-03-02 and its own dev server, and runs the Maestro flows in Expo Go.
+
+A bug: streaks break at the start of a month.
+
+```
+/mark:fix I ticked Feb 28, Mar 1 and Mar 2 and the habit says 2-day streak instead of 3.
+```
+
+(The cause: `store.streak` compares day-of-month numbers instead of dates. The unit tests
+and the baseline flows stay inside one month.)
+
+A feature, with a design step:
+
+```
+/mark:feature Let me delete a habit: a long press on its card asks for confirmation, then removes it.
+```
+
+The designer builds the confirmation in `app/src/ui/` and stops at design review with a
+`preview.html` built from the real components; coder-plan plans the backend route and the
+wiring; coder-impl, design QA on the simulator and the tester follow.
 
 ## Updating the examples
 

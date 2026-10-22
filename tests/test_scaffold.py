@@ -142,6 +142,25 @@ class ChecksTest(unittest.TestCase):
         record = tomllib.loads((root / scaffold.RECORD).read_text())
         self.assertEqual(set(record["answers"]), set(scaffold.keys("web-frontend")))
 
+    def test_mobile_fullstack_profile(self):
+        root = repo(self)
+        code, _, err = init(root, "--profile", "mobile-fullstack", "--frontend-dir", "web")
+        self.assertIn("Unknown answer", err)
+        code, out, err = init(root, "--profile", "mobile-fullstack", "--app-dir", "mobile")
+        self.assertEqual(code, 0, err)
+        self.assertIn('--ui-dir "mobile/src/ui"', out)
+        cfg = load_config(root)
+        self.assertEqual((cfg.profile, cfg.module_dirs, cfg.tests_profile),
+                         ("mobile-fullstack", ["mobile", "backend", "mobile/src/ui"], "maestro"))
+        self.assertIn("designer", cfg.roles)
+        self.assertEqual([r.glob for r in cfg.write_rules][-4:],
+                         ["mobile/src/ui/**", "tests/**", "mobile/**", "backend/**"])
+        self.assertIn('selftest.sh required "mobile" "backend"\n', (root / "scripts/selftest.sh").read_text())
+        self.assertIn('start.sh optional "backend" "mobile"\n', (root / "scripts/start.sh").read_text())
+        self.assertNotIn("frontend", (root / "CLAUDE.md").read_text())
+        record = tomllib.loads((root / scaffold.RECORD).read_text())
+        self.assertEqual(set(record["answers"]), set(scaffold.keys("mobile-fullstack")))
+
     def test_dry_run_writes_nothing(self):
         root = repo(self)
         code, out, _ = init(root, "--dry-run", "--worktree-setup", "npm ci")

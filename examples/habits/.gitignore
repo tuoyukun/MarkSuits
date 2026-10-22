@@ -1,0 +1,18 @@
+# Mark runtime state (never commit)
+.mark/locks/
+.mark/*/*/preview.html
+.mark/*/.numbers/
+.claude/worktrees/
+.claude/settings.local.json
+.env
+
+# Tooling
+node_modules/
+.expo/
+dist/
+__pycache__/
+.server.pid
+.server.log
+.metro.pid
+.metro.log
+.backend.log

@@ -29,12 +29,14 @@ EXAMPLES = {
                           "bash scripts/selftest.sh && bash scripts/regression.sh")),
     "expenses": ("frontend", ("npm --prefix tests ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
                               "npx playwright test", "bash scripts/selftest.sh && bash scripts/regression.sh")),
+    "habits": ("backend", ("cd app && npm ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
+                           "cd e2e && bash regression.sh", "bash scripts/selftest.sh && bash scripts/regression.sh")),
 }
 EXAMPLE = REPO_ROOT / "examples" / "todo"
 SANDBOX = REPO_ROOT / "examples" / "sandbox.py"
 # Generated once, then filled in by the project.
 PROJECT_OWNED = {"CLAUDE.md", ".gitignore"}
-SKIP_DIRS = {"node_modules", "test-results", "playwright-report", "__pycache__"}
+SKIP_DIRS = {"node_modules", "test-results", "playwright-report", "__pycache__", ".expo"}
 
 
 def _answers(root: Path) -> dict[str, str]:

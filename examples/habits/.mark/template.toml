@@ -1,0 +1,13 @@
+# Written by `mark init`; do not edit. Upgrades read the answers below.
+version = "0.27.0"
+
+[answers]
+project_name = "habits"
+locale = "en"
+profile = "mobile-fullstack"
+main_branch = "main"
+app_dir = "app"
+backend_dir = "backend"
+ui_dir = "app/src/ui"
+tests_dir = "e2e"
+worktree_setup = "cd app && npm ci"

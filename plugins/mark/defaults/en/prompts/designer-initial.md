@@ -18,7 +18,7 @@ yet. Design it from scratch.
   callback for every user interaction.
 - The preview renders every `S-N` with mock props, offline, and nothing else.
 - `{{ticket_dir}}/preview.html` is built from the components and opens from disk, offline.
-- You looked at screenshots of every state (desktop and mobile) and recorded the visual
+- You looked at screenshots of every state (every screen size the product targets) and recorded the visual
   check in `design.md`.
 - Open questions are empty. If they are not, report `blocked-unclear` (or `blocked-spec`
   for a contradiction) instead of guessing.

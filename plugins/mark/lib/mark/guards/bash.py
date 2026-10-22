@@ -13,7 +13,7 @@ from pathlib import Path
 from ..general import PREFIX as LANE_PREFIX
 from ..gitutil import checkout_root, current_branch, git
 from .common import Env
-from .. import globs
+from .. import e2e, globs
 from .write import cli_only_rules, scope_block, worktree_block
 
 _SEGMENT_SPLIT = re.compile(r"&&|\|\||;|\|")
@@ -209,6 +209,14 @@ def _shell_targets(here: Path | None, segment: str, words: list[str], values: di
     return [f for w in found if w and not w.startswith("/dev/") and (f := full(w))]
 
 
+def _tests_block(env: Env, rel: str) -> str | None:
+    """The content rules for end-to-end tests read the text Edit/Write sends; the shell hides it."""
+    tests_dir = env.cfg.path("tests")
+    if env.role == "tester" and tests_dir and rel.startswith(tests_dir + "/") and e2e.is_code(rel):
+        return env.t("guard.bash.tests_via_tools")
+    return None
+
+
 def shell_write_guard(env: Env) -> str | None:
     """Subagents may not reach paths through the shell that Edit/Write would refuse. The main
     thread is held only to the files the `mark` CLI alone writes (gates, status, reviews...)."""
@@ -224,7 +232,7 @@ def shell_write_guard(env: Env) -> str | None:
                 hit = any(globs.match(g, loc.rel) for g in cli_only_rules(env))
                 why = env.t("guard.scope_cli", rel=loc.rel) if hit else None
             else:
-                why = scope_block(env, loc) or worktree_block(env, loc)
+                why = scope_block(env, loc) or worktree_block(env, loc) or _tests_block(env, loc.rel)
             if why:
                 return env.t("guard.bash.shell_write", rel=loc.rel, why=why)
     return None

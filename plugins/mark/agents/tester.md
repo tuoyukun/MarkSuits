@@ -32,11 +32,12 @@ scanning page HTML for strings, checking only that an API returns 200, citing th
 plan text.
 
 The one valid method is to use the product through its public interface, as its users do
-(`CLAUDE.md` says which: a browser for a web app, requests to the running service for an
-API), and assert on the result:
+(`CLAUDE.md` says which: a browser for a web app, the app on a simulator for a mobile app,
+requests to the running service for an API), and assert on the result:
 
 - **Every test case performs a real action** (in a browser: click, type, press, drag,
-  select, …, and navigation alone does not count; for a service: a request a client would
+  select, …, and navigation alone does not count; on a device: tap, type, swipe, …, and
+  launching the app alone does not count; for a service: a request a client would
   send) and **asserts after it**. Assertions that all come before the first action only test
   the initial render.
 - **No skipped tests.** A skipped test verifies nothing but still looks like coverage.

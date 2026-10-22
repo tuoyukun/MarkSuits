@@ -26,7 +26,7 @@ lane. Main does not change until the human says to land it. Speak the human's la
    (`[paths]`), `regression.sh` in the test directory, and `start.sh` / `stop.sh` in each module
    that runs a server, each wrapping the commands `CLAUDE.md` lists today; point the Commands
    section of `CLAUDE.md` at `scripts/`; run both scripts once; commit in the lane.
-   Also: with `[tests] profile = "playwright"`, `mark merge` also needs `JOURNEYS.md` in the test
+   Also: with `[tests] profile = "playwright"` or `"maestro"`, `mark merge` also needs `JOURNEYS.md` in the test
    directory to list every end-to-end test: run `mark journeys <worktree>`, write the rows it
    prints with the path column filled in from reading each test, and commit it in the lane.
 5. **Show the human** what the upgrade changes: the rows, `git -C "<worktree>" diff <main>...HEAD --stat`,

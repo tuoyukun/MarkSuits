@@ -422,10 +422,10 @@ def cmd_journeys(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
         return 2
     root = Path(args[0]).resolve() if args else cfg.root
     tests_dir = cfg.path("tests")
-    if cfg.tests_profile != "playwright" or not tests_dir:
+    if cfg.tests_profile == "none" or not tests_dir:
         _say(cfg, out, "cli.journeys.off")
         return 0
-    add, drop = e2e.index_drift(root, tests_dir)
+    add, drop = e2e.index_drift(root, tests_dir, cfg.tests_profile)
     if not add and not drop:
         _say(cfg, out, "cli.journeys.ok", index=f"{tests_dir}/{e2e.INDEX_FILE}")
         return 0

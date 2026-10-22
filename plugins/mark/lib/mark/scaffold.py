@@ -33,9 +33,10 @@ PROFILES = {
     "web-fullstack": ("frontend_dir", "backend_dir", "ui_dir", "tests_dir"),
     "web-frontend": ("frontend_dir", "ui_dir", "tests_dir"),
     "service": ("service_dir", "tests_dir"),
+    "mobile-fullstack": ("app_dir", "backend_dir", "ui_dir", "tests_dir"),
 }
 DIR_DEFAULTS = {"frontend_dir": "frontend", "backend_dir": "backend", "service_dir": "service",
-                "tests_dir": "tests"}
+                "app_dir": "app", "tests_dir": "tests"}
 RECORD = ".mark/template.toml"
 BASE_DIR = ".mark/.base"
 KEPT = {"CLAUDE.md"}           # kept as it is when the project already has one
@@ -75,7 +76,7 @@ def resolve(given: dict[str, str], root: Path) -> dict[str, str]:
         if key in DIR_DEFAULTS:
             a.setdefault(key, DIR_DEFAULTS[key])
     if "ui_dir" in wanted:
-        a.setdefault("ui_dir", f"{a['frontend_dir'].rstrip('/')}/src/ui")
+        a.setdefault("ui_dir", (a.get("frontend_dir") or a["app_dir"]).rstrip("/") + "/src/ui")
     a.setdefault("worktree_setup", "")
     if a["locale"] not in LOCALES:
         raise FlowError("init.bad_choice", answer="locale", value=a["locale"], choices=", ".join(LOCALES))

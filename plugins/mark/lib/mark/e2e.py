@@ -6,7 +6,10 @@ The tester proves behaviour by driving the app the way a user does. Two kinds of
   its source (white-box tests belong to the modules' own selftest.sh);
 - `[tests] profile = "playwright"` spec files: each new or changed `test(...)` block performs
   a user action and asserts after it, is not skipped, does not sleep, and does not stub the
-  network or reach into the page's internals.
+  network or reach into the page's internals;
+- `[tests] profile = "maestro"` flow files (`*.yaml`, outside `subflows/`): each new or changed
+  flow performs a user action and asserts after it (a `runFlow` of a subflow counts as what
+  the subflow does), and no path in it leaves the test directory.
 
 Only what a write adds is judged: existing files are not held to rules they predate.
 Pure functions; `guards.write.e2e_guard` applies them.
@@ -17,9 +20,16 @@ import posixpath
 import re
 from dataclasses import dataclass
 
-PROFILES = ("none", "playwright")
+PROFILES = ("none", "playwright", "maestro")
 
 _SPEC = re.compile(r"\.(spec|test)\.[cm]?[jt]sx?$")
+_CODE = re.compile(r"\.(?:[cm]?[jt]sx?|py|ya?ml|sh)$")
+
+
+def is_code(rel_file: str) -> bool:
+    """A test file whose content the write rules judge (not a log or a report)."""
+    return bool(_CODE.search(rel_file))
+
 # A specifier in an import / require / dynamic import / `from x import`.
 _IMPORT = re.compile(r"""(?:\bfrom\s+|\bimport\s*\(?\s*|\brequire\s*\(\s*)['"]([^'"]+)['"]""")
 _PY_IMPORT = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w.]+))")
@@ -75,6 +85,8 @@ def source_problems(rel_file: str, old: str | None, new: str, tests_dir: str,
         py = _PY_IMPORT.match(line) if python else None
         if py:
             specs.append((py.group(1) or py.group(2)).replace(".", "/"))
+        if _YAML.search(rel_file):
+            specs = _PATH_TOKEN.findall(line) if _YAML_PATH_KEY.match(line) else []
         for spec in specs:
             if _escapes(tests_dir, rel_file, spec) or any(spec == d or spec.startswith(d + "/") for d in modules):
                 out.append(Problem("e2e.import", text))
@@ -221,12 +233,132 @@ def spec_problems(old: str | None, new: str, imported: list[str] = ()) -> list[P
     return out
 
 
+# Maestro: one flow file is one test. Config header (appId, name, tags...) above `---`,
+# commands below as a YAML list. Files under a `subflows/` directory are helpers that flows
+# reach through `runFlow`; `config.yaml` is the workspace config.
+_YAML = re.compile(r"\.ya?ml$")
+_STEP = re.compile(r"^\s*-\s*(\w+)\b", re.M)
+_YAML_PATH_KEY = re.compile(r"^\s*(?:-\s*)?(?:runFlow|runScript|file)\s*:")
+_FLOW_REF = re.compile(r"""^\s*(?:-\s*)?(?:runFlow|file)\s*:\s*['"]?([^'"\s#]+\.ya?ml)""", re.M)
+MAESTRO_ACTIONS = frozenset({
+    "tapOn", "doubleTapOn", "longPressOn", "inputText", "inputRandomText", "inputRandomNumber",
+    "inputRandomEmail", "inputRandomPersonName", "eraseText", "swipe", "scroll",
+    "scrollUntilVisible", "pressKey", "back", "copyTextFrom", "pasteText"})
+MAESTRO_ASSERTS = frozenset({"assertVisible", "assertNotVisible", "assertTrue", "assertWithAI",
+                             "assertNoDefectsWithAI"})
+
+
+def is_flow(rel_file: str) -> bool:
+    """A Maestro flow that counts as a test (not a subflow, not the workspace config)."""
+    parts = rel_file.split("/")
+    return bool(_YAML.search(rel_file)) and parts[-1] not in ("config.yaml", "config.yml") \
+        and "subflows" not in parts[:-1]
+
+
+def _split_flow(text: str) -> tuple[str, str]:
+    """(config header, commands); a file without `---` is all commands."""
+    m = re.search(r"(?m)^---\s*$", text)
+    return (text[:m.start()], text[m.end():]) if m else ("", text)
+
+
+def flow_title(rel_file: str, text: str) -> str:
+    """The flow's `name:`, else its file name without the extension."""
+    m = re.search(r"(?m)^name\s*:\s*(.+?)\s*$", _split_flow(text)[0])
+    if m:
+        return m.group(1).strip("'\"")
+    return _YAML.sub("", posixpath.basename(rel_file))
+
+
+def flow_refs(rel_file: str, text: str) -> list[str]:
+    """Repo paths of the flows this one runs (`runFlow: x.yaml`, `file: x.yaml`), resolved
+    against its own directory as Maestro does."""
+    return [_resolve(rel_file, r) for r in _FLOW_REF.findall(text)]
+
+
+def _resolve(rel_file: str, ref: str) -> str:
+    return posixpath.normpath(posixpath.join(posixpath.dirname(rel_file), ref))
+
+
+def _flow_steps(rel_file: str, text: str, flows: dict[str, str], seen: frozenset = frozenset()) -> list[str]:
+    """Kinds of the commands in order ("act", "assert" or ""), a `runFlow` standing for what
+    the flow it runs does first and last."""
+    out = []
+    lines = _split_flow(text)[1].splitlines()
+    for i, line in enumerate(lines):
+        m = _STEP.match(line)
+        if not m:
+            ref = _FLOW_REF.match(line)                 # `file:` under a block-style runFlow
+            name = "runFlow" if ref else ""
+        else:
+            name, ref = m.group(1), _FLOW_REF.match(line)
+            if _optional(lines, i):                     # may not happen, so proves nothing
+                continue
+        if name in MAESTRO_ACTIONS:
+            out.append("act")
+        elif name in MAESTRO_ASSERTS:
+            out.append("assert")
+        elif ref:
+            target = _resolve(rel_file, ref.group(1))
+            if target in flows and target not in seen:
+                out += _flow_steps(target, flows[target], flows, seen | {rel_file})
+    return out
+
+
+_OPTIONAL = re.compile(r"\boptional\s*:\s*true\b")
+
+
+def _optional(lines: list[str], i: int) -> bool:
+    """The step starting at lines[i] has `optional: true` (inline, or in its own block)."""
+    if _OPTIONAL.search(lines[i]):
+        return True
+    dash = len(lines[i]) - len(lines[i].lstrip())
+    for line in lines[i + 1:]:
+        if line.strip() and len(line) - len(line.lstrip()) <= dash:
+            return False
+        if re.match(r"^\s*optional\s*:\s*true\b", line) \
+                and len(line) - len(line.lstrip()) <= dash + 4:   # the step's own key, not a nested one
+            return True
+    return False
+
+
+def flow_problems(rel_file: str, old: str | None, new: str, flows: dict[str, str]) -> list[Problem]:
+    """Maestro rules for a flow a write adds or changes. `flows`: {repo path: text} of the
+    flows it runs, directly or further down."""
+    if not is_flow(rel_file) or old == new:
+        return []
+    where = flow_title(rel_file, new)
+    steps = _flow_steps(rel_file, new, flows)
+    if "act" not in steps:
+        return [Problem("e2e.no_action", where)]
+    if "assert" not in steps[steps.index("act") + 1:]:
+        return [Problem("e2e.no_assert_after", where)]
+    return []
+
+
 def problems(rel_file: str, old: str | None, new: str, tests_dir: str, module_dirs: list[str],
-             profile: str, imported: list[str] = ()) -> list[Problem]:
+             profile: str, imported: list[str] | dict[str, str] = ()) -> list[Problem]:
+    """`imported`: playwright, the source of the files the spec imports; maestro, the flows it
+    runs ({repo path: text})."""
     found = source_problems(rel_file, old, new, tests_dir, module_dirs)
     if profile == "playwright" and _SPEC.search(rel_file):
-        found += spec_problems(old, new, imported)
+        found += spec_problems(old, new, list(imported))
+    elif profile == "maestro":
+        found += flow_problems(rel_file, old, new, dict(imported) if isinstance(imported, dict) else {})
     return found
+
+
+def holds_tests(rel_file: str, profile: str) -> bool:
+    return bool(_SPEC.search(rel_file)) if profile == "playwright" else profile == "maestro" and is_flow(rel_file)
+
+
+def tests_in(rel_file: str, text: str, profile: str) -> list[Block]:
+    """The tests a file holds under `profile`: playwright `test(...)` blocks in a spec, or the
+    one Maestro flow; none for any other file."""
+    if not holds_tests(rel_file, profile):
+        return []
+    if profile == "playwright":
+        return extract_tests(text)
+    return [Block(flow_title(rel_file, text), "", text, text)]
 
 
 # --------------------------------------------------------------------------
@@ -275,45 +407,45 @@ def indexed(index: str) -> set[str]:
     return {r[0] for r in table_rows(index, INDEX_ANCHOR) if r and r[0]}
 
 
-def suite(root, tests_dir: str, skip: str | None = None) -> dict[str, str]:
-    """{test title: file} for every spec under `root/tests_dir`, except the file `skip`."""
+def suite(root, tests_dir: str, profile: str, skip: str | None = None) -> dict[str, str]:
+    """{test title: file} for every test file under `root/tests_dir`, except the file `skip`."""
     out: dict[str, str] = {}
     base = root / tests_dir
     if not base.is_dir():
         return out
     for path in sorted(base.rglob("*")):
         rel = path.relative_to(root).as_posix()
-        if "node_modules" in path.parts or not path.is_file() or not _SPEC.search(path.name) or rel == skip:
+        if "node_modules" in path.parts or not path.is_file() or rel == skip or not holds_tests(rel, profile):
             continue
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        for b in extract_tests(text):
+        for b in tests_in(rel, text, profile):
             out.setdefault(b.title, rel)
     return out
 
 
-def added_tests(old: str | None, new: str, elsewhere: set[str]) -> list[str]:
-    """Titles a write adds that no other spec has (moving a test between files is not adding)."""
-    before = {b.title for b in extract_tests(old or "")}
-    return [b.title for b in extract_tests(new) if b.title not in before and b.title not in elsewhere]
+def added_tests(rel_file: str, old: str | None, new: str, elsewhere: set[str], profile: str) -> list[str]:
+    """Titles a write adds that no other file has (moving a test between files is not adding)."""
+    before = {b.title for b in tests_in(rel_file, old, profile)} if old is not None else set()
+    return [b.title for b in tests_in(rel_file, new, profile) if b.title not in before and b.title not in elsewhere]
 
 
 _COVERS = re.compile(r"covers:\s*([^\n*]+?)\s*(?:\*/|$)", re.M)
 
 
-def index_drift(root, tests_dir: str) -> tuple[list[str], list[str]]:
+def index_drift(root, tests_dir: str, profile: str) -> tuple[list[str], list[str]]:
     """(rows to add, rows to drop) that would make JOURNEYS.md match the suite under `root`.
     New rows carry the file and the `covers:` the test declares; the path is left to write."""
-    tests = suite(root, tests_dir)
+    tests = suite(root, tests_dir, profile)
     path = root / tests_dir / INDEX_FILE
     listed = indexed(path.read_text(encoding="utf-8")) if path.is_file() else set()
     add = []
     for title in sorted(set(tests) - listed):
         rel = tests[title]
         text = (root / rel).read_text(encoding="utf-8", errors="replace")
-        body = next((b.body for b in extract_tests(text) if b.title == title), "")
+        body = next((b.body for b in tests_in(rel, text, profile) if b.title == title), "")
         covers = ", ".join(m.strip() for m in _COVERS.findall(body)) or "-"
         add.append(f"| {title} | {rel[len(tests_dir) + 1:]} | TODO: entry → steps → outcome | {covers} |")
     return add, sorted(listed - set(tests))

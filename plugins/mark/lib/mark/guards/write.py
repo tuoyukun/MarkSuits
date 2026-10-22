@@ -164,6 +164,23 @@ def _imported(spec: Path, text: str) -> list[str]:
     return out
 
 
+def _flows(loc, text: str) -> dict[str, str]:
+    """{repo path: text} of the Maestro flows `text` runs, directly or further down."""
+    root = loc.path.parents[len(loc.rel.split("/")) - 1]
+    out: dict[str, str] = {}
+    todo = e2e.flow_refs(loc.rel, text)
+    while todo:
+        rel = todo.pop()
+        if rel in out or rel.startswith("../"):
+            continue
+        try:
+            out[rel] = (root / rel).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        todo += e2e.flow_refs(rel, out[rel])
+    return out
+
+
 def e2e_guard(env: Env) -> str | None:
     """The tester's end-to-end tests stay black-box (`mark.e2e`)."""
     loc = _located(env)
@@ -177,8 +194,9 @@ def e2e_guard(env: Env) -> str | None:
     new_text = _new_text(env, old_text)
     if new_text is None:
         return None
-    found = e2e.problems(loc.rel, old_text, new_text, tests_dir, env.cfg.module_dirs, env.cfg.tests_profile,
-                         _imported(loc.path, new_text))
+    profile = env.cfg.tests_profile
+    found = e2e.problems(loc.rel, old_text, new_text, tests_dir, env.cfg.module_dirs, profile,
+                         _flows(loc, new_text) if profile == "maestro" else _imported(loc.path, new_text))
     if not found:
         return None
     listed = "\n".join(f"  - {env.t(p.key)}: {p.where}" for p in found)
@@ -204,7 +222,7 @@ def journey_guard(env: Env) -> str | None:
     an existing test."""
     loc = _located(env)
     tests_dir = env.cfg.path("tests")
-    if (loc is None or env.role != "tester" or env.cfg.tests_profile != "playwright" or not tests_dir
+    if (loc is None or env.role != "tester" or env.cfg.tests_profile == "none" or not tests_dir
             or not loc.rel.startswith(tests_dir + "/") or loc.checkout is None):
         return None
     plan = plan_text(env.cfg, loc.checkout, current_branch(loc.checkout))
@@ -217,9 +235,11 @@ def journey_guard(env: Env) -> str | None:
     new_text = _new_text(env, old_text)
     if new_text is None:
         return None
-    elsewhere = set(e2e.suite(loc.checkout, tests_dir, skip=loc.rel))
+    profile = env.cfg.tests_profile
+    elsewhere = set(e2e.suite(loc.checkout, tests_dir, profile, skip=loc.rel))
     allowed = e2e.planned_new(plan)
-    extra = [title for title in e2e.added_tests(old_text, new_text, elsewhere) if title not in allowed]
+    extra = [title for title in e2e.added_tests(loc.rel, old_text, new_text, elsewhere, profile)
+             if title not in allowed]
     if not extra:
         return None
     return env.t("guard.journey", rel=loc.rel, tests="\n".join(f"  - {x}" for x in extra),
