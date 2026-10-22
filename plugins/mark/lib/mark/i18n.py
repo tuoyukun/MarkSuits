@@ -118,6 +118,19 @@ MESSAGES["en"].update({
         "add it to `[worktree] main_writable` in .mark/config.toml. For a docs/config change that belongs\n"
         "to no ticket, open a throwaway lane with `mark general new` (/mark:general)."
     ),
+    "guard.e2e": (
+        "`{rel}` breaks the black-box rules for end-to-end tests:\n{problems}\n"
+        "An end-to-end test proves behaviour by using the app as a user does. What only code can reach\n"
+        "belongs in a module's unit tests (coder-impl): open a failure with `failureType: needs-unit-test`."
+    ),
+    "e2e.import": "imports production code",
+    "e2e.read_source": "reads production source",
+    "e2e.skipped": "skipped test (it verifies nothing but still looks like coverage)",
+    "e2e.no_action": "no user action (click, fill, press, check, select, drag...); navigation alone does not count",
+    "e2e.no_assert_after": "no assertion after the first user action",
+    "e2e.sleep": "fixed sleep over 200 ms; wait for a condition instead",
+    "e2e.stub": "stubs the network or fires synthetic events (route, fulfill, dispatchEvent)",
+    "e2e.poke": "sets page state from inside evaluate() instead of acting as a user",
     "guard.budget": (
         "`{rel}` would be {size} bytes; its doc budget is {limit} (`[[doc_budget]]` in .mark/config.toml).\n"
         "Cut at least {cut} bytes. Every role that loads this file pays for each line on every dispatch,\n"
@@ -270,6 +283,19 @@ MESSAGES["zh-CN"].update({
         "如果这个路径本来就该在 main 上改，把它加进 .mark/config.toml 的 `[worktree] main_writable`。\n"
         "不属于任何工单的文档/配置改动，用 `mark general new`（/mark:general）开一条一次性车道。"
     ),
+    "guard.e2e": (
+        "`{rel}` 违反了端到端测试的黑盒规则：\n{problems}\n"
+        "端到端测试要像用户一样操作应用来证明行为。只有代码能触达的东西属于模块的单元测试（coder-impl）：\n"
+        "开一条 `failureType: needs-unit-test` 的失败。"
+    ),
+    "e2e.import": "引用了生产代码",
+    "e2e.read_source": "读取了生产代码源文件",
+    "e2e.skipped": "跳过的用例（什么都没验证，却看起来像有覆盖）",
+    "e2e.no_action": "没有用户操作（click、fill、press、check、select、拖拽……），只打开页面不算",
+    "e2e.no_assert_after": "第一次用户操作之后没有断言",
+    "e2e.sleep": "固定等待超过 200 ms；改成等待某个条件",
+    "e2e.stub": "打桩网络或派发合成事件（route、fulfill、dispatchEvent）",
+    "e2e.poke": "在 evaluate() 里直接改页面状态，而不是像用户一样操作",
     "guard.budget": (
         "`{rel}` 写入后将有 {size} 字节，超出文档预算 {limit}（.mark/config.toml 的 `[[doc_budget]]`）。\n"
         "至少删掉 {cut} 字节。加载这份文件的每个角色每次派发都要为每一行付费，\n"

@@ -38,6 +38,9 @@ The one valid method is to drive the app like a user and assert on the result:
   the first action only test the initial render.
 - **No skipped tests.** A skipped test verifies nothing but still looks like coverage.
 - **No fixed sleeps.** Wait for a condition, not for time.
+- **No stubs or internals:** no network stubbing, synthetic events or page state set from
+  code; no importing production code or reading its source. A hook enforces these rules on
+  what you write (`[tests]` in `.mark/config.toml`); helpers that act or assert count.
 - **Each test case says what it covers** with a comment naming the ticket and criterion
   (for example `covers: 0012/AC-3`), so coverage can be traced from the test itself.
 

@@ -41,6 +41,10 @@ Speak the human's language.
    | `--tests-dir` | planned end-to-end test directory | where the end-to-end tests are |
    | `--worktree-setup` | empty | the install step a fresh checkout needs, like `npm ci` |
 
+   If the end-to-end framework is not Playwright, also say that `[tests] profile` will be set
+   to `"none"` in the CLAUDE.md lane (step 6): the hook then checks only that tests stay out of
+   production code.
+
    Also say which existing files it keeps (`CLAUDE.md`) or extends (`.gitignore`); the dry run
    lists them.
 

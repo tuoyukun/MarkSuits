@@ -159,6 +159,17 @@ class MarkConfig:
         return {str(k): v for k, v in raw.items()
                 if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", str(k)) and type(v) is int and 1024 <= v <= top}
 
+    def path(self, name: str) -> str:
+        """A module directory from `[paths]` (frontend, backend, ui, tests); "" when unset."""
+        return str(self._section("paths").get(name, "")).strip("/")
+
+    @property
+    def tests_profile(self) -> str:
+        """End-to-end framework whose test blocks the tester guard reads; "none" checks only
+        that tests stay out of production code."""
+        value = str(self._section("tests").get("profile", "none"))
+        return value if value in ("none", "playwright") else "none"
+
     @property
     def prompts_dir(self) -> Path:
         """Dispatch prompt templates (`<scenario>.md`), owned by the project."""

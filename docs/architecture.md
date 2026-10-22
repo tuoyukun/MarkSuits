@@ -248,6 +248,22 @@ module. `scripts/` has no write rule (main thread only) and updates through `/ma
 an existing project writes its module entries in the init or upgrade lane before it lands.
 The `regression_cmd` answer is gone; a recorded one is ignored.
 
+**Black-box end-to-end tests (v0.22).** The tester's tests drive the app as a user; what only
+code can reach is a unit test in its module (`needs-unit-test`). `guards.write.e2e_guard`
+(rules in `lib/mark/e2e.py`) judges what a tester write adds under `[paths] tests`, never the
+lines and test blocks already there, so a legacy suite is not held to rules it predates. Any
+framework: no import of production code (a relative path out of the test directory, or a
+module directory by name) and no reading its source (`readFileSync`, `open`, `grep` on a module
+path); starting the app (`python3 ../backend/server.py`) is fine. `[tests] profile =
+"playwright"` adds rules for each new or changed top-level `test(...)` block: a user action
+(click, fill, press, check, select, drag, keyboard, mouse...), an assertion after it, no
+skip / fixme, no `waitForTimeout` over 200 ms, no `route` / `fulfill` / `dispatchEvent`, no
+page state set inside `evaluate`. A local helper whose body acts (or asserts), directly or
+through another helper, counts as acting (or asserting); helpers are read from the spec and
+the files it imports relatively, since suites often keep gestures in `helpers/`.
+Comments and string contents are blanked before matching. Measured on a 602-block legacy
+Playwright suite: no false positives besides real network stubs.
+
 ### General mode (v0.9)
 
 A change that belongs to no ticket (docs, prompts, role files, config) runs through

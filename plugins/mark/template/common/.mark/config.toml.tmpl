@@ -23,6 +23,14 @@ backend = "{{ backend_dir }}"
 ui = "{{ ui_dir }}"
 tests = "{{ tests_dir }}"
 
+# End-to-end tests stay black-box: a tester write under [paths] tests may not import
+# production code or read its source. With profile = "playwright", each new or changed
+# test(...) block in a *.spec.* / *.test.* file must also perform a user action and assert
+# after it, and may not be skipped, sleep over 200 ms, stub the network or set page state.
+# "none": only the first rule (other frameworks).
+[tests]
+profile = "playwright"
+
 # A feature that has design.md and whose branch changes these paths goes through
 # design QA (designer checks the integrated UI) before testing.
 [design_qa]

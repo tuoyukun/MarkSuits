@@ -1,7 +1,9 @@
 """Guards for file writes (PreToolUse: Edit | Write | MultiEdit | NotebookEdit)."""
 from __future__ import annotations
 
-from .. import budget, flow, globs, states, tickets
+from pathlib import Path
+
+from .. import budget, e2e, flow, globs, states, tickets
 from ..config import MAIN
 from ..gitutil import current_branch
 from .common import Env, Location
@@ -178,4 +180,42 @@ def budget_guard(env: Env) -> str | None:
                  lines=budget.longest_lines(new_text))
 
 
-PRE_WRITE = [scope_guard, worktree_guard, ticket_guard, status_guard, budget_guard]
+def _imported(spec: Path, text: str) -> list[str]:
+    """Source of the local files a spec imports (helpers live there); unreadable ones are skipped."""
+    out = []
+    for rel in e2e.local_imports(text):
+        base = spec.parent / rel
+        for cand in (base, *(base.with_name(base.name + ext) for ext in (".ts", ".tsx", ".js", ".mjs")),
+                     base / "index.ts", base / "index.js"):
+            if cand.is_file():
+                try:
+                    out.append(cand.read_text(encoding="utf-8"))
+                except (OSError, UnicodeDecodeError):
+                    pass
+                break
+    return out
+
+
+def e2e_guard(env: Env) -> str | None:
+    """The tester's end-to-end tests stay black-box (`mark.e2e`)."""
+    loc = _located(env)
+    tests_dir = env.cfg.path("tests")
+    if loc is None or env.role != "tester" or not tests_dir or not loc.rel.startswith(tests_dir + "/"):
+        return None
+    try:
+        old_text = loc.path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        old_text = None
+    new_text = _new_text(env, old_text)
+    if new_text is None:
+        return None
+    modules = [env.cfg.path("frontend"), env.cfg.path("backend")]
+    found = e2e.problems(loc.rel, old_text, new_text, tests_dir, modules, env.cfg.tests_profile,
+                         _imported(loc.path, new_text))
+    if not found:
+        return None
+    listed = "\n".join(f"  - {env.t(p.key)}: {p.where}" for p in found)
+    return env.t("guard.e2e", rel=loc.rel, problems=listed)
+
+
+PRE_WRITE = [scope_guard, worktree_guard, ticket_guard, status_guard, budget_guard, e2e_guard]
