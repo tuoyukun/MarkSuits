@@ -11,6 +11,7 @@ artifact) comes from these defaults, and a key in the project's config overrides
 """
 from __future__ import annotations
 
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -142,6 +143,21 @@ class MarkConfig:
     def worktree_setup_timeout(self) -> int:
         value = self._section("worktree").get("setup_timeout", 300)
         return value if type(value) is int and value > 0 else 300
+
+    @property
+    def worktree_port_slots(self) -> int:
+        value = self._section("worktree").get("port_slots", 100)
+        return value if type(value) is int and 0 < value <= 1000 else 100
+
+    @property
+    def worktree_ports(self) -> dict[str, int]:
+        """Env var -> first port of its range; each new worktree gets base + its slot."""
+        raw = self._section("worktree").get("ports", {})
+        if not isinstance(raw, dict):
+            return {}
+        top = 65536 - self.worktree_port_slots
+        return {str(k): v for k, v in raw.items()
+                if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", str(k)) and type(v) is int and 1024 <= v <= top}
 
     @property
     def prompts_dir(self) -> Path:

@@ -527,6 +527,15 @@ MESSAGES["en"].update({
         "Worktree setup `{cmd}` left files git sees, so the new worktree was removed:\n{files}\n"
         "Gitignore them (a symlink needs `name`, not `name/`), then retry. Full log: {log}"
     ),
+    "flow.iso.ports": "Gave the new worktree its own ports in its .env: {ports}.",
+    "flow.iso.no_ports": (
+        "No free port slot among the {slots} in `[worktree] ports`, so the new worktree was removed.\n"
+        "Remove finished worktrees, stop what listens in those ranges, or raise `[worktree] port_slots`, then retry."
+    ),
+    "flow.iso.ports_dirty": (
+        "Writing ports to the new worktree's .env left files git sees, so the worktree was removed:\n{files}\n"
+        "Gitignore `.env`, then retry."
+    ),
     "flow.iso.branch_failed": "Could not create branch {branch} from {base}.",
     "flow.iso.worktree_failed": "Could not create worktree {wt} for {branch}.",
     "flow.iso.push_failed": "Could not push {branch} to origin. Fix the remote and retry; the work must not live on one machine only.",
@@ -565,6 +574,7 @@ MESSAGES["en"].update({
     "brief.unknown_placeholder": "Template `{scenario}` uses unknown placeholder(s): {names}.",
     "brief.title": "[Brief · verified by the orchestrator; do not re-check these with commands]",
     "brief.worktree": "- Worktree: `{wt}`. You are NOT inside it: use absolute paths under it for file tools, and `cd \"{wt}\" && ...` for every Bash command.",
+    "brief.ports": "- Ports of this worktree (from its `.env`): {ports}. Start servers and tests on these; never assume the default ports, which belong to other checkouts.",
     "brief.branch": "- Branch: `{branch}` (checked before dispatch: cut from main, pushed to origin).",
     "brief.work_dir": "- Ticket artifacts (write here): `{dir}` — present: {files}",
     "brief.state_dir": "- Ticket state on main (read only): `{dir}` — present: {files}",
@@ -702,6 +712,15 @@ MESSAGES["zh-CN"].update({
         "worktree 准备命令 `{cmd}` 留下了 git 能看见的文件，新 worktree 已删除：\n{files}\n"
         "把它们加进 .gitignore（软链要写 `name`，不能写 `name/`）后重试。完整日志：{log}"
     ),
+    "flow.iso.ports": "已在新 worktree 的 .env 里写入它独占的端口：{ports}。",
+    "flow.iso.no_ports": (
+        "`[worktree] ports` 的 {slots} 个端口槽位都已被占用，新 worktree 已删除。\n"
+        "删掉已完成的 worktree、停掉占着这些端口的进程，或调大 `[worktree] port_slots` 后重试。"
+    ),
+    "flow.iso.ports_dirty": (
+        "往新 worktree 的 .env 写端口后，留下了 git 能看见的文件，worktree 已删除：\n{files}\n"
+        "把 `.env` 加进 .gitignore 后重试。"
+    ),
     "flow.iso.branch_failed": "无法从 {base} 建分支 {branch}。",
     "flow.iso.worktree_failed": "无法为 {branch} 建 worktree {wt}。",
     "flow.iso.push_failed": "无法把 {branch} 推到 origin。修好远端后重试；产出不能只存在一台机器上。",
@@ -736,6 +755,7 @@ MESSAGES["zh-CN"].update({
     "brief.unknown_placeholder": "模板 `{scenario}` 用了未知占位符：{names}。",
     "brief.title": "【开工简报 · orchestrator 已核实，不要再用命令确认】",
     "brief.worktree": "- 工作目录：`{wt}`。你**不在**里面：文件工具一律用它下面的绝对路径，Bash 每条命令都写 `cd \"{wt}\" && ...`。",
+    "brief.ports": "- 本 worktree 独占的端口（见它的 `.env`）：{ports}。起服务、跑测试都用这些；不要假定默认端口，那是别的 checkout 的。",
     "brief.branch": "- 分支：`{branch}`（派发前已验：从 main 拉出、已推到 origin）。",
     "brief.work_dir": "- 工单制品（写在这里）：`{dir}` —— 现有：{files}",
     "brief.state_dir": "- main 上的工单状态（只读）：`{dir}` —— 现有：{files}",

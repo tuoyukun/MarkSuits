@@ -303,6 +303,22 @@ main) is left to the project. Merge cleanup needs nothing new: `git worktree rem
 ignored files and removes symlinks without following them. The CLI runs setup, not a tool call,
 so no write guard sees it; the orchestrator rules ask for a Bash timeout above `setup_timeout`.
 
+**Ports (v0.20).** A worktree is a separate checkout, not a separate network: two tickets that
+start the dev server on its default port collide, and so does a ticket with any other program
+on the machine. `[worktree] ports` maps env var names to the first port of a range
+(`{ FRONTEND_PORT = 5200, BACKEND_PORT = 8200 }`); `port_slots` (default 100) is the range
+length. After setup succeeds, `provision` (`lib/mark/ports.py`) gives the new worktree one slot
+and writes `NAME=base+slot` into its `.env`, after setup so a setup that copies the main
+`.env` does not overwrite it. The `.env` files of the other worktrees are the ledger (no second
+record to drift; removing a worktree frees its slot), read and written under a `flock` on
+`locks/ports.lock` so concurrent dispatches never share a slot. A slot is also skipped while
+any of its ports accepts a connection on `localhost`, IPv4 or IPv6, which is how a server from
+another repository is caught. The search starts at `crc32(worktree name) % port_slots`. No free
+slot, or a `.env` git sees, removes the worktree like a failed setup. Each dispatch brief lists
+the worktree's ports, since an agent that assumes the default port tests someone else's
+branch. Optional (empty: nothing happens), so `mark_schema` stays 1; worktrees created before
+it have no ports until they are recreated.
+
 ### Project template (v0.5; shipped in the plugin since v0.13)
 
 The template lives in the plugin, `plugins/mark/template/`, and `mark init` (`lib/mark/scaffold.py`,

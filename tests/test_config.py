@@ -48,6 +48,14 @@ class LoadConfigTest(unittest.TestCase):
         cfg = load_config(make_project('mark_schema = 1\n[worktree]\nsetup_timeout = "60"\n'))
         self.assertEqual(cfg.worktree_setup_timeout, 300)
 
+    def test_worktree_ports_are_optional_and_skip_bad_ranges(self):
+        cfg = load_config(make_project())
+        self.assertEqual((cfg.worktree_ports, cfg.worktree_port_slots), ({}, 100))
+        cfg = load_config(make_project(
+            'mark_schema = 1\n[worktree]\nport_slots = 10\n'
+            'ports = { OK = 5200, "bad-name" = 5300, LOW = 80, HIGH = 65530, TEXT = "5400" }\n'))
+        self.assertEqual((cfg.worktree_ports, cfg.worktree_port_slots), ({"OK": 5200}, 10))
+
     def test_artifact_write_rules_default_and_project_rules_replace_them(self):
         cfg = load_config(make_project('mark_schema = 1\n[[write_rules]]\nglob = "**/design.md"\n'
                                        'roles = ["designer", "main"]\n[[write_rules]]\nglob = "src/**"\nroles = ["coder-impl"]\n'))

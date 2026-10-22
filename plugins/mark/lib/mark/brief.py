@@ -26,7 +26,7 @@ import os
 import re
 from dataclasses import dataclass
 
-from . import defaults, states
+from . import defaults, ports, states
 from .flow import Action, Ctx, FlowError
 from .i18n import t
 
@@ -83,6 +83,12 @@ def _listing(directory, skip: tuple[str, ...] = ()) -> str:
     return ", ".join(names)
 
 
+def _ports_line(ctx: Ctx) -> list[str]:
+    env = ports.read_env(ctx.worktree / ports.ENV_FILE)
+    held = [f"{k}={env[k]}" for k in ctx.cfg.worktree_ports if k in env]
+    return [t(ctx.cfg.locale, "brief.ports", ports=", ".join(held))] if held else []
+
+
 def facts(ctx: Ctx, action: Action, outputs: list[str], prev: str, trigger: str) -> str:
     loc = ctx.cfg.locale
     none = t(loc, "brief.none")
@@ -90,6 +96,7 @@ def facts(ctx: Ctx, action: Action, outputs: list[str], prev: str, trigger: str)
         t(loc, "brief.title"),
         t(loc, "brief.worktree", wt=ctx.worktree),
         t(loc, "brief.branch", branch=ctx.branch),
+        *_ports_line(ctx),
         t(loc, "brief.work_dir", dir=ctx.work_dir, files=_listing(ctx.work_dir, ("status.md",)) or none),
         t(loc, "brief.state_dir", dir=ctx.state_dir, files=_listing(ctx.state_dir) or none),
         t(loc, "brief.outputs", files=", ".join(str(ctx.work_dir / f) for f in outputs) or none),

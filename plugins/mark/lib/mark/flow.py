@@ -19,7 +19,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from . import globs, human, reviews, states, tickets
+from . import globs, human, ports, reviews, states, tickets
 from .config import MarkConfig
 from .i18n import t as _msg
 from .gitutil import current_branch, dirty_paths, git, has_remote, patch_unique, ref_exists, worktrees
@@ -457,16 +457,31 @@ SETUP_LOG_TAIL = 20
 
 
 def provision(cfg: MarkConfig, wt: Path, branch: str, log_name: str) -> list[tuple[str, dict]]:
-    """Run `[worktree] setup` in a worktree that was just created.
+    """Run `[worktree] setup` in a worktree that was just created, then give it its ports.
 
     A worktree only has tracked files; the project's command adds what agents need
     (dependencies, `.env`, local config). It must exit 0 within the timeout and leave
     nothing git sees, or the new worktree is removed again: an agent never gets a
-    half-provisioned checkout, and the next dispatch starts over.
+    half-provisioned checkout, and the next dispatch starts over. Ports are written after
+    setup, so a setup that copies the main checkout's `.env` does not overwrite them.
     """
+    notes = _run_setup(cfg, wt, branch, log_name) if cfg.worktree_setup else []
+    if cfg.worktree_ports:
+        try:
+            got = ports.assign(cfg, wt)
+        except ports.NoFreePorts:
+            git(["worktree", "remove", "--force", str(wt)], cfg.root)
+            raise FlowError("flow.iso.no_ports", slots=cfg.worktree_port_slots) from None
+        notes.append(("flow.iso.ports", {"ports": ", ".join(f"{k}={v}" for k, v in got.items())}))
+        dirty = dirty_paths(wt, ".")
+        if dirty:
+            git(["worktree", "remove", "--force", str(wt)], cfg.root)
+            raise FlowError("flow.iso.ports_dirty", files="\n".join(f"  - {p}" for p in dirty[:10]))
+    return notes
+
+
+def _run_setup(cfg: MarkConfig, wt: Path, branch: str, log_name: str) -> list[tuple[str, dict]]:
     cmd = cfg.worktree_setup
-    if not cmd:
-        return []
     log = cfg.state_dir / "locks" / f"{log_name}.setup.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, "MARK_MAIN_CHECKOUT": str(cfg.root), "MARK_BRANCH": branch}

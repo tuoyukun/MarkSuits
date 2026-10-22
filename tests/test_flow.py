@@ -3,7 +3,9 @@ import io
 import json
 import os
 import time
+import socket
 import unittest
+import zlib
 
 from tests._support import (FULL_CONFIG, add_origin, add_templates, add_ticket, add_worktree, hook,
                             human_typed, make_project, make_repo, sh, status_text)
@@ -762,6 +764,41 @@ class DispatchTest(unittest.TestCase):
         # Once setup is fixed, the next dispatch starts over and succeeds.
         self.set_setup("true")
         self.assertEqual(run(self.root, "dispatch", "0001")[0], 0)
+
+    def listen(self, port):
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", port))
+        srv.listen()
+        self.addCleanup(srv.close)
+
+    def test_new_worktrees_get_their_own_free_ports(self):
+        self.set_setup('cp "$MARK_MAIN_CHECKOUT/.env" .', "ports = { A_PORT = 41000, B_PORT = 42000 }\nport_slots = 5\n")
+        write(self.root / ".env", "A_PORT=5173\nOTHER=x\nA_PORT=9\n")
+        start = zlib.crc32(b"feature-0001-a") % 5
+        self.listen(42000 + start)  # something outside this repo holds the first slot's B port
+        code, out, err = run(self.root, "dispatch", "0001")
+        self.assertEqual(code, 0, err)
+        env = (self.root / ".claude/worktrees/feature-0001-a/.env").read_text()
+        slot = (start + 1) % 5
+        self.assertEqual(env, f"A_PORT={41000 + slot}\nOTHER=x\nB_PORT={42000 + slot}\n")
+        self.assertIn(f"own ports in its .env: A_PORT={41000 + slot}, B_PORT={42000 + slot}", err)
+        self.assertIn(f"Ports of this worktree (from its `.env`): A_PORT={41000 + slot}, B_PORT=", out)
+        # A second ticket never gets a slot another worktree holds.
+        add_ticket(self.root, "feature", "0002-b", "planning", gates=["ticket-approved", "design-approved"])
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        self.assertEqual(run(self.root, "dispatch", "0002")[0], 0)
+        env2 = (self.root / ".claude/worktrees/feature-0002-b/.env").read_text()
+        self.assertNotIn(f"A_PORT={41000 + slot}\n", env2)
+        self.assertNotIn(f"A_PORT={41000 + start}\n", env2)
+
+    def test_no_free_port_slot_removes_the_new_worktree(self):
+        self.set_setup("true", "ports = { A_PORT = 41100 }\nport_slots = 1\n")
+        self.listen(41100)
+        code, _, err = run(self.root, "dispatch", "0001")
+        self.assertEqual(code, 1)
+        self.assertIn("No free port slot among the 1", err)
+        self.assertFalse((self.root / ".claude/worktrees/feature-0001-a").exists())
 
     def test_project_agent_overrides_the_builtin(self):
         write(self.root / ".claude/agents/coder-plan.md", "---\nname: coder-plan\n---\nours\n")

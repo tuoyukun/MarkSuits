@@ -49,6 +49,15 @@ main_writable = []
 # .mark/locks/<id>.setup.log. Empty: no setup.
 setup = "{{ worktree_setup }}"
 setup_timeout = 300
+# Ports each worktree owns, so tickets can run dev servers and end-to-end tests at the same
+# time: env var = first port of its range. After setup, every new worktree gets one free slot
+# (0..port_slots-1) and its `.env` gets NAME = base + slot; agents are told their ports. A slot
+# is skipped while another worktree's `.env` holds it or something listens on one of its ports.
+# Keep the ranges apart from each other and from the ports the main checkout uses, and read
+# these names in the dev server and test configs. `.env` must be gitignored. Empty: no ports.
+#   ports = { FRONTEND_PORT = 5200, BACKEND_PORT = 8200 }
+ports = {}
+port_slots = 100
 
 # Doc budgets: byte limits for the docs every role loads (the agent, prompt and format
 # globs cover this project's own overrides of the built-ins), so their context does not

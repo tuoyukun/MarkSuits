@@ -79,5 +79,6 @@ Speak the human's language.
      `CLAUDE.md`). Its acceptance criteria describe what works, such as "the home page lists
      the posts"; the tester writes the end-to-end tests. It has no UI to design, so the human
      may waive design review with `.mark/gates/<id>.design-approved.waived`; the stack choice is
-     reviewed at plan review. Once it lands, set `[merge] regression` and `[worktree] setup`
+     reviewed at plan review. Once it lands, set `[merge] regression`, `[worktree] setup`
+     and, if it runs servers, `[worktree] ports` (read by the dev server and test configs)
      with `/mark:general`.
