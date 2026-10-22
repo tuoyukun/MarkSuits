@@ -18,7 +18,7 @@ python3 examples/sandbox.py ~/mark-sandbox/todo      # copy + git init + local b
 cd ~/mark-sandbox/todo
 npm --prefix tests ci                                # Node 18+, Python 3.11+
 npm --prefix tests exec playwright install chromium
-npm --prefix tests test                              # baseline: everything green
+bash scripts/selftest.sh && bash scripts/regression.sh   # baseline: everything green
 claude --plugin-dir <path to this repo>/plugins/mark
 ```
 
@@ -51,7 +51,7 @@ Now it opens `b0001-…`, writes `bug.md`, and runs the bug chain without stoppi
 | verify | tester | an end-to-end test, `verdict.md` (`PASSED` after merging main and running the full regression) |
 
 At `pending-merge` the orchestrator runs `mark merge b0001`: it merges the latest main into
-the ticket branch, runs `npm --prefix tests test` there (`[merge] regression` in `.mark/config.toml`),
+the ticket branch, runs `bash scripts/selftest.sh && bash scripts/regression.sh` there (`[merge] regression`),
 fast-forwards main, pushes, marks the ticket `passed` and removes its worktree and branch.
 If the merge conflicts or the regression fails, main is untouched and the orchestrator stops and
 tells you why.

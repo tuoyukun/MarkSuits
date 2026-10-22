@@ -35,7 +35,7 @@ MERGED = {".gitignore"}        # gains the missing lines when the project alread
 
 # Answer keys in the order `mark init` reports them; defaults are filled by `resolve`.
 KEYS = ("project_name", "locale", "profile", "main_branch", "frontend_dir", "backend_dir",
-        "ui_dir", "tests_dir", "regression_cmd", "worktree_setup")
+        "ui_dir", "tests_dir", "worktree_setup")
 DIR_KEYS = ("frontend_dir", "backend_dir", "ui_dir", "tests_dir")
 _VAR = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
@@ -58,14 +58,13 @@ def resolve(given: dict[str, str], root: Path) -> dict[str, str]:
     a.setdefault("backend_dir", "backend")
     a.setdefault("ui_dir", f"{a['frontend_dir'].rstrip('/')}/src/ui")
     a.setdefault("tests_dir", "tests")
-    a.setdefault("regression_cmd", "")
     a.setdefault("worktree_setup", "")
     if a["locale"] not in LOCALES:
         raise FlowError("init.bad_choice", answer="locale", value=a["locale"], choices=", ".join(LOCALES))
     if a["profile"] not in PROFILES:
         raise FlowError("init.bad_choice", answer="profile", value=a["profile"], choices=", ".join(PROFILES))
     for key in KEYS:
-        if "\n" in a[key] or (not a[key] and key not in ("regression_cmd", "worktree_setup")):
+        if "\n" in a[key] or (not a[key] and key != "worktree_setup"):
             raise FlowError("init.bad_answer", answer=key, value=a[key])
     for key in DIR_KEYS:
         a[key] = a[key].rstrip("/")
@@ -98,6 +97,14 @@ def render(answers: dict[str, str]) -> dict[str, str]:
                 text = _fill(text, answers, toml=rel.endswith(".toml"))
             out[rel] = text
     return out
+
+
+def write_file(target: Path, rel: str, text: str) -> None:
+    """Write a template file; the shipped scripts stay executable."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    if rel.startswith("scripts/") and rel.endswith(".sh"):
+        target.chmod(0o755)
 
 
 def base_path(rel: str) -> str:
@@ -184,8 +191,7 @@ def apply(p: Plan) -> list[tuple[str, dict]]:
     out.update({base_path(rel): text for rel, text in p.write.items()})
     out[RECORD] = record_text(p.answers)
     for rel, text in out.items():
-        (root / rel).parent.mkdir(parents=True, exist_ok=True)
-        (root / rel).write_text(text, encoding="utf-8")
+        write_file(root / rel, rel, text)
     for rel, lines in p.append.items():
         (root / rel).write_text(appended((root / rel).read_text(encoding="utf-8"), lines), encoding="utf-8")
     paths = sorted(set(out) | set(p.append))

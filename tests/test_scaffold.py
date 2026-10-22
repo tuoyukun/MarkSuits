@@ -110,9 +110,9 @@ class ChecksTest(unittest.TestCase):
 
     def test_dry_run_writes_nothing(self):
         root = repo(self)
-        code, out, _ = init(root, "--dry-run", "--regression-cmd", "npm test")
+        code, out, _ = init(root, "--dry-run", "--worktree-setup", "npm ci")
         self.assertEqual(code, 0)
-        self.assertIn('--regression-cmd "npm test"', out)
+        self.assertIn('--worktree-setup "npm ci"', out)
         self.assertFalse((root / ".mark").exists())
 
 
@@ -121,7 +121,7 @@ class ExistingProjectTest(unittest.TestCase):
         self.root = repo(self, {"CLAUDE.md": "# Our project\n", ".gitignore": "node_modules\n.env\n",
                                 "web/index.html": "<p>\n"})
         self.origin = add_origin(self.root)
-        code, self.out, err = init(self.root, "--frontend-dir", "web", "--regression-cmd", 'make "all"')
+        code, self.out, err = init(self.root, "--frontend-dir", "web", "--worktree-setup", 'make "all"')
         self.assertEqual(code, 0, err)
 
     def test_claude_md_is_kept_and_not_recorded_as_template(self):
@@ -136,7 +136,11 @@ class ExistingProjectTest(unittest.TestCase):
 
     def test_answers_reach_config_and_record(self):
         cfg = load_config(self.root)
-        self.assertEqual(cfg.merge_regression, 'make "all"')
+        self.assertEqual(cfg.worktree_setup, 'make "all"')
+        self.assertEqual(cfg.merge_regression, "bash scripts/selftest.sh && bash scripts/regression.sh")
+        # The shipped scripts are committed executable.
+        mode = sh(self.root, "git", "ls-files", "-s", "scripts/selftest.sh").split()[0]
+        self.assertEqual(mode, "100755")
         self.assertIn("web/src/ui/**", [r.glob for r in cfg.write_rules])
         record = tomllib.loads((self.root / scaffold.RECORD).read_text())
         self.assertEqual(record["answers"]["ui_dir"], "web/src/ui")

@@ -45,7 +45,9 @@ The shared Mark role rules are preloaded above. If they are not in your context,
 
 ## Self-check before you report
 
-1. Unit tests, type check and lint pass (commands in `CLAUDE.md`).
+1. Your module's self-test passes (`bash scripts/selftest.sh`: lint, type check, unit
+   tests, build). A module you create ships its `selftest.sh` (and `start.sh` / `stop.sh` if
+   it runs a server), as the Layout section of `CLAUDE.md` says.
 2. `handoff.md` has the acceptance self-check: every `AC-N` of the requirement (or of the
    fix plan) with `implemented` or `not implemented`, and its evidence (a test, or the file
    where an end-to-end test will see it). Only those two values.

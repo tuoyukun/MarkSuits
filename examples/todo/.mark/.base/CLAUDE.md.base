@@ -30,7 +30,17 @@ written by the main thread only, so a new top-level path needs a row here and a 
 | `tests/` | end-to-end tests, with their own dependencies and config | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
+| `scripts/` | the entry points below; shipped by Mark, never edited by a ticket | main thread |
 | `README.md`, `.gitignore`, `.mark/`, `.claude/` | project docs and workflow files | main thread |
+
+`scripts/` only calls each module's own entry point, run from inside the module with the
+checkout's `.env` exported (each worktree's own ports among them):
+
+| Entry point | Who provides it | Does |
+|---|---|---|
+| `selftest.sh` | `frontend/`, `backend/` (required once the module exists) | white-box self-test: the module's lint, type check, unit tests, build |
+| `regression.sh` | `tests/` (required once it exists) | black-box regression: the whole end-to-end suite, driving the app as a user |
+| `start.sh`, `stop.sh` | any module that runs a server | start it in the background on its port from `.env` and return once it answers; stop it |
 
 ## 4. Module boundaries
 
@@ -45,12 +55,11 @@ Role agents run exactly these. Keep them working from a fresh worktree.
 | Purpose | Command |
 |---|---|
 | Install dependencies | TODO |
-| Start the app (dev) | TODO |
+| Start / stop / restart the app | `bash scripts/start.sh` / `bash scripts/stop.sh` / `bash scripts/restart.sh` |
 | Open the UI preview | TODO |
-| Unit tests | TODO |
-| Type check and lint | TODO |
+| Self-test (white-box, every module) | `bash scripts/selftest.sh` |
 | End-to-end tests (selected specs) | TODO |
-| Full regression (everything a merge must pass; also `[merge] regression` in `.mark/config.toml`) | TODO |
+| Full regression (what a merge must pass, `[merge] regression`) | `bash scripts/selftest.sh && bash scripts/regression.sh` |
 
 ## 6. Red lines
 
@@ -58,7 +67,8 @@ Role agents run exactly these. Keep them working from a fresh worktree.
 2. No reaching across module boundaries outside defined contracts.
 3. Changing a module requires updating its `CONTEXT.md`.
 4. Nothing at the repository root that the Layout table does not list: no shared
-   dependencies, tool config or scripts there.
+   dependencies, tool config or scripts there. A module's commands go in its own entry
+   points, never in `scripts/`.
 
 ## 7. Commit format
 

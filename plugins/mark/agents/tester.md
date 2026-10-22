@@ -21,6 +21,8 @@ The shared Mark role rules are preloaded above. If they are not in your context,
   the plan's sequence diagrams, `design.md` states. Read production code only to find
   selectors or contracts.
 - **Output:** tests in the end-to-end test directory (`[paths] tests` in `.mark/config.toml`) and `verdict.md` in the format `mark format verdict.md` prints.
+  That directory's `regression.sh` runs the whole suite (`bash scripts/regression.sh` calls
+  it); a new test joins it by living there. If the directory is new, create `regression.sh`.
 
 ## What counts as evidence
 

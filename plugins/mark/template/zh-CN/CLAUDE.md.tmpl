@@ -28,7 +28,17 @@ TODO：用一段话说明 {{ project_name }} 做什么、给谁用。
 | `{{ tests_dir }}/` | 端到端测试，自带依赖和配置 | tester |
 | `docs/adr/` | 架构决策记录 | coder-plan |
 | `CLAUDE.md` | 本文件 | 主线程、coder-plan、coder-impl |
+| `scripts/` | 下面这些入口；由 Mark 提供，工单不改 | 主线程 |
 | `README.md`、`.gitignore`、`.mark/`、`.claude/` | 项目文档和流程文件 | 主线程 |
+
+`scripts/` 只负责调用各模块自己的入口脚本：在模块目录里执行，并导出本 checkout 的 `.env`
+（其中包括每个 worktree 独占的端口）：
+
+| 入口 | 由谁提供 | 做什么 |
+|---|---|---|
+| `selftest.sh` | `{{ frontend_dir }}/`、`{{ backend_dir }}/`（模块建好后必须有） | 白盒自测：本模块的 lint、类型检查、单元测试、build |
+| `regression.sh` | `{{ tests_dir }}/`（建好后必须有） | 黑盒回归：整套端到端用例，像用户一样操作应用 |
+| `start.sh`、`stop.sh` | 需要起服务的模块 | 用 `.env` 里的端口在后台启动服务，能响应后再返回；停止服务 |
 
 ## 4. 模块边界
 
@@ -43,19 +53,19 @@ TODO：用一段话说明 {{ project_name }} 做什么、给谁用。
 | 用途 | 命令 |
 |---|---|
 | 安装依赖 | TODO |
-| 启动应用（开发态） | TODO |
+| 启动 / 停止 / 重启应用 | `bash scripts/start.sh` / `bash scripts/stop.sh` / `bash scripts/restart.sh` |
 | 打开 UI 预览 | TODO |
-| 单元测试 | TODO |
-| 类型检查与 lint | TODO |
+| 自测（白盒，所有模块） | `bash scripts/selftest.sh` |
 | 端到端测试（指定 spec） | TODO |
-| 全量回归（合并前必须通过的全部检查；同时填进 `.mark/config.toml` 的 `[merge] regression`） | TODO |
+| 全量回归（合并必须通过，即 `[merge] regression`） | `bash scripts/selftest.sh && bash scripts/regression.sh` |
 
 ## 6. 红线
 
 1. 架构级决策必须先写 ADR（`docs/adr/`）。
 2. 不得绕过既定契约跨越模块边界。
 3. 改动模块必须同步更新该模块的 `CONTEXT.md`。
-4. 根目录不放「目录结构」表以外的东西：不放跨模块共享的依赖、工具配置或脚本。
+4. 根目录不放「目录结构」表以外的东西：不放跨模块共享的依赖、工具配置或脚本。模块的命令写进
+   它自己的入口脚本，不写进 `scripts/`。
 
 ## 7. Commit 格式
 

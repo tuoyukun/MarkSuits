@@ -8,6 +8,7 @@ Two layers:
   every dispatch scenario through `mark.brief`.
 """
 import io
+import os
 import re
 import shutil
 import subprocess
@@ -29,7 +30,7 @@ AGENTS = PLUGIN_ROOT / "agents"
 LOCALES = ("en", "zh-CN")
 ANSWERS = {"locale": "en", "profile": "web-fullstack", "project_name": "demo", "main_branch": "main",
            "frontend_dir": "frontend", "backend_dir": "backend", "ui_dir": "frontend/src/ui",
-           "tests_dir": "tests", "regression_cmd": "make test",
+           "tests_dir": "tests",
            "worktree_setup": "npm ci"}
 
 # Anchors each artifact format must show (language-neutral, see CLAUDE.md rule 7).
@@ -81,8 +82,8 @@ class TemplateConfigTest(unittest.TestCase):
     def test_schema_supported(self):
         self.assertEqual(self.cfg.schema, 1)
 
-    def test_regression_answer_reaches_merge(self):
-        self.assertEqual(self.cfg.merge_regression, "make test")
+    def test_merge_runs_the_shipped_scripts(self):
+        self.assertEqual(self.cfg.merge_regression, "bash scripts/selftest.sh && bash scripts/regression.sh")
 
     def test_setup_answer_reaches_worktree(self):
         self.assertEqual((self.cfg.worktree_setup, self.cfg.worktree_setup_timeout), ("npm ci", 300))
@@ -112,14 +113,59 @@ class TemplateConfigTest(unittest.TestCase):
                                                   .index(f"**/{name}")].roles, {MAIN}, name)
 
     def test_quotes_in_answers_stay_valid_toml(self):
-        files = scaffold.render({**ANSWERS, "regression_cmd": 'npm test -- --grep "a\\b"'})
-        self.assertEqual(tomllib.loads(files[".mark/config.toml"])["merge"]["regression"], 'npm test -- --grep "a\\b"')
+        files = scaffold.render({**ANSWERS, "worktree_setup": 'npm test -- --grep "a\\b"'})
+        self.assertEqual(tomllib.loads(files[".mark/config.toml"])["worktree"]["setup"], 'npm test -- --grep "a\\b"')
 
     def test_template_uses_only_known_answers(self):
         for loc in LOCALES:
             for p in (TEMPLATE / loc).rglob("*.tmpl"):
                 for name in re.findall(r"\{\{\s*(\w+)\s*\}\}", p.read_text(encoding="utf-8")):
                     self.assertIn(name, scaffold.KEYS, p)
+
+
+class ShippedScriptsTest(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="mark-scripts-"))
+        self.addCleanup(shutil.rmtree, self.root)
+        for rel, text in scaffold.render(ANSWERS).items():
+            if rel.startswith("scripts/"):
+                scaffold.write_file(self.root / rel, rel, text)
+
+    def run_script(self, name):
+        p = subprocess.run(["bash", f"scripts/{name}"], cwd=self.root, capture_output=True, text=True)
+        return p.returncode, p.stdout + p.stderr
+
+    def entry(self, rel, body):
+        (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (self.root / rel).write_text(body)
+
+    def test_before_the_skeleton_nothing_runs(self):
+        code, out = self.run_script("regression.sh")
+        self.assertEqual(code, 0, out)
+        self.assertIn("skip tests/: not created yet", out)
+        self.assertIn("nothing ran", out)
+
+    def test_a_module_without_its_required_entry_fails(self):
+        (self.root / "backend").mkdir()
+        self.entry("frontend/selftest.sh", "echo front-ok\n")
+        code, out = self.run_script("selftest.sh")
+        self.assertEqual(code, 1)
+        self.assertIn("front-ok", out)
+        self.assertIn("backend/selftest.sh is missing", out)
+
+    def test_entries_run_inside_their_module_with_env_and_fail_through(self):
+        (self.root / ".env").write_text("BACKEND_PORT=8201\n")
+        self.entry("backend/start.sh", 'echo "$(basename "$PWD") on $BACKEND_PORT"\n')
+        self.entry("frontend/index.html", "")
+        code, out = self.run_script("start.sh")
+        self.assertEqual(code, 0, out)
+        self.assertIn("backend on 8201", out)
+        self.assertIn("skip frontend/: no start.sh", out)  # optional entry
+        self.entry("tests/regression.sh", "exit 3\n")
+        self.assertEqual(self.run_script("regression.sh")[0], 3)  # the entry's own exit code
+
+    def test_scripts_are_executable(self):
+        self.assertTrue(os.access(self.root / "scripts/restart.sh", os.X_OK))
 
 
 class TemplatePromptsTest(unittest.TestCase):

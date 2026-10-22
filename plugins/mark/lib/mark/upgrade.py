@@ -153,8 +153,7 @@ def run(cfg: MarkConfig) -> tuple[str, Path, Plan, list[tuple[str, dict]]]:
             if text is None:
                 target.unlink(missing_ok=True)
             else:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(text, encoding="utf-8")
+                scaffold.write_file(target, rel, text)
         if git(["add", "-A", "--", *p.writes], wt)[0] != 0 or \
                 git(["commit", "-q", "-m", f"chore: upgrade Mark v{p.old} -> v{p.new}"], wt)[0] != 0:
             raise FlowError("upgrade.git_failed", wt=str(wt))

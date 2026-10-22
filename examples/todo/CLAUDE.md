@@ -27,12 +27,18 @@ assigns (`[[write_rules]]` in `.mark/config.toml`) is written by the main thread
 
 | Path | What | Written by |
 |---|---|---|
-| `frontend/` | the browser app, no build step | coder-impl (`frontend/src/ui/`: designer) |
-| `backend/` | the HTTP server and its unit tests | coder-impl |
-| `tests/` | end-to-end specs, Playwright config, `package.json`, and the regression scripts (`check.mjs`) | tester |
+| `frontend/` | the browser app, no build step; `selftest.sh` | coder-impl (`frontend/src/ui/`: designer) |
+| `backend/` | the HTTP server, its unit tests; `selftest.sh`, `start.sh`, `stop.sh` | coder-impl |
+| `tests/` | end-to-end specs, Playwright config, `package.json`; `regression.sh` | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
+| `scripts/` | entry points shipped by Mark; they call each module's own | main thread |
 | `README.md`, `.gitignore`, `.mark/`, `.claude/` | project docs and workflow files | main thread |
+
+`bash scripts/selftest.sh` runs `frontend/selftest.sh` and `backend/selftest.sh` (white-box);
+`bash scripts/regression.sh` runs `tests/regression.sh` (black-box, the whole end-to-end
+suite); `bash scripts/start.sh` / `stop.sh` / `restart.sh` run `backend/start.sh` /
+`stop.sh`. Each runs inside its module with the checkout's `.env` exported.
 
 ## 4. Module boundaries
 
@@ -54,13 +60,12 @@ once per machine.
 | Purpose | Command |
 |---|---|
 | Install dependencies | `npm --prefix tests ci && npm --prefix tests exec playwright install chromium` |
-| Start the app (dev) | `python3 backend/server.py --port <port>` (pick a free port; default 8000) |
+| Start / stop / restart the app | `bash scripts/start.sh` / `bash scripts/stop.sh` / `bash scripts/restart.sh` (port: `BACKEND_PORT` in `.env`, default 8000) |
 | Open the UI preview | start the app, then `http://127.0.0.1:<port>/src/ui/preview.html` |
 | Screenshot a page | `npm --prefix tests exec -- playwright screenshot --viewport-size "1280, 800" --full-page <url> <file.png>` (mobile: `"390, 844"`) |
-| Unit tests | `npm --prefix tests run test:unit` (backend `unittest`, `backend/test_*.py`) |
-| Type check and lint | `npm --prefix tests run check` (syntax check of every JS and Python file) |
+| Self-test (white-box) | `bash scripts/selftest.sh` (JS syntax check; Python compile and `unittest`, `backend/test_*.py`) |
 | End-to-end tests (selected specs) | `cd tests && npx playwright test e2e/<spec>.spec.js` |
-| Full regression (everything a merge must pass; also `[merge] regression` in `.mark/config.toml`) | `npm --prefix tests test` |
+| Full regression (what a merge must pass, `[merge] regression`) | `bash scripts/selftest.sh && bash scripts/regression.sh` |
 
 End-to-end tests pick a port from the checkout path, so several worktrees can run them at
 once; set `PORT=<n>` to override. Failure traces and screenshots land in `tests/test-results/`.

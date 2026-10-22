@@ -31,8 +31,10 @@ exclude = ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"]
 
 # `mark merge` runs this shell command in the ticket's worktree after merging the latest
 # main into the branch; exit 0 = green. Empty: merge on the tester's verdict alone.
+# The scripts ship with Mark and call each module's own selftest.sh / regression.sh, so a
+# new test joins the merge check by living in its module.
 [merge]
-regression = "{{ regression_cmd }}"
+regression = "bash scripts/selftest.sh && bash scripts/regression.sh"
 
 [worktree]
 dir = ".claude/worktrees"

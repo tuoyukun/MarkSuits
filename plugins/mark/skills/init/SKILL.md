@@ -39,7 +39,6 @@ Speak the human's language.
    | `--frontend-dir`, `--backend-dir` | planned directories | where that code is now |
    | `--ui-dir` | `<frontend>/src/ui` | the presentational components (only the designer writes there) |
    | `--tests-dir` | planned end-to-end test directory | where the end-to-end tests are |
-   | `--regression-cmd` | empty (no tests yet) | the command CI runs for the full suite |
    | `--worktree-setup` | empty | the install step a fresh checkout needs, like `npm ci` |
 
    Also say which existing files it keeps (`CLAUDE.md`) or extends (`.gitignore`); the dry run
@@ -49,8 +48,8 @@ Speak the human's language.
    writes it. A role may write only paths a write rule assigns to it; everything else is the
    main thread's.
    - New: frontend, backend and end-to-end tests are each self-contained (own dependencies,
-     config and scripts); the root holds only `CLAUDE.md`, `README.md`, `.gitignore`, `.mark/`
-     and `.claude/`. No shared package manifest or tool config at the root.
+     config and scripts); the root holds only `CLAUDE.md`, `README.md`, `.gitignore`, `.mark/`,
+     `.claude/` and the `scripts/` Mark ships. No shared package manifest or tool config at the root.
    - Existing: list the top-level paths that are not the frontend, backend, tests or
      `docs/adr/`, and propose an owner for each (a `[[write_rules]]` entry), or say it stays
      with the main thread.
@@ -62,6 +61,13 @@ Speak the human's language.
    exact commands (install, dev server, UI preview, unit tests, lint, end-to-end, full
    regression). Write the confirmed layout into its Layout section, and add the write rules
    the human agreed to `.mark/config.toml` in the same lane.
+   The merge check is fixed: `bash scripts/selftest.sh && bash scripts/regression.sh`. Those
+   scripts call each module's own entry points, so an existing project needs them before the
+   lane can land: in the same lane, write `selftest.sh` in the frontend and backend (their
+   lint, type check, unit tests, build), `regression.sh` in the test directory (the whole
+   end-to-end suite), and `start.sh` / `stop.sh` in each module that runs a server, each
+   wrapping the commands the project already uses. Run them once in the lane; the human
+   reviews them with the rest.
    The main checkout is now a Mark project, so edit it in a general lane, as in /mark:general:
    `mark general new`, edit `<worktree>/CLAUDE.md`, commit in the lane, `mark general merge <branch>`.
    - Existing project with its own `CLAUDE.md`: keep everything there and add only what is
@@ -79,6 +85,7 @@ Speak the human's language.
      `CLAUDE.md`). Its acceptance criteria describe what works, such as "the home page lists
      the posts"; the tester writes the end-to-end tests. It has no UI to design, so the human
      may waive design review with `.mark/gates/<id>.design-approved.waived`; the stack choice is
-     reviewed at plan review. Once it lands, set `[merge] regression`, `[worktree] setup`
-     and, if it runs servers, `[worktree] ports` (read by the dev server and test configs)
-     with `/mark:general`.
+     reviewed at plan review. Its plan creates each module's entry points, so its own merge
+     already runs the full regression. Once it lands, set `[worktree] setup` and, if it runs
+     servers, `[worktree] ports` (read by the module start scripts and test configs) with
+     `/mark:general`.

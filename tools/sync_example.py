@@ -24,13 +24,13 @@ OWNED = {"CLAUDE.md", ".gitignore"}
 def main(argv: list[str]) -> int:
     root = Path(argv[0]) if argv else REPO / "examples" / "todo"
     answers = tomllib.loads((root / scaffold.RECORD).read_text(encoding="utf-8"))["answers"]
+    answers = {k: v for k, v in answers.items() if k in scaffold.KEYS}  # keys a release dropped
     files = scaffold.render(scaffold.resolve(answers, root))
     for rel, text in files.items():
         for target in ([] if rel in OWNED else [rel]) + [scaffold.base_path(rel)]:
             path = root / target
             if not path.is_file() or path.read_text(encoding="utf-8") != text:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(text, encoding="utf-8")
+                scaffold.write_file(path, target, text)
                 print("updated", target)
     base_dir = root / scaffold.BASE_DIR
     for base in sorted(base_dir.rglob("*.base")):

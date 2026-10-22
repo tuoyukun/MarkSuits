@@ -231,6 +231,23 @@ reports them); removing one is a human edit (the status guard refuses it from Cl
 bash guard refuses `git merge feature/…|bug/…` on main in the main checkout: tickets land only
 through `mark merge`.
 
+**Shipped entry points (v0.21).** An empty `[merge] regression` used to be the norm after
+`mark init` of a new project: no tests existed yet, and the reminder to set it lived in the
+init skill, which nobody reads again when the skeleton lands, so tickets merged on the
+tester's word alone. The template now ships `scripts/` at the root and the merge check is
+always `bash scripts/selftest.sh && bash scripts/regression.sh`. The scripts never change per
+ticket: `scripts/each.sh` runs one entry point inside each module, with the checkout's `.env`
+exported (its v0.20 ports). `selftest.sh` (frontend, backend) is the white-box self-test
+coder-impl owns; `regression.sh` (test directory) is the black-box suite the tester owns;
+`start.sh` / `stop.sh` are optional, for modules that run a server. A module directory that
+does not exist yet is skipped, so before the skeleton the check is green and says nothing
+ran; a module that exists without its required entry fails, so a check never passes by
+running nothing. The skeleton's plan creates the entries, so its own merge, which runs in the
+ticket's worktree, already runs the real suites. A new test joins the check by living in its
+module. `scripts/` has no write rule (main thread only) and updates through `/mark:upgrade`;
+an existing project writes its module entries in the init or upgrade lane before it lands.
+The `regression_cmd` answer is gone; a recorded one is ignored.
+
 ### General mode (v0.9)
 
 A change that belongs to no ticket (docs, prompts, role files, config) runs through
@@ -326,7 +343,7 @@ driven by the `/mark:init` skill) writes it into a project. There is no external
 plugin install is the whole setup.
 
 - **Answers** (`scaffold.KEYS`): project name, locale, profile, main branch, frontend / backend /
-  UI / end-to-end test directories, regression command, worktree setup command. `mark init
+  UI / end-to-end test directories, worktree setup command. `mark init
   --<answer> <value>`; defaults fill the rest; `--dry-run` shows the plan and writes nothing.
 - **Checks before writing**: a git repository (an empty directory is `git init`ed), on the main
   branch, clean tree, git identity set, not already a Mark project, and no template file already
