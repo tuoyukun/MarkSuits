@@ -8,8 +8,11 @@ Lifecycle:
 
 Event order depends on how the agent runs. Background agents: PostToolUse
 (binds agent_id) comes long before SubagentStop. Foreground agents:
-SubagentStop comes first, so verify() falls back to the single unbound lock
-of the stopping role, and the later bind() finds no lock and does nothing.
+SubagentStop comes first, so verify() finds the lock by the `mark:ticket` anchor
+in the agent's own transcript (its first message is the dispatch prompt), else by
+the single unbound lock of the stopping role. If it still cannot tell, the
+foreground PostToolUse (`status: completed`) settles the lock instead of binding it,
+so a finished agent never leaves a bound lock behind.
 
 A lock without agent_id older than GHOST_SECONDS is a dispatch that never
 started (another hook or the permission system rejected it) and is reclaimed.
@@ -25,7 +28,7 @@ import time
 from pathlib import Path
 
 from ..gitutil import worktrees
-from .common import Env, Target
+from .common import _ANCHOR_RE, Env, Target, extract_target
 
 GHOST_SECONDS = 90
 _OUTPUTS_RE = re.compile(r"mark:outputs[\s=:]+([A-Za-z0-9_.,/-]+)")
@@ -100,10 +103,21 @@ def bind(env: Env) -> None:
         return
     path = lock_path(env, target, role)
     meta = read_lock(path)
-    if not meta:
+    if not meta or meta.get("agent_id"):
+        return
+    if response.get("status") == "completed":
+        # A foreground agent that already stopped, and SubagentStop could not tell its lock apart.
+        settle(env, path, meta, str(agent_id), _response_text(response))
         return
     meta["agent_id"] = str(agent_id)
     _write(path, meta)
+
+
+def _response_text(response: dict) -> str:
+    content = response.get("content")
+    if not isinstance(content, list):
+        return ""
+    return "\n".join(str(b.get("text", "")) for b in content if isinstance(b, dict)).strip()
 
 
 def _all_locks(env: Env) -> list[tuple[Path, dict]]:
@@ -111,14 +125,35 @@ def _all_locks(env: Env) -> list[tuple[Path, dict]]:
         names = sorted(os.listdir(locks_dir(env)))
     except OSError:
         return []
-    return [(locks_dir(env) / n, read_lock(locks_dir(env) / n)) for n in names if n.endswith(".lock")]
+    rows = [(locks_dir(env) / n, read_lock(locks_dir(env) / n)) for n in names if n.endswith(".lock")]
+    return [(p, m) for p, m in rows if m.get("ticket") and m.get("role")]  # not e.g. ports.lock
+
+
+def transcript_target(env: Env) -> Target | None:
+    """The ticket in the stopping agent's dispatch prompt: the first line of its own transcript."""
+    path = str(env.ctx.payload.get("agent_transcript_path") or "")
+    try:
+        with open(os.path.expanduser(path), encoding="utf-8") as fh:
+            first = fh.readline(1_000_000)
+    except (OSError, UnicodeDecodeError):
+        return None
+    found = extract_target(env, first) if _ANCHOR_RE.search(first) else None
+    return found if isinstance(found, Target) else None
 
 
 def find_for_stop(env: Env, agent_id: str, role: str | None) -> tuple[Path, dict] | None:
-    """The lock bound to `agent_id`, else the only unbound lock of `role`."""
+    """The lock bound to `agent_id`, else the unbound lock its transcript names, else the only
+    unbound lock of `role`."""
     rows = _all_locks(env)
     for path, meta in rows:
         if meta.get("agent_id") == agent_id:
+            return path, meta
+    target = transcript_target(env)
+    if target is not None and role:
+        path = lock_path(env, target, role)
+        meta = read_lock(path)
+        if meta and not meta.get("agent_id"):
+            meta["agent_id"] = agent_id
             return path, meta
     unbound = [(p, m) for p, m in rows if not m.get("agent_id") and m.get("role") == role]
     if len(unbound) == 1:
@@ -149,9 +184,38 @@ def record(path: Path, agent_id: str, result: str, reason: str, conclusion: str 
                          "conclusion": conclusion[:CONCLUSION_MAX], "at": time.time()})
 
 
+# mtime granularity and clock skew between the hook and the agent's writes
+FRESH_SLACK = 2.0
+
+
+def outputs_done(dirs: list[Path], required: list[str], since: float) -> bool:
+    """Some checkout holds every required output, and this run changed at least one of them.
+    Existence alone is not enough: in a rework round the files are there from the last round."""
+    for d in dirs:
+        files = [d / f for f in required]
+        if all(f.is_file() for f in files) and \
+                any(f.stat().st_mtime >= since - FRESH_SLACK for f in files):
+            return True
+    return False
+
+
+def settle(env: Env, path: Path, meta: dict, agent_id: str, conclusion: str) -> bool:
+    """Record a finished dispatch and release its lock; True if its outputs are done."""
+    required = [f for f in meta.get("required", []) if f]
+    done = not required or outputs_done(candidate_dirs(env, meta), required, float(meta.get("created", 0)))
+    if done:
+        record(path, agent_id, "PASSED", "outputs present", conclusion)
+    else:
+        record(path, agent_id, "FAILED", "missing or unchanged outputs: " + ", ".join(required), conclusion)
+    path.unlink(missing_ok=True)
+    return done
+
+
 def verify(env: Env) -> str | None:
     """SubagentStop. A message keeps the subagent running to fix its output."""
     agent_id = str(env.ctx.payload.get("agent_id") or "")
+    if env.role not in env.cfg.roles:
+        return None  # not a pipeline role (Explore, internal agents with an empty type...)
     found = find_for_stop(env, agent_id, env.role) if agent_id else None
     if found is None:
         return None
@@ -159,20 +223,17 @@ def verify(env: Env) -> str | None:
     conclusion = str(env.ctx.payload.get("last_assistant_message") or "").strip()
     required = [f for f in meta.get("required", []) if f]
     dirs = candidate_dirs(env, meta)
-    if not required or any(all((d / f).is_file() for f in required) for d in dirs):
-        record(path, agent_id, "PASSED", "outputs present", conclusion)
-        path.unlink(missing_ok=True)
-        return None
-    if env.ctx.payload.get("stop_hook_active"):
-        # Already asked once; blocking again would loop. Release and report.
-        record(path, agent_id, "FAILED", "missing outputs: " + ", ".join(required), conclusion)
-        path.unlink(missing_ok=True)
+    if not required or outputs_done(dirs, required, float(meta.get("created", 0))) \
+            or env.ctx.payload.get("stop_hook_active"):
+        # stop_hook_active: already asked once; blocking again would loop. Release and report.
+        settle(env, path, meta, agent_id, conclusion)
         return None
     _write(path, meta)  # keep the agent_id bound while it fixes its output
     # Point at the checkout holding the most outputs; ties go to the ticket's own worktree, where roles write.
     own = env.main / env.cfg.worktree_for(meta.get("kind", ""), meta.get("ticket", ""))
     primary = max(dirs, key=lambda d: (sum((d / f).is_file() for f in required), d.is_relative_to(own), d.is_dir()))
-    missing = "\n".join(f"  - {primary / f}" for f in required if not (primary / f).is_file())
+    missing = "\n".join(f"  - {primary / f}" for f in required if not (primary / f).is_file()) or \
+        "\n".join(f"  - {primary / f}" for f in required)  # all there, none updated this round
     checked = "\n".join(f"  - {d}" for d in dirs[:6])
     return env.t("guard.output.missing", role=meta.get("role", "?"), missing=missing, checked=checked)
 

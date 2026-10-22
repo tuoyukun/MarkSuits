@@ -11,12 +11,13 @@ human opens tickets and approves or rejects at two review gates; merging is auto
 | `/mark:feature <description>` | The orchestrator reviews the request with you, opens a ticket once you agree, and runs the first step |
 | `/mark:feature <id>` | One more step of that feature |
 | `/mark:fix <description or id>` | Opens or continues a bug and runs it to `passed` (no review gates) |
-| `/mark:approve <id>` | Approves the opening of a ticket, the design, the plan, or a blocked ticket's way back; then continues |
+| `/mark:approve <id> [<status>]` | Approves the opening of a ticket, the design, the plan, or where a blocked ticket goes next; then continues |
 | `/mark:reject <id> <comments>` | Sends a design, plan or finished branch back with your comments; then continues |
 | `/mark:status` | The board: what waits on you, what is in progress |
 | `/mark:general <change>` | A docs/config change that belongs to no ticket: the orchestrator edits it on a throwaway lane and lands it through the regression. Code never goes this way |
 
-Approvals count only when a person types them. An agent cannot approve anything.
+Approvals count only when a person types them, with the ticket id (`/mark:approve 0012`). An agent
+cannot approve anything. A `/mark:feature` or `/mark:fix` approves opening a ticket for 2 hours.
 
 ## The chains
 
@@ -37,7 +38,7 @@ bug:     planning → developing → testing → pending-merge → passed
 | `testing` | tester | end-to-end tests, `verdict.md` |
 | `failed-impl` | coder-impl | fixes for `FAIL-N` / `D-N` / your merge comments |
 | `pending-merge` | orchestrator | `mark merge`; if it fails, **you** decide (retry or reject) |
-| `blocked-*` | **you** | read the reason; `/mark:approve` sends it back the way it came |
+| `blocked-*` | **you** | read the reason; `/mark:approve <id>` sends it back the way it came, `/mark:approve <id> developing` goes on as it is; `blocked-unclear` always needs the status (`designing`, `planning` or `developing`) |
 
 ## Where things live
 

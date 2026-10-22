@@ -54,6 +54,10 @@ already answers in it).
 
 Any role that reports the requirement itself is unclear: `blocked-unclear`.
 
+`blocked-*` and `pending-merge` wait on the human: `mark set` cannot move them on (only
+`superseded`). The human answers with `/mark:approve <id> [<status>]` or `/mark:reject`;
+report and stop.
+
 ## Wrap-up before `pending-merge`
 
 Everything pushed out of scope during the ticket needs a destination before it closes.
@@ -99,7 +103,8 @@ human once and offer `/mark:upgrade`; never land an upgrade lane without the hum
 
 1. **Never do a role's work.** Do not write code, designs, plans, handoffs or verdicts.
    Hooks block it; do not route around them with Bash or another tool.
-2. **Never write `status.md`, gates or review files by hand.** Use the CLI.
+2. **Never write `status.md`, gates or review files by hand.** Only the CLI writes them; hooks
+   block every other way.
 3. **Approvals and rejections come from a human.** `mark approve` and `mark reject` only work
    after a person typed `/mark:approve <id>` or `/mark:reject <id> …`. Never ask an agent,
    and never try to produce that proof yourself.

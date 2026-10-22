@@ -49,7 +49,7 @@ built-in is used. Auto-update then upgrades everything the project did not overr
 | Dispatch prompts | `plugins/mark/defaults/<locale>/prompts/<scenario>.md` | `.mark/prompts/<scenario>.md` | `brief.load_template` |
 | Artifact formats | `plugins/mark/defaults/<locale>/formats/<name>.md` | `.mark/formats/<name>.md` | `mark format <name>` prints the effective one; agents and prompts point there instead of a path |
 | Collaboration guide | `plugins/mark/defaults/<locale>/collaboration.md` | none | `mark rules collaboration` |
-| Workflow config: `roles`, `[gates]`, `[outputs]`, artifact write rules (`requirement.md` → main, `design.md` → designer …) and the shared-doc rules (`CLAUDE.md`, `**/CONTEXT.md`, `docs/adr/**`) | engine defaults in `config.py` | the same keys in `.mark/config.toml` | `load_config` fills every missing key from the defaults |
+| Workflow config: `roles`, `[gates]`, `[outputs]`, artifact write rules (`requirement.md` → main, `design.md` → designer …) and the shared-doc rules (`CLAUDE.md`, `**/CONTEXT.md`, `docs/adr/**`) | engine defaults in `config.py` | the same keys in `.mark/config.toml` | `load_config` fills every missing key from the defaults; inside `[gates]` and `[outputs]` per role (v0.24: a project key replaces only that role's default, `""` / `[]` turns it off) |
 
 `mark init` writes only what is about this project: `.mark/config.toml` with `[project]`,
 `[paths]`, `[merge]`, `[worktree]`, `[design_qa]`, `[[doc_budget]]` and the path write rules
@@ -90,7 +90,10 @@ keys simply override), so `mark_schema` stays 1.
 
 Hooks locate the project by walking up from the payload `cwd` to `.mark/config.toml`; no
 config means "not a Mark project" → exit 0. This matters because plugin hooks fire in every
-session where the plugin is enabled.
+session where the plugin is enabled. A config that does not load (bad TOML, unknown schema)
+blocks dispatches, subagents and writes, but never the human's prompts, the main thread's
+Bash, or the main thread's edit of `.mark/config.toml` itself (v0.24): otherwise one typo
+locks the human out of Claude in that repository.
 
 Hooks recognize artifact sections by anchors (`<!-- mark:ac-table -->`), never by heading
 text, so templates can be localized freely.
@@ -104,9 +107,9 @@ text, so templates can be localized freely.
 | planning | tech plan | coder-plan | design-approved |
 | review-plan | stop, wait for human | — | — |
 | developing | implement | coder-impl | plan-approved |
-| design-qa | integration design check (UI changes only); after 2 blocked rounds `mark set` refuses `failed-impl`, the human decides via `blocked-spec` | designer | — |
+| design-qa | integration design check (UI changes only); after 2 blocked rounds `mark set` refuses `failed-impl`, the human decides via `blocked-spec` (`/mark:approve <id>` back to design, or `… developing`) | designer | — |
 | testing | verify | tester | plan-approved |
-| pending-merge | automated merge (regression → ff-only → push) | — | — |
+| pending-merge | automated merge (regression → ff-only → push); owner `orchestrator`, a failed merge stops for the human | — | — |
 | passed | done | — | — |
 
 Bug chain: fix-plan → coder-impl → tester, no review gates. General mode: no subagents,
@@ -129,7 +132,7 @@ Failure routing is decided by the orchestrator from the tester's `failureType`
 - `mark status [--active|--json|--check]` renders the view on demand; nothing is stored.
 - Both commands resolve the **main checkout** via `git rev-parse --git-common-dir`, so they
   give the same answer from any worktree.
-- Legal moves live in `lib/mark/states.py` (`TRANSITIONS`), used by the status guard in M2.
+- Legal moves live in `lib/mark/states.py` (`TRANSITIONS`), used by `mark set`, `approve`, `reject` and `merge` (the only writers of `status.md`).
 
 ### Guards (v0.3)
 
@@ -138,17 +141,23 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 
 | group | event / matcher | guards, in order |
 |---|---|---|
-| `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins; a path no rule assigns is the main thread's, except a role's working files in a ticket dir — v0.19) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **status** (main checkout on the main branch, valid fields, legal move) · **budget** (`[[doc_budget]]`, see Doc budget) |
+| `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins; a path no rule assigns is the main thread's, except a role's working files in a ticket dir — v0.19; CLI-only files are nobody's, see below) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **budget** (`[[doc_budget]]`, see Doc budget) · **e2e** / **journey** (tester writes, v0.22–0.23) |
 | `pre-dispatch` | PreToolUse `Agent\|Task` | **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **gate** (feature roles need `[gates]`; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
-| `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `sed -i`, `cp`, `mv`) follow the scope and worktree rules (unclear or quoted targets pass) |
-| `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock |
+| `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit or push on main; nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `touch`, `sed -i`, `cp`, `mv`) follow the scope and worktree rules, and the main thread's never reach a CLI-only file (unclear or quoted targets pass) |
+| `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock; a foreground agent (`status: completed`) whose stop could not be matched is settled here instead, so no finished agent leaves a bound lock |
 | `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates that agent: restart) |
 | `post-write` | PostToolUse writes | reminds to commit ticket state on main (feedback only) |
 | `user-prompt` | UserPromptSubmit | records a token when a human types `/mark:approve`, `/mark:reject`, `/mark:feature` or `/mark:fix` (never blocks) |
-| `subagent-stop` | SubagentStop | required outputs (`[outputs]`, or `mark:outputs` in the prompt) must exist in the ticket dir of some checkout; otherwise the subagent keeps running. Result goes to `.mark/locks/<id>.<role>.result.json`, with the agent's final report (`conclusion`, the default `--prev` of the next dispatch) |
+| `subagent-stop` | SubagentStop | finds the lock by agent id, else by the `mark:ticket` anchor in the agent's own transcript (`agent_transcript_path`), else the only unbound lock of the role. Required outputs (`[outputs]`, or `mark:outputs` in the prompt) must exist in the ticket dir of some checkout and at least one must have changed since the dispatch (a rework round finds last round's files); otherwise the subagent keeps running. Result goes to `.mark/locks/<id>.<role>.result.json`, with the agent's final report (`conclusion`, the default `--prev` of the next dispatch) |
 
-Engine-fixed rules (no config can loosen them): `.claude/**`, `.mark/config.toml`, gates, locks,
-ticket `status.md` and `review-*.md` are main-thread only; `locks/human/**` is writable by nobody. Locks bound to a live agent are never
+Engine-fixed rules (no config can loosen them): `.claude/**`, `.mark/config.toml` and locks are
+main-thread only. Gates, ticket `status.md`, `review-*.md`, `locks/human/**` and `.mark/.base/**`
+are **CLI-only** (v0.24): no tool call writes them, the main thread's included, because they record
+human decisions and ticket state. The `mark` CLI writes them as a Bash child process, which no hook
+sees, so this works the same in the terminal and in Desktop sessions. Before v0.24 the main thread
+could write a gate itself and approve its own work; the token check guarded only `mark approve`.
+`mark general merge` also refuses a lane that changes any of them except `.base` (lanes carry no
+decisions; this catches writes the Bash parser cannot see). Locks bound to a live agent are never
 reclaimed by age; a human releases a dead one with `mark unlock <id> <role>`.
 Set `MARK_DEBUG_LOG=<file>` to record raw hook payloads.
 
@@ -192,14 +201,22 @@ and optional `outputs:`, and use `{{placeholders}}`; unknown placeholders are an
 
 Moves (`mark set`, `approve`, `reject`) validate, write `status.md` (owner derived from status), then
 commit the ticket dir and its gates on main and push. `mark set` additionally refuses:
-leaving `review-design`/`review-plan` (human gates) · `testing` for a feature whose design exists and
-whose branch touches `[design_qa] paths`, until `design-qa.md` carries `<!-- mark:qa passed -->` ·
-`passed` while the ticket branch has commits not on main.
+leaving a status that waits on the human (`review-*`, `blocked-*`; v0.24 also `pending-merge`, which
+only `mark merge` takes to `passed`), except to `superseded` · `testing` from `design-qa` unless
+`design-qa.md` carries `<!-- mark:qa passed -->` · `testing` for a feature whose design exists and
+whose branch touches `[design_qa] paths`, until it does · `passed` while the ticket branch has commits
+not on main. A blocked ticket moves on only through `mark approve`: the default way back
+(`blocked-spec` → `designing`, `blocked-plan` → `planning`), or `--to <status>` among its legal moves
+when the human typed that status (`/mark:approve 0012 developing`); `blocked-unclear` always needs
+one. So gates are never revoked yet never reused unseen: every way back to work passes the human.
 
 **Human tokens.** `mark approve`, `mark reject` and the opening approval in `mark claim` consume a token
-written by the `user-prompt` hook when a person typed the matching command (12 h TTL, ticket id must
-match). Models cannot fire UserPromptSubmit, so an orchestrator cannot approve on its own. `mark claim`
-without a token creates the ticket unapproved; `/mark:approve <id>` approves the opening.
+written by the `user-prompt` hook when a person typed the matching command. An approve or reject token
+must name the ticket (12 h TTL); it also records the words after the id, which `approve --to` must
+match. `mark claim` takes any `/mark:feature` / `/mark:fix` token, since the number does not exist yet,
+so those live 2 h. Models cannot fire UserPromptSubmit, and the gates the tokens lead to are CLI-only,
+so an orchestrator cannot approve on its own. `mark claim` without a token creates the ticket
+unapproved; `/mark:approve <id>` approves the opening.
 
 Review files: each round is `## Round N · <time> · pending <!-- mark:round N pending -->` followed by
 `- R-K: …` items; ids run across rounds; approve flips pending rounds to done; text is never edited.
@@ -222,20 +239,21 @@ fails with `merge.ff_failed` and is run again.
 **Merge order (v0.8).** `merge-after: [0012, b0007]` lists tickets that must land first; `passed`
 and `superseded` both satisfy it (otherwise folding one ticket into another deadlocks). One check,
 `flow.merge_blockers`, serves every entry point: `mark next` (stop, naming the tickets),
-`mark merge`, `mark set … passed`, and the status guard for hand edits. Order:
+`mark merge` and `mark set … passed` (no tool call writes `status.md`). Order:
 a cycle among unfinished tickets is reported first, with its path (`0001 -> 0002 -> 0001`);
 then each unmet entry with its status; an unknown or ambiguous reference blocks and is never
 guessed. Order refusals are not recorded as merge failures, so the ticket proceeds by itself
 once its dependencies land. Adding entries is free (`mark set --merge-after`, coder-plan
-reports them); removing one is a human edit (the status guard refuses it from Claude). The
+reports them); removing one is a human edit in an editor (no tool call writes `status.md`). The
 bash guard refuses `git merge feature/…|bug/…` on main in the main checkout: tickets land only
 through `mark merge`.
 
 **Shipped entry points (v0.21).** An empty `[merge] regression` used to be the norm after
 `mark init` of a new project: no tests existed yet, and the reminder to set it lived in the
 init skill, which nobody reads again when the skeleton lands, so tickets merged on the
-tester's word alone. The template now ships `scripts/` at the root and the merge check is
-always `bash scripts/selftest.sh && bash scripts/regression.sh`. The scripts never change per
+tester's word alone. The template now ships `scripts/` at the root and its merge check is
+`bash scripts/selftest.sh && bash scripts/regression.sh` (a project can still empty
+`[merge] regression`, and then merges on the tester's verdict alone). The scripts never change per
 ticket: `scripts/each.sh` runs one entry point inside each module, with the checkout's `.env`
 exported (its v0.20 ports). `selftest.sh` (frontend, backend) is the white-box self-test
 coder-impl owns; `regression.sh` (test directory) is the black-box suite the tester owns;

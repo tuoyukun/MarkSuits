@@ -12,7 +12,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from . import merge
+from . import globs, merge
 from .config import MarkConfig
 from .flow import FlowError, provision
 from .gitutil import current_branch, dirty_paths, git, has_remote, ref_exists, worktrees
@@ -65,12 +65,26 @@ def merge_lane(cfg: MarkConfig, branch: str) -> Notes:
         raise FlowError("general.dirty", wt=str(wt), files="\n".join(f"  - {p}" for p in dirty[:10]))
     if git(["rev-list", "--count", f"{cfg.main_branch}..{branch}"], cfg.root)[1] == "0":
         raise FlowError("general.empty", branch=branch)
+    control = _control_files(cfg, branch)
+    if control:
+        raise FlowError("general.control", files="\n".join(f"  - {f}" for f in control))
     marked = _conflict_markers(cfg, branch)
     if marked:
         raise FlowError("general.markers", wt=str(wt), files="\n".join(f"  - {f}" for f in marked))
     conflict = FlowError("general.conflict", branch=branch, wt=str(wt))
     notes = merge.land(cfg, wt, branch, branch.removeprefix("chore/"), conflict)
     return notes + merge.cleanup(cfg, wt, branch)
+
+
+def _control_files(cfg: MarkConfig, branch: str) -> list[str]:
+    """Workflow state the lane changes: gates, ticket status, reviews, locks. Only the `mark` CLI
+    writes those, on main; a lane carrying them would land a decision nobody made. Template
+    copies (`.mark/.base/`) are fine: `mark upgrade` writes them in its lane."""
+    from .guards.write import cli_only_globs
+    rules = [g for g in cli_only_globs(cfg.state_rel) if not g.startswith(".mark/.base")]
+    rules.append(f"{cfg.state_rel}/locks/**")
+    out = git(["diff", "--name-only", "--no-renames", f"{cfg.main_branch}...{branch}"], cfg.root)[1]
+    return [f for f in out.splitlines() if any(globs.match(g, f) for g in rules)]
 
 
 def _conflict_markers(cfg: MarkConfig, branch: str) -> list[str]:

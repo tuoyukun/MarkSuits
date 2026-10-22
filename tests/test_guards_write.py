@@ -140,10 +140,8 @@ class TicketTest(unittest.TestCase):
     def test_artifact_without_ticket_approval_is_blocked(self):
         code, err = write(self.root, self.tdir / "bug.md")
         self.assertEqual(code, 2)
-        self.assertIn("touch .mark/gates/b0001-crash.ticket-approved", err)
-
-    def test_status_file_needs_no_approval(self):
-        self.assertEqual(write(self.root, self.tdir / "status.md", content=status_text("planning"))[0], 0)
+        self.assertIn("/mark:approve b0001-crash", err)
+        self.assertNotIn("touch", err)
 
     def test_approved_ticket_accepts_artifacts(self):
         (self.root / ".mark" / "gates").mkdir()
@@ -151,68 +149,55 @@ class TicketTest(unittest.TestCase):
         self.assertEqual(write(self.root, self.tdir / "bug.md")[0], 0)
 
 
-class StatusTest(unittest.TestCase):
-    def setUp(self):
-        self.root = make_repo()
-        self.tdir = add_ticket(self.root, "feature", "0001-login", "designing", gates=["ticket-approved"])
-        self.status = self.tdir / "status.md"
+def bash(root, command, agent=None):
+    payload = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(root),
+               "tool_input": {"command": command}}
+    if agent:
+        payload["agent_type"] = agent
+    return hook("pre-bash", payload)
 
-    def test_legal_move(self):
-        self.assertEqual(write(self.root, self.status, content=status_text("review-design"))[0], 0)
 
-    def test_skipping_a_review_gate_is_blocked(self):
-        code, err = write(self.root, self.status, content=status_text("planning"))
+class CliOnlyTest(unittest.TestCase):
+    """Gates, ticket status and review rounds record human decisions: only the `mark` CLI writes them."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = make_repo()
+        cls.tdir = add_ticket(cls.root, "feature", "0001-login", "review-design", gates=["ticket-approved"])
+        cls.wt = add_worktree(cls.root, "feature", "0001-login")
+        cls.files = [".mark/gates/0001-login.design-approved", ".mark/gates/0001-login.plan-approved.waived",
+                     ".mark/features/0001-login/status.md", ".mark/features/0001-login/review-design.md"]
+
+    def test_no_tool_call_writes_them_main_thread_included(self):
+        for rel in self.files:
+            for root in (self.root, self.wt):
+                code, err = write(root, root / rel, content=status_text("planning"))
+                self.assertEqual(code, 2, (root, rel))
+                self.assertIn("only by the `mark` CLI", err)
+            self.assertEqual(write(self.wt, self.wt / rel, "designer")[0], 2, rel)
+
+    def test_edit_of_status_is_blocked(self):
+        code, _ = write(self.root, self.tdir / "status.md", tool="Edit",
+                        old_string="status: review-design", new_string="status: planning")
         self.assertEqual(code, 2)
-        self.assertIn("Illegal status move `designing` -> `planning`", err)
 
-    def test_edit_is_simulated(self):
-        payload = {"old_string": "status: designing", "new_string": "status: developing"}
-        code, err = write(self.root, self.status, tool="Edit", **payload)
-        self.assertEqual(code, 2)
-        self.assertIn("Illegal status move", err)
+    def test_main_thread_shell_writes_are_blocked(self):
+        for cmd in ("touch .mark/gates/0001-login.design-approved",
+                    "echo ok > .mark/gates/0001-login.design-approved",
+                    "cp /tmp/x .mark/features/0001-login/status.md",
+                    f"cd {self.wt} && tee .mark/features/0001-login/review-design.md < /dev/null"):
+            code, err = bash(self.root, cmd)
+            self.assertEqual(code, 2, cmd)
+            self.assertIn("only by the `mark` CLI", err)
 
-    def test_invalid_content_is_blocked(self):
-        code, err = write(self.root, self.status, content=status_text("designing", desc="x" * 201))
-        self.assertEqual(code, 2)
-        self.assertIn("`desc` is 201 chars", err)
+    def test_main_thread_shell_is_otherwise_free(self):
+        for cmd in ("git log > /tmp/log.txt", "touch notes.txt", "mark set 0001 planning --note 'a > b'",
+                    "cat .mark/gates/0001-login.ticket-approved > /tmp/copy"):
+            self.assertEqual(bash(self.root, cmd)[0], 0, cmd)
 
-    def test_status_cannot_change_in_worktree(self):
-        sh(self.root, "git", "add", ".")
-        wt = add_worktree(self.root, "feature", "0001-login")
-        code, err = write(wt, wt / ".mark/features/0001-login/status.md", content=status_text("review-design"))
-        self.assertEqual(code, 2)
-        self.assertIn("only changes in the main checkout", err)
-
-    def test_status_only_on_main_branch(self):
-        sh(self.root, "git", "checkout", "-q", "-b", "side")
-        code, err = write(self.root, self.status, content=status_text("review-design"))
-        self.assertEqual(code, 2)
-        self.assertIn("main checkout is on `side`", err)
-
-
-def merge_status(status, after):
-    return status_text(status, **{"merge-after": after, "leftover": "0"})
-
-
-class MergeAfterTest(unittest.TestCase):
-    def setUp(self):
-        self.root = make_repo()
-        add_ticket(self.root, "feature", "0002-dep", "testing", gates=["ticket-approved"])
-        self.tdir = add_ticket(self.root, "feature", "0001-login", "pending-merge", gates=["ticket-approved"])
-        self.status = self.tdir / "status.md"
-        self.status.write_text(merge_status("pending-merge", "[0002]"))
-
-    def test_removing_an_entry_is_blocked_adding_is_free(self):
-        code, err = write(self.root, self.status, content=merge_status("pending-merge", "[]"))
-        self.assertEqual(code, 2)
-        self.assertIn("removes `merge-after` entries (0002)", err)
-        add = merge_status("pending-merge", "[0002, b0009]")
-        self.assertEqual(write(self.root, self.status, content=add)[0], 0)
-
-    def test_passed_by_hand_needs_dependencies(self):
-        code, err = write(self.root, self.status, content=merge_status("passed", "[0002]"))
-        self.assertEqual(code, 2)
-        self.assertIn("0002-dep (testing)", err)
+    def test_roles_still_follow_their_scope_in_the_shell(self):
+        self.assertEqual(bash(self.wt, "touch frontend/x.ts", "coder-plan")[0], 2)
+        self.assertEqual(bash(self.wt, "touch frontend/x.ts", "coder-impl")[0], 0)
 
 
 BUDGET = """

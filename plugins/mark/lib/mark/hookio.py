@@ -76,8 +76,12 @@ def read_payload(stream=None) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def run(handler: Callable[[HookContext], None], stream=None) -> NoReturn:
-    """Entry point wrapper: resolve the project, then hand off to `handler`."""
+def run(handler: Callable[[HookContext], None], stream=None,
+        on_config_error: Callable[[dict[str, Any], Any, ConfigError], None] | None = None) -> NoReturn:
+    """Entry point wrapper: resolve the project, then hand off to `handler`.
+
+    A broken config blocks, unless `on_config_error(payload, root, exc)` decides otherwise
+    (returning allows)."""
     payload = read_payload(stream)
     root = find_project_root(payload.get("cwd"))
     if root is None:
@@ -85,6 +89,9 @@ def run(handler: Callable[[HookContext], None], stream=None) -> NoReturn:
     try:
         config = load_config(root)
     except ConfigError as exc:
-        block(str(exc))
+        if on_config_error is None:
+            block(str(exc))
+        on_config_error(payload, root, exc)
+        allow()
     handler(HookContext(payload=payload, config=config))
     allow()

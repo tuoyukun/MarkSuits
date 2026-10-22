@@ -239,12 +239,12 @@ def cmd_set(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
 
 
 def cmd_approve(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
-    opts, pos = _parse(args, set())
+    opts, pos = _parse(args, {"--to"})
     if opts is None or len(pos) != 1:
         _say(cfg, err, "cli.usage")
         return 2
     ctx = flow.load(cfg, pos[0])
-    res = flow.approve(ctx)
+    res = flow.approve(ctx, to=opts.get("--to"))
     if res.gate == flow.TICKET_GATE:
         _say(cfg, out, "approve.ticket", id=ctx.id, gate=f"{cfg.state_rel}/gates/{ctx.id}.{res.gate}")
         return _commit(cfg, ctx, f"{ctx.id}: opening approved", opts, out)

@@ -64,7 +64,7 @@ honestly is not a failure; hiding it is.
 
 | Situation | outcome |
 |---|---|
-| everything implemented, the ticket has `design.md` and you changed UI code | `design-qa` |
+| everything implemented, the ticket has `design.md` and you changed a path under `[design_qa] paths` in `.mark/config.toml` (UI code; `mark set` refuses `testing` otherwise) | `design-qa` |
 | everything implemented, otherwise | `testing` |
 | the plan has a hole, a prop is missing, or no verification entry point exists | `blocked-plan` |
 | the requirement itself is unclear | `blocked-unclear` |

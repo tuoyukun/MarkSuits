@@ -13,7 +13,8 @@ from pathlib import Path
 from ..general import PREFIX as LANE_PREFIX
 from ..gitutil import checkout_root, current_branch, git
 from .common import Env
-from .write import scope_block, worktree_block
+from .. import globs
+from .write import cli_only_rules, scope_block, worktree_block
 
 _SEGMENT_SPLIT = re.compile(r"&&|\|\||;|\|")
 
@@ -147,7 +148,7 @@ def _discards_work(env: Env, where: Path, args: list[str]) -> str | None:
     return None
 
 
-# Shell writes: `> f`, `>> f`, `tee f`, `sed -i … f`, `cp/mv … dest`. Quoted text is
+# Shell writes: `> f`, `>> f`, `tee f`, `touch f`, `sed -i … f`, `cp/mv … dest`. Quoted text is
 # dropped first, so a quoted target is never checked (allowed, like any unclear case).
 _QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"")
 _REDIRECT = re.compile(r"""(?:^|[^<>\d&])[\d&]?>>?\|?\s*([^\s<>&|;()`$*'"]+)""")
@@ -156,7 +157,7 @@ _REDIRECT = re.compile(r"""(?:^|[^<>\d&])[\d&]?>>?\|?\s*([^\s<>&|;()`$*'"]+)""")
 def _shell_targets(here: Path, segment: str, words: list[str]) -> list[str]:
     found = _REDIRECT.findall(_QUOTED.sub("''", segment))
     cmd, args = os.path.basename(words[0]), [w for w in words[1:] if not w.startswith("-")]
-    if cmd == "tee":
+    if cmd in ("tee", "touch"):
         found += args
     elif cmd == "sed" and any(w == "--in-place" or w.startswith("--in-place=")
                               or re.match(r"^-[a-zA-Z]*i", w) for w in words[1:]):
@@ -172,16 +173,21 @@ def _shell_targets(here: Path, segment: str, words: list[str]) -> list[str]:
 
 
 def shell_write_guard(env: Env) -> str | None:
-    """Subagents may not reach paths through the shell that Edit/Write would refuse."""
+    """Subagents may not reach paths through the shell that Edit/Write would refuse. The main
+    thread is held only to the files the `mark` CLI alone writes (gates, status, reviews...)."""
     command = str(env.tool_input.get("command") or "")
-    if env.role is None or ">" not in command and not re.search(r"\b(tee|sed|cp|mv)\b", command):
+    if ">" not in command and not re.search(r"\b(tee|touch|sed|cp|mv)\b", command):
         return None
     for here, segment, words in _commands(command, env.cwd):
         for target in _shell_targets(here, segment, words):
             loc = env.locate(target)
             if loc.rel is None:
                 continue
-            why = scope_block(env, loc) or worktree_block(env, loc)
+            if env.role is None:
+                hit = any(globs.match(g, loc.rel) for g in cli_only_rules(env))
+                why = env.t("guard.scope_cli", rel=loc.rel) if hit else None
+            else:
+                why = scope_block(env, loc) or worktree_block(env, loc)
             if why:
                 return env.t("guard.bash.shell_write", rel=loc.rel, why=why)
     return None
@@ -189,7 +195,8 @@ def shell_write_guard(env: Env) -> str | None:
 
 # `mark` subcommands that change ticket state. Subagents report outcomes in
 # their result; the orchestrator records them.
-MARK_WRITES = frozenset({"set", "approve", "reject", "claim", "commit", "dispatch", "unlock", "merge", "upgrade"})
+MARK_WRITES = frozenset({"set", "approve", "reject", "claim", "commit", "dispatch", "unlock", "merge",
+                         "upgrade", "general", "init"})
 
 
 def mark_guard(env: Env) -> str | None:

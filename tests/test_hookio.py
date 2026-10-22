@@ -73,5 +73,38 @@ class RunTest(unittest.TestCase):
         self.assertIn("mark_schema=99", err)
 
 
+class BrokenConfigTest(unittest.TestCase):
+    """A config that does not load must not lock the human out: they need to fix it."""
+
+    def setUp(self):
+        from tests._support import hook
+        self.hook = hook
+        self.root = make_project("mark_schema = 1\nlocale = 'en\n")  # broken TOML
+        self.config = str(self.root / ".mark" / "config.toml")
+
+    def run_group(self, group, agent=None, **payload):
+        payload = {"cwd": str(self.root), **payload}
+        if agent:
+            payload["agent_type"] = agent
+        return self.hook(group, payload)[0]
+
+    def test_prompts_still_reach_claude(self):
+        self.assertEqual(self.run_group("user-prompt", prompt="help me fix the config"), 0)
+
+    def test_main_thread_may_fix_the_config_and_use_bash(self):
+        self.assertEqual(self.run_group("pre-write", tool_name="Edit", tool_input={"file_path": self.config}), 0)
+        self.assertEqual(self.run_group("pre-write", tool_name="Edit",
+                                        tool_input={"file_path": ".mark/config.toml"}), 0)
+        self.assertEqual(self.run_group("pre-bash", tool_input={"command": "cat .mark/config.toml"}), 0)
+
+    def test_everything_else_stays_blocked(self):
+        self.assertEqual(self.run_group("pre-write", tool_name="Write",
+                                        tool_input={"file_path": str(self.root / "x.md")}), 2)
+        self.assertEqual(self.run_group("pre-write", "tester", tool_name="Edit",
+                                        tool_input={"file_path": self.config}), 2)
+        self.assertEqual(self.run_group("pre-bash", "coder-impl", tool_input={"command": "ls"}), 2)
+        self.assertEqual(self.run_group("pre-dispatch", tool_input={"subagent_type": "designer"}), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

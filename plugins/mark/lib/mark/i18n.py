@@ -157,25 +157,14 @@ MESSAGES["en"].update({
     "guard.ticket": (
         "Opening {kind} `{id}` has not been approved by a human (missing `{gate}`).\n"
         "Opening a ticket is a scheduling decision, not an agent decision. Stop and explain to the human what\n"
-        "you found, why it needs its own ticket, and the suggested priority. Only after explicit approval:\n"
-        "  touch {gate}"
+        "you found, why it needs its own ticket, and the suggested priority. The human approves it by typing\n"
+        "/mark:approve {id}; you cannot write `{gate}` yourself."
     ),
-    "guard.status.not_main": (
-        "`{rel}` is ticket state and only changes in the main checkout. Report the status change in your\n"
-        "result; the orchestrator records it on main."
-    ),
-    "guard.status.branch": (
-        "Ticket state only changes on `{main}`, but the main checkout is on `{branch}`.\n"
-        "  git checkout {main}"
-    ),
-    "guard.status.invalid": "This status.md would be invalid:\n{problems}",
-    "guard.status.merge_after": (
-        "This edit removes `merge-after` entries ({refs}) from `{rel}`. Declaring a dependency is free;\n"
-        "dropping one is a human decision. Ask the human to edit the file themselves."
-    ),
-    "guard.status.move": (
-        "Illegal status move `{old}` -> `{new}`. From `{old}` the allowed moves are: {allowed}.\n"
-        "Review gates cannot be skipped by editing status.md; use /mark:approve or /mark:reject."
+    "guard.scope_cli": (
+        "`{rel}` is written only by the `mark` CLI: it records a human decision or ticket state, so no tool\n"
+        "call may write it, the main thread's included. Use the command that owns it (`mark set`,\n"
+        "`mark approve`, `mark reject`, `mark claim`); approvals need the human to type /mark:approve <id>.\n"
+        "Never produce it another way."
     ),
     "guard.target.missing": (
         "Cannot tell which ticket this `{role}` dispatch is for. Put exactly one anchor in the prompt:\n"
@@ -250,7 +239,8 @@ MESSAGES["en"].update({
         "Fix what the error says, then `mark next {id}` and dispatch again."
     ),
     "guard.output.missing": (
-        "You (`{role}`) are about to stop, but required output is missing:\n{missing}\n"
+        "You (`{role}`) are about to stop, but required output is missing, or none of it was updated in\n"
+        "this round (files left from an earlier round do not count):\n{missing}\n"
         "Checked these ticket directories:\n{checked}\n"
         "Do not stop yet: write the missing file(s) at the paths listed under \"missing\" above, then finish. If a file does\n"
         "exist somewhere above, say where in your result and finish; do not create a second copy."
@@ -335,15 +325,12 @@ MESSAGES["zh-CN"].update({
     "guard.ticket": (
         "{kind} `{id}` 的建单还没有经过人同意（缺少 `{gate}`）。\n"
         "建单是排期决定，不归 agent。先停下，用人话向 Human 说明：发现了什么、为什么要单独立单、建议什么优先级。\n"
-        "得到明确同意之后，才写下凭证：\n  touch {gate}"
+        "由 Human 输入 /mark:approve {id} 批准；`{gate}` 不能由你来写。"
     ),
-    "guard.status.not_main": "`{rel}` 是工单状态，只能在主仓里改。把状态变更写进你的结论，由 orchestrator 在 main 上记录。",
-    "guard.status.branch": "工单状态只能在 `{main}` 上改，但主仓现在在 `{branch}` 上。\n  git checkout {main}",
-    "guard.status.invalid": "这样写 status.md 不合规：\n{problems}",
-    "guard.status.merge_after": "这次编辑会从 `{rel}` 删掉 `merge-after` 条目（{refs}）。声明依赖随时可以，撤销依赖要人来决定：请人亲手编辑这个文件。",
-    "guard.status.move": (
-        "非法的状态跳转 `{old}` -> `{new}`。从 `{old}` 只能跳到：{allowed}。\n"
-        "不能靠改 status.md 跳过人审闸门，请用 /mark:approve 或 /mark:reject。"
+    "guard.scope_cli": (
+        "`{rel}` 只能由 `mark` 命令写：它记录的是人的决定或工单状态，任何工具调用都不能写，主线程也不行。\n"
+        "请用对应的命令（`mark set`、`mark approve`、`mark reject`、`mark claim`）；批准需要 Human 亲自输入\n"
+        "/mark:approve <id>。不要用别的办法生成它。"
     ),
     "guard.target.missing": (
         "认不出这次派 `{role}` 是为哪张工单。请在 prompt 里放且只放一个锚点：\n"
@@ -403,7 +390,7 @@ MESSAGES["zh-CN"].update({
     ),
     "guard.dispatch.failed": "`{id}` 的 `{role}` 派发在 agent 启动前就失败了；锁已释放。按报错修好后，`mark next {id}` 再派一次。",
     "guard.output.missing": (
-        "你（`{role}`）正要结束，但必交产物缺失：\n{missing}\n"
+        "你（`{role}`）正要结束，但必交产物缺失，或者本轮一个都没有更新（上一轮留下的文件不算）：\n{missing}\n"
         "已查过这些工单目录：\n{checked}\n"
         "先别结束：把缺的文件写到上面「缺失」列出的路径，再结束。如果文件其实在上面某处，在结论里写明位置后直接结束，不要另写一份。"
     ),
@@ -433,7 +420,7 @@ _USAGE_EN = (
     "  mark dispatch <id> [--prev \"<text>\"] [--trigger \"<text>\"] [--retry]\n"
     "                                                 prepare the worktree, print the dispatch prompt\n"
     "  mark set <id> <status> [--note \"<text>\"] [--leftover N] [--merge-after <ids>] [--no-commit]\n"
-    "  mark approve <id> [--no-commit]                human only (/mark:approve)\n"
+    "  mark approve <id> [--to <status>] [--no-commit]  human only (/mark:approve <id> [<status>])\n"
     "  mark reject <id> --item \"<text>\"... [--to planning] [--no-commit]   human only (/mark:reject)\n"
     "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
     "  mark commit <id> [-m \"<message>\"]             commit + push the ticket's state on main\n"
@@ -453,7 +440,7 @@ _USAGE_ZH = (
     "  mark dispatch <编号> [--prev \"<文本>\"] [--trigger \"<文本>\"] [--retry]\n"
     "                                                 备好 worktree，输出派活 prompt\n"
     "  mark set <编号> <状态> [--note \"<文本>\"] [--leftover N] [--merge-after <编号>] [--no-commit]\n"
-    "  mark approve <编号> [--no-commit]              仅限人（/mark:approve）\n"
+    "  mark approve <编号> [--to <状态>] [--no-commit] 仅限人（/mark:approve <编号> [<状态>]）\n"
     "  mark reject <编号> --item \"<文本>\"... [--to planning] [--no-commit]   仅限人（/mark:reject）\n"
     "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
     "  mark commit <编号> [-m \"<说明>\"]               在 main 上提交并推送工单状态\n"
@@ -551,11 +538,18 @@ MESSAGES["en"].update({
         "Report it to the human. The lane is kept at {wt}."
     ),
     "general.done": "`{branch}` landed and the lane was removed.",
-    "next.blocked_spec": "{id} is `blocked-spec`: the design contract has a problem. Report it to the human and stop. /mark:approve {id} sends it back to the designer.",
-    "next.blocked_plan": "{id} is `blocked-plan`: the plan has a hole. Report it to the human and stop. /mark:approve {id} sends it back to planning.",
+    "next.blocked_spec": (
+        "{id} is `blocked-spec`: the design contract has a problem. Report it to the human and stop.\n"
+        "/mark:approve {id} sends it back to the designer; /mark:approve {id} developing goes on as it is."
+    ),
+    "next.blocked_plan": (
+        "{id} is `blocked-plan`: the plan has a hole. Report it to the human and stop.\n"
+        "/mark:approve {id} sends it back to planning; /mark:approve {id} developing goes on as it is."
+    ),
     "next.blocked_unclear": (
-        "{id} is `blocked-unclear`: the requirement is not clear enough. Clarify with the human, update the\n"
-        "requirement/bug file, then move it where the human decides: `mark set {id} <status>`."
+        "{id} is `blocked-unclear`: the requirement is not clear enough. Clarify with the human and update the\n"
+        "requirement/bug file with them, then stop. The human picks where it goes next:\n"
+        "/mark:approve {id} <designing | planning | developing>."
     ),
     "next.done": "{id} is `{status}`. Nothing to do.",
     "next.invalid": "{id}: status `{status}` is not valid. Run `mark status --check`.",
@@ -606,7 +600,23 @@ MESSAGES["en"].update({
     "flow.iso.push_failed": "Could not push {branch} to origin. Fix the remote and retry; the work must not live on one machine only.",
     "flow.invalid_status": "The new status.md would be invalid:\n{problems}",
     "flow.illegal": "Illegal move `{old}` -> `{new}`. Allowed from `{old}`: {allowed}.",
-    "flow.human_gate": "{id} is at `{status}`, a human review gate. Only /mark:approve or /mark:reject move it.",
+    "flow.human_gate": (
+        "{id} is at `{status}`, which waits on the human. Only /mark:approve or /mark:reject (typed by the\n"
+        "human) move it on; `mark merge` lands a `pending-merge` ticket. Report and stop."
+    ),
+    "flow.qa_not_passed": (
+        "{id}: design-qa.md does not say `<!-- mark:qa passed -->`, so it cannot go to testing. A blocked QA\n"
+        "goes back to coder-impl (`mark set {id} failed-impl`), or to the human after the round limit."
+    ),
+    "flow.no_human_to": (
+        "Sending {id} to `{to}` needs the human to choose it: nobody typed `/mark:approve {id} {to}`.\n"
+        "Ask the human to type it. Never pick the status for them."
+    ),
+    "flow.approve_to": "{id} is at `{status}`; `--to {to}` is not possible here. Possible: {allowed}.",
+    "flow.approve_need_to": (
+        "{id} is at `{status}`: the human must say where it goes. Ask them to type\n"
+        "/mark:approve {id} <status>, one of: {allowed}."
+    ),
     "flow.need_design_qa": "{id} has a design and its branch changes UI paths, so it goes through design QA before testing:\n  mark set {id} design-qa",
     "flow.qa_cap": (
         "{id}: design QA is still blocked after round {n}. Stop iterating; the human decides. Record it and report:\n"
@@ -746,11 +756,17 @@ MESSAGES["zh-CN"].update({
         "报告给人。车道保留在 {wt}。"
     ),
     "general.done": "`{branch}` 已合入，车道已拆除。",
-    "next.blocked_spec": "{id} 是 `blocked-spec`：设计契约有问题。报告 Human 后停下。/mark:approve {id} 会退回 designer 返工。",
-    "next.blocked_plan": "{id} 是 `blocked-plan`：方案有洞。报告 Human 后停下。/mark:approve {id} 会退回出方案的环节。",
+    "next.blocked_spec": (
+        "{id} 是 `blocked-spec`：设计契约有问题。报告 Human 后停下。\n"
+        "/mark:approve {id} 退回 designer 返工；/mark:approve {id} developing 按现状继续。"
+    ),
+    "next.blocked_plan": (
+        "{id} 是 `blocked-plan`：方案有洞。报告 Human 后停下。\n"
+        "/mark:approve {id} 退回出方案的环节；/mark:approve {id} developing 按现状继续。"
+    ),
     "next.blocked_unclear": (
-        "{id} 是 `blocked-unclear`：需求不够清楚。和 Human 澄清并更新需求/bug 文件，\n"
-        "再按 Human 的决定推进：`mark set {id} <状态>`。"
+        "{id} 是 `blocked-unclear`：需求不够清楚。和 Human 澄清，一起更新需求/bug 文件，然后停下。\n"
+        "去向由 Human 决定：/mark:approve {id} <designing | planning | developing>。"
     ),
     "next.done": "{id} 已是 `{status}`，无事可做。",
     "next.invalid": "{id}：状态 `{status}` 不合法。请跑 `mark status --check`。",
@@ -800,7 +816,23 @@ MESSAGES["zh-CN"].update({
     "flow.iso.push_failed": "无法把 {branch} 推到 origin。修好远端后重试；产出不能只存在一台机器上。",
     "flow.invalid_status": "新的 status.md 不合规：\n{problems}",
     "flow.illegal": "非法跳转 `{old}` -> `{new}`。从 `{old}` 只能到：{allowed}。",
-    "flow.human_gate": "{id} 停在 `{status}`，这是人审闸门。只有 /mark:approve 或 /mark:reject 能推动它。",
+    "flow.human_gate": (
+        "{id} 停在 `{status}`，这一步等人决定。只有 Human 输入的 /mark:approve 或 /mark:reject 能推动它；\n"
+        "`pending-merge` 由 `mark merge` 合入。报告后停下。"
+    ),
+    "flow.qa_not_passed": (
+        "{id}：design-qa.md 里没有 `<!-- mark:qa passed -->`，不能进入测试。验收未通过就退回 coder-impl\n"
+        "（`mark set {id} failed-impl`），超过轮次上限交给 Human。"
+    ),
+    "flow.no_human_to": (
+        "把 {id} 推到 `{to}` 需要 Human 亲自选择：没有人输入过 `/mark:approve {id} {to}`。\n"
+        "请 Human 亲自输入。绝不能替人选去向。"
+    ),
+    "flow.approve_to": "{id} 停在 `{status}`，这里不能用 `--to {to}`。可选：{allowed}。",
+    "flow.approve_need_to": (
+        "{id} 停在 `{status}`：去向要由 Human 指定。请 Human 输入\n"
+        "/mark:approve {id} <状态>，可选：{allowed}。"
+    ),
     "flow.need_design_qa": "{id} 有设计稿，且分支改到了 UI 路径，测试前要先过集成态设计验收：\n  mark set {id} design-qa",
     "flow.qa_cap": "{id}：集成态设计验收第 {n} 轮仍未通过。不再迭代，交给 Human 决定。记录后报告：\n  mark set {id} blocked-spec",
     "flow.unmerged": "`{branch}` 还有 {n} 个提交不在 {main} 上。`passed` 意味着代码已在 {main}：先合并并推送。",
@@ -950,6 +982,10 @@ MESSAGES["en"].update({
         "The lane {wt} still has conflict markers in:\n{files}\n"
         "Resolve them, commit in the lane, then merge again."
     ),
+    "general.control": (
+        "The lane changes workflow state that only the `mark` CLI writes on main (gates, ticket status,\n"
+        "reviews, locks):\n{files}\nRemove these changes from the lane; a lane never carries a decision."
+    ),
 })
 MESSAGES["zh-CN"].update({
     "upgrade.stale": "> Mark 项目文件来自 v{old}，插件已是 v{new}。运行 /mark:upgrade 升级。",
@@ -985,5 +1021,9 @@ MESSAGES["zh-CN"].update({
     "general.markers": (
         "车道 {wt} 里这些文件还有冲突标记：\n{files}\n"
         "解决后在车道里提交，再合并。"
+    ),
+    "general.control": (
+        "车道改动了只能由 `mark` 命令在 main 上写的流程状态（gates、工单状态、评审记录、locks）：\n{files}\n"
+        "请从车道里撤掉这些改动；车道不携带任何决定。"
     ),
 })

@@ -21,10 +21,15 @@ KIND_DIRS = {FEATURE: "features", BUG: "bugs"}
 # Whose move it is in each status.
 TERMINAL = frozenset({"passed", "superseded"})
 HUMAN = frozenset({
-    "review-design", "review-plan", "pending-merge",
+    "review-design", "review-plan",
     "blocked-plan", "blocked-spec", "blocked-unclear",
 })
 AGENT = frozenset({"designing", "planning", "developing", "design-qa", "testing", "failed-impl"})
+# The orchestrator runs `mark merge`; a failed merge stops for the human (`mark next`).
+MERGE = "pending-merge"
+# Statuses `mark set` cannot leave: only a human command (approve / reject) moves them on,
+# or `mark merge` (pending-merge -> passed).
+HELD = HUMAN | {MERGE}
 
 INITIAL = {FEATURE: "designing", BUG: "planning"}
 
@@ -117,6 +122,6 @@ def side(status: str) -> str:
         return "terminal"
     if status in HUMAN:
         return "human"
-    if status in AGENT:
+    if status in AGENT or status == MERGE:
         return "agent"
     return "unknown"

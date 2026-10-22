@@ -265,6 +265,72 @@ class LifecycleTest(unittest.TestCase):
         self.assertEqual(self.stop()[0], 0)
         self.assertTrue(self.lock.exists())
 
+    def transcript(self, ticket_id):
+        path = self.root / f"agent-{ticket_id}.jsonl"
+        line = {"type": "user", "message": {"role": "user", "content": anchor("features", ticket_id)}}
+        path.write_text(json.dumps(line) + "\n" + json.dumps({"type": "assistant"}) + "\n")
+        return str(path)
+
+    def test_transcript_tells_parallel_dispatches_apart(self):
+        add_ticket(self.root, "feature", "0002-b", "developing", gates=ALL_GATES)
+        wt2 = add_worktree(self.root, "feature", "0002-b")
+        dispatch(self.root, "coder-impl", anchor("features", "0001-a"))
+        dispatch(self.root, "coder-impl", anchor("features", "0002-b"))
+        (wt2 / ".mark/features/0002-b/handoff.md").write_text("done")
+        payload = {"hook_event_name": "SubagentStop", "cwd": str(self.root), "agent_id": "agent-2",
+                   "agent_type": "mark:coder-impl", "agent_transcript_path": self.transcript("0002-b")}
+        self.assertEqual(hook("subagent-stop", payload)[0], 0)
+        self.assertFalse((self.root / ".mark/locks/0002-b.coder-impl.lock").exists())
+        self.assertTrue(self.lock.exists())
+        result = json.loads((self.root / ".mark/locks/0002-b.coder-impl.result.json").read_text())
+        self.assertEqual(result["result"], "PASSED")
+
+    def test_completed_foreground_post_settles_instead_of_binding(self):
+        add_ticket(self.root, "feature", "0002-b", "developing", gates=ALL_GATES)
+        add_worktree(self.root, "feature", "0002-b")
+        dispatch(self.root, "coder-impl", anchor("features", "0001-a"))
+        dispatch(self.root, "coder-impl", anchor("features", "0002-b"))
+        self.assertEqual(self.stop()[0], 0)                       # ambiguous, no transcript: left alone
+        (self.wt / ".mark/features/0001-a/handoff.md").write_text("done")
+        hook("post-dispatch", {"hook_event_name": "PostToolUse", "tool_name": "Agent", "cwd": str(self.root),
+                               "tool_input": {"subagent_type": "coder-impl", "prompt": anchor("features", "0001-a")},
+                               "tool_response": {"agentId": "agent-1", "status": "completed",
+                                                 "content": [{"type": "text", "text": "outcome: testing"}]}})
+        self.assertFalse(self.lock.exists())                       # never a bound lock for a finished agent
+        result = json.loads((self.root / ".mark/locks/0001-a.coder-impl.result.json").read_text())
+        self.assertEqual((result["result"], result["conclusion"]), ("PASSED", "outcome: testing"))
+
+    def test_rework_needs_an_updated_output(self):
+        handoff = self.wt / ".mark/features/0001-a/handoff.md"
+        handoff.write_text("from the last round")
+        old = time.time() - 600
+        os.utime(handoff, (old, old))
+        self.start()
+        code, err = self.stop()
+        self.assertEqual(code, 2)
+        self.assertIn("none of it was updated", err)
+        handoff.write_text("this round")
+        self.assertEqual(self.stop()[0], 0)
+        self.assertFalse(self.lock.exists())
+
+    def test_rework_unchanged_twice_is_recorded_failed(self):
+        handoff = self.wt / ".mark/features/0001-a/handoff.md"
+        handoff.write_text("from the last round")
+        old = time.time() - 600
+        os.utime(handoff, (old, old))
+        self.start()
+        self.assertEqual(self.stop(active=True)[0], 0)
+        result = json.loads((self.root / ".mark/locks/0001-a.coder-impl.result.json").read_text())
+        self.assertEqual(result["result"], "FAILED")
+
+    def test_internal_agents_and_port_lock_are_ignored(self):
+        locks = self.root / ".mark/locks"
+        locks.mkdir(parents=True, exist_ok=True)
+        (locks / "ports.lock").write_text("")
+        self.assertEqual(hook("subagent-stop", {"cwd": str(self.root), "agent_id": "x", "agent_type": ""})[0], 0)
+        self.assertTrue((locks / "ports.lock").exists())
+        self.assertFalse((locks / "ports.result.json").exists())
+
     def test_unrelated_agent_stop_is_ignored(self):
         self.assertEqual(hook("subagent-stop", {"cwd": str(self.root), "agent_id": "zzz"})[0], 0)
 
@@ -283,6 +349,12 @@ class BashTest(unittest.TestCase):
         cls.root = make_repo()
         add_ticket(cls.root, "feature", "0001-a", "developing", gates=ALL_GATES)
         cls.wt = add_worktree(cls.root, "feature", "0001-a")
+
+    def test_subagents_cannot_run_lane_or_init_commands(self):
+        for cmd in ("mark general new", "mark general merge chore/general-x", "mark general drop chore/general-x --force",
+                    "mark init --dry-run"):
+            self.assertEqual(bash(self.wt, cmd, "coder-impl")[0], 2, cmd)
+            self.assertEqual(bash(self.root, cmd)[0], 0, cmd)
 
     def test_subagent_commit_on_main_is_blocked(self):
         self.assertEqual(bash(self.root, "git add . && git commit -m x", "coder-impl")[0], 2)

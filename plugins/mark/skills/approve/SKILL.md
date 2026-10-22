@@ -15,13 +15,17 @@ allowed-tools: Bash(mark:*)
 
 Argument: `$ARGUMENTS`
 
-1. If no ticket id was given and exactly one ticket waits on the human, use it; if several
-   do, ask which one.
-2. Run `mark approve <id>`. It writes the gate, marks open review rounds settled, moves the
-   status and pushes. What it approves depends on the status:
+1. The approval counts only for the ticket the human named. If `$ARGUMENTS` has no ticket id,
+   list the tickets that wait on the human and ask them to type `/mark:approve <id>`; stop.
+2. Run `mark approve <id>`, adding `--to <status>` when the human typed a status after the id
+   (`/mark:approve 0012 developing`). It writes the gate, marks open review rounds settled,
+   moves the status and pushes. What it approves depends on the status:
    - opening not yet approved: approves opening the ticket;
    - `review-design` → `planning`; `review-plan` → `developing`;
-   - `blocked-spec` → back to `designing`; `blocked-plan` → back to `planning`.
+   - `blocked-spec` → back to `designing`, or `developing` if the human typed it;
+   - `blocked-plan` → back to `planning`, or `developing` if the human typed it;
+   - `blocked-unclear` → only where the human typed (`designing`, `planning` or `developing`).
+   Never add a status the human did not type.
 3. If it refuses, tell the human why in plain words and stop. Do not retry another way.
 4. Then keep looping (`mark next`, dispatch, record) until the next human gate or a stop,
    reporting after each step.

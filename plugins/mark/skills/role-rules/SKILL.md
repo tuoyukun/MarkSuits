@@ -50,7 +50,8 @@ Hooks block most of these with exit 2. The rest are on you.
   If you think a hook, role file or template is wrong, say why in your report.
 - Write anything in the main checkout, commit on main, or push main.
 - Run state-changing `mark` commands (`set`, `approve`, `reject`, `claim`, `commit`,
-  `dispatch`, `unlock`). You report an outcome; the orchestrator records it.
+  `dispatch`, `unlock`, `merge`, `general`, `init`, `upgrade`). You report an outcome; the
+  orchestrator records it.
 - Write outside your role's scope. When a hook blocks a write, do not route around it with
   Bash (`cat >`, `sed -i`, `cp`): that is the same violation by another door. Report what
   you needed and why.

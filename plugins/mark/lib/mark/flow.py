@@ -549,6 +549,8 @@ def ensure_isolation(ctx: Ctx) -> list[tuple[str, dict]]:
 # --------------------------------------------------------------------------
 
 def _owner(kind: str, status: str) -> str:
+    if status == states.MERGE:
+        return "orchestrator"
     if status in states.AGENT:
         return states.ROLE_FOR_STATUS[kind].get(status, "-")
     return "human" if status in states.HUMAN else "-"
@@ -596,19 +598,23 @@ def _move(ctx: Ctx, new: str, note: str | None, extra: dict[str, str] | None = N
 
 def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None = None,
                add_after: list[str] | None = None) -> str:
-    """Orchestrator records an outcome. Human gates are not movable from here."""
+    """Orchestrator records an outcome. A status that waits on the human (review gates,
+    `blocked-*`, `pending-merge`) is left only through `mark approve` / `mark reject` (human
+    token) or `mark merge` (`passed`); `superseded` stays open to everyone."""
     if _is_git(ctx):
         _require_main_branch(ctx)
     old = ctx.ticket.status
-    if old in ("review-design", "review-plan") and new != "superseded":
+    if old in states.HELD and new not in ("superseded", old) and not (old == states.MERGE and new == "passed"):
         raise FlowError("flow.human_gate", status=old, id=ctx.id)
+    if new == "testing" and old == "design-qa" and qa_result(ctx) != "passed":
+        raise FlowError("flow.qa_not_passed", id=ctx.id)
     if new == "testing" and old in ("developing", "failed-impl") and design_qa_needed(ctx) \
             and qa_result(ctx) != "passed":
         raise FlowError("flow.need_design_qa", id=ctx.id)
     if old == "design-qa" and new == "failed-impl" and (n := qa_round(ctx)) >= QA_MAX_ROUNDS:
         raise FlowError("flow.qa_cap", id=ctx.id, n=n)
     if add_after:
-        # Declaring a dependency is free; removing one is a human edit (status guard).
+        # Declaring a dependency is free; removing one is a human edit (no tool call writes status.md).
         bad = [r for r in add_after if tickets.parse_merge_after(f"[{r}]") is None]
         if bad:
             raise FlowError("flow.bad_merge_after", refs=", ".join(bad))
@@ -632,8 +638,10 @@ def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None
 # Human decisions
 # --------------------------------------------------------------------------
 
-def _require_human(ctx: Ctx, verb: str) -> None:
-    if not human.consume(ctx.cfg, (verb,), ctx.id):
+def _require_human(ctx: Ctx, verb: str, word: str | None = None) -> None:
+    if not human.consume(ctx.cfg, (verb,), ctx.id, word=word):
+        if word:
+            raise FlowError("flow.no_human_to", id=ctx.id, to=word)
         raise FlowError("flow.no_human", verb=verb, id=ctx.id)
 
 
@@ -646,11 +654,12 @@ def _write_gate(ctx: Ctx, gate: str) -> Path:
 
 
 APPROVE = {
-    # status: (gate written, review settled, next status)
+    # status: (gate written, review settled, default next status; None: the human must name one)
     "review-design": ("design-approved", "design", "planning"),
     "review-plan": ("plan-approved", "plan", "developing"),
     "blocked-spec": (None, None, "designing"),
     "blocked-plan": (None, None, "planning"),
+    "blocked-unclear": (None, None, None),
 }
 
 
@@ -664,18 +673,35 @@ class Outcome:
     review: str | None = None
 
 
-def approve(ctx: Ctx) -> Outcome:
+def approve_targets(ctx: Ctx) -> list[str]:
+    """Where `mark approve --to` may send a blocked ticket: its legal moves."""
+    return sorted(states.TRANSITIONS[ctx.kind].get(ctx.ticket.status, frozenset()) - {"superseded"})
+
+
+def approve(ctx: Ctx, to: str | None = None) -> Outcome:
+    """Human approval. A blocked ticket goes where the human said: `/mark:approve <id> <status>`
+    puts the status in the token, and `to` must match it."""
     if _is_git(ctx):
         _require_main_branch(ctx)
     status = ctx.ticket.status
     if not ctx.has_gate(TICKET_GATE):
+        if to:
+            raise FlowError("flow.approve_to", id=ctx.id, status=status, to=to, allowed="-")
         _require_human(ctx, "approve")
         _write_gate(ctx, TICKET_GATE)
         return Outcome(status, status, gate=TICKET_GATE)
     if status not in APPROVE or (ctx.kind == states.BUG and status == "blocked-spec"):
         raise FlowError("flow.approve_nothing", status=status, id=ctx.id)
     gate, review, new = APPROVE[status]
-    _require_human(ctx, "approve")
+    if to:
+        if gate or to not in approve_targets(ctx):
+            allowed = ", ".join(approve_targets(ctx)) if not gate else "-"
+            raise FlowError("flow.approve_to", id=ctx.id, status=status, to=to, allowed=allowed)
+        new = to
+    if new is None:
+        raise FlowError("flow.approve_need_to", id=ctx.id, status=status,
+                        allowed=", ".join(approve_targets(ctx)))
+    _require_human(ctx, "approve", word=to)
     out = Outcome(status, new, gate=gate)
     if review:
         out.rounds = reviews.settle(ctx.review_path(review), ctx.cfg.locale)

@@ -10,12 +10,13 @@
 | `/mark:feature <描述>` | orchestrator 先和你评审需求，你同意后开单，并跑第一步 |
 | `/mark:feature <编号>` | 把该 feature 再推进一步 |
 | `/mark:fix <描述或编号>` | 开 bug 单或继续推进，一路跑到 `passed`（无人审闸门） |
-| `/mark:approve <编号>` | 放行开单、设计、方案，或让阻塞的工单原路退回；随后继续推进 |
+| `/mark:approve <编号> [<状态>]` | 放行开单、设计、方案，或决定阻塞的工单下一步去哪；随后继续推进 |
 | `/mark:reject <编号> <意见>` | 带着你的意见把设计、方案或已完成的分支打回；随后继续推进 |
 | `/mark:status` | 看板：哪些在等你、哪些在进行中 |
 | `/mark:general <改动>` | 不属于任何工单的文档/配置改动：orchestrator 在一次性车道上改完，经回归合入。代码永远不走这条路 |
 
-只有人亲手输入的放行才算数。agent 无法放行任何东西。
+只有人亲手输入、并写明工单编号的放行才算数（`/mark:approve 0012`）。agent 无法放行任何东西。
+`/mark:feature`、`/mark:fix` 对开单的批准在 2 小时内有效。
 
 ## 两条链
 
@@ -36,7 +37,7 @@ bug:     planning → developing → testing → pending-merge → passed
 | `testing` | tester | 端到端测试、`verdict.md` |
 | `failed-impl` | coder-impl | 修复 `FAIL-N` / `D-N` / 你的合并意见 |
 | `pending-merge` | orchestrator | `mark merge`；失败时由**你**决定（重试或打回） |
-| `blocked-*` | **你** | 看原因；`/mark:approve` 让它原路退回 |
+| `blocked-*` | **你** | 看原因；`/mark:approve <编号>` 原路退回，`/mark:approve <编号> developing` 按现状继续；`blocked-unclear` 必须写明状态（`designing`、`planning` 或 `developing`） |
 
 ## 东西放在哪
 

@@ -5,10 +5,12 @@ The orchestrator runs the CLI for them, so the CLI needs evidence that a human
 asked. The UserPromptSubmit hook sees the raw text a person typed (models
 cannot trigger that event) and records one token per command:
 
-    <state>/locks/human/<verb>-<time>-<pid>.json   {"verb", "arg", "at"}
+    <state>/locks/human/<verb>-<time>-<pid>.json   {"verb", "arg", "rest", "at"}
 
-`mark approve|reject|claim` consume a matching token. Tokens expire after
-TOKEN_TTL. Nobody may write that directory through the file tools (engine-fixed
+`arg` is the ticket the person named and `rest` the words after it, so `mark approve --to
+<status>` can check that the person chose that status. `mark approve|reject` need a token that
+names the ticket; `mark claim` takes any `feature`/`fix` token (the number does not exist
+yet), which is why those expire sooner. Tokens expire after TOKEN_TTL. Nobody may write that directory through the file tools (engine-fixed
 write rule), and Bash commands that name it are blocked.
 """
 from __future__ import annotations
@@ -21,9 +23,9 @@ from pathlib import Path
 
 from .config import MarkConfig
 
-TOKEN_TTL = 12 * 3600
-VERBS = ("approve", "reject", "feature", "fix")
-_PROMPT_RE = re.compile(r"^\s*/(?:mark:)?(approve|reject|feature|fix)\b[ \t]*(\S*)")
+TOKEN_TTL = {"approve": 12 * 3600, "reject": 12 * 3600, "feature": 2 * 3600, "fix": 2 * 3600}
+VERBS = tuple(TOKEN_TTL)
+_PROMPT_RE = re.compile(r"^\s*/(?:mark:)?(approve|reject|feature|fix)\b[ \t]*(\S*)([^\n]*)")
 _TICKET_REF_RE = re.compile(r"^b?\d{4}(?:-[a-z0-9-]+)?$")
 
 
@@ -31,36 +33,41 @@ def token_dir(cfg: MarkConfig) -> Path:
     return cfg.state_dir / "locks" / "human"
 
 
-def parse_prompt(prompt: str) -> tuple[str, str] | None:
-    """`/mark:approve 0012` -> ('approve', '0012'). None if not a Mark command."""
+def parse_prompt(prompt: str) -> tuple[str, str, list[str]] | None:
+    """`/mark:approve 0012 planning` -> ('approve', '0012', ['planning']). None if not a Mark command."""
     m = _PROMPT_RE.match(prompt or "")
-    return (m.group(1), m.group(2)) if m else None
+    if not m:
+        return None
+    rest = [w.strip(".,;:!?。，；：！？`'\"") for w in m.group(3).split()][:20]
+    return m.group(1), m.group(2), [w for w in rest if w]
 
 
 def record(cfg: MarkConfig, prompt: str, now: float | None = None) -> Path | None:
     parsed = parse_prompt(prompt)
     if parsed is None:
         return None
-    verb, arg = parsed
+    verb, arg, rest = parsed
     if verb in ("feature", "fix") and _TICKET_REF_RE.match(arg):
         return None  # resuming an existing ticket opens nothing
     now = time.time() if now is None else now
     d = token_dir(cfg)
     d.mkdir(parents=True, exist_ok=True)
     path = d / f"{verb}-{int(now * 1000)}-{os.getpid()}.json"
-    path.write_text(json.dumps({"verb": verb, "arg": arg, "at": now}) + "\n", encoding="utf-8")
+    path.write_text(json.dumps({"verb": verb, "arg": arg, "rest": rest, "at": now}) + "\n", encoding="utf-8")
     return path
 
 
 def _matches(arg: str, ticket_id: str | None) -> bool:
-    if ticket_id is None or not arg:
+    """A token for a ticket must name it; only `claim` (no ticket yet) takes any token."""
+    if ticket_id is None:
         return True
-    return ticket_id == arg or ticket_id.startswith(arg + "-")
+    return bool(arg) and (ticket_id == arg or ticket_id.startswith(arg + "-"))
 
 
 def consume(cfg: MarkConfig, verbs: tuple[str, ...], ticket_id: str | None = None,
-            now: float | None = None) -> bool:
-    """Use up the newest live token for one of `verbs` that names `ticket_id`."""
+            now: float | None = None, word: str | None = None) -> bool:
+    """Use up the newest live token for one of `verbs` that names `ticket_id` (and, with `word`,
+    whose text after the ticket contains it)."""
     now = time.time() if now is None else now
     d = token_dir(cfg)
     try:
@@ -73,8 +80,10 @@ def consume(cfg: MarkConfig, verbs: tuple[str, ...], ticket_id: str | None = Non
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if now - float(data.get("at", 0)) > TOKEN_TTL:
+        if now - float(data.get("at", 0)) > TOKEN_TTL.get(str(data.get("verb")), 0):
             path.unlink(missing_ok=True)
+            continue
+        if word is not None and word not in data.get("rest", []):
             continue
         if data.get("verb") in verbs and _matches(str(data.get("arg", "")), ticket_id):
             path.unlink(missing_ok=True)

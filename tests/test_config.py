@@ -73,5 +73,24 @@ class LoadConfigTest(unittest.TestCase):
             load_config(root)
 
 
+class WorkflowDefaultsTest(unittest.TestCase):
+    def cfg(self, extra):
+        return load_config(make_project('mark_schema = 1\n' + extra))
+
+    def test_one_key_replaces_only_its_default(self):
+        cfg = self.cfg('[gates]\ntester = ""\n[outputs]\ndesigner = ["design.md"]\n')
+        self.assertEqual(cfg.gates, {"coder-plan": "design-approved", "coder-impl": "plan-approved"})
+        self.assertEqual(cfg.outputs["designer"], ["design.md"])
+        self.assertEqual(cfg.outputs["tester"], ["verdict.md"])
+
+    def test_empty_list_requires_nothing(self):
+        self.assertEqual(self.cfg('[outputs]\ntester = []\n').outputs["tester"], [])
+
+    def test_schema_must_be_an_integer(self):
+        with self.assertRaises(ConfigError):
+            load_config(make_project('mark_schema = "one"\n'))
+
+
+
 if __name__ == "__main__":
     unittest.main()

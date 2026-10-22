@@ -8,7 +8,7 @@ Groups (registered in hooks/hooks.json):
   pre-bash       PreToolUse  Bash                               -> block (exit 2)
   post-dispatch  PostToolUse Agent|Task                         -> bind lock, never blocks
   dispatch-failed PostToolUseFailure Agent|Task                 -> drop the lock, tell Claude why (exit 2)
-  post-write     PostToolUse Edit|Write|MultiEdit               -> reminder (exit 2 = feedback only)
+  post-write     PostToolUse Edit|Write|MultiEdit|NotebookEdit  -> reminder (exit 2 = feedback only)
   subagent-stop  SubagentStop                                   -> keep subagent running (exit 2)
   user-prompt    UserPromptSubmit                               -> record human commands, never blocks
 
@@ -26,7 +26,8 @@ from typing import NoReturn
 from . import human
 from .guards import bash, dispatch, locks, write
 from .guards.common import Env, first_block
-from .hookio import EXIT_ALLOW, EXIT_BLOCK, HookContext, block, run
+from .config import CONFIG_RELPATH
+from .hookio import EXIT_ALLOW, EXIT_BLOCK, HookContext, block, normalize_agent_type, run
 
 GROUPS = {
     "pre-write": write.PRE_WRITE,
@@ -76,10 +77,30 @@ def handler_for(group: str):
     return handle
 
 
+def config_broken(group: str):
+    """A config that does not load must not lock the human out of the project: only dispatches,
+    subagents and writes other than the fix itself stay blocked."""
+    def handle(payload: dict, root, exc) -> None:
+        message = (f"Mark config is broken: {exc}\n"
+                   "Fix .mark/config.toml first; until then no role may be dispatched.")
+        main_thread = normalize_agent_type(payload.get("agent_type")) is None
+        if group == "pre-dispatch" or (group == "pre-bash" and not main_thread):
+            block(message)
+        if group == "pre-write":
+            target = str((payload.get("tool_input") or {}).get("file_path") or "")
+            fixing = main_thread and target and \
+                os.path.realpath(os.path.join(str(payload.get("cwd") or ""), target)) == \
+                os.path.realpath(root / CONFIG_RELPATH)
+            if not fixing:
+                block(message)
+        print(f"[mark] {message}", file=sys.stderr)
+    return handle
+
+
 def main(argv: list[str] | None = None) -> NoReturn:
     argv = sys.argv[1:] if argv is None else argv
     group = argv[0] if argv else ""
     if group not in ("post-dispatch", "user-prompt") and group not in GROUPS:
         print(f"[mark] unknown hook group {group!r}", file=sys.stderr)
         sys.exit(EXIT_ALLOW)
-    run(handler_for(group))
+    run(handler_for(group), on_config_error=config_broken(group))

@@ -64,8 +64,9 @@ class HumanTokenTest(unittest.TestCase):
         self.cfg = load_config(self.root)
 
     def test_parse(self):
-        self.assertEqual(human.parse_prompt("/mark:approve 0012"), ("approve", "0012"))
-        self.assertEqual(human.parse_prompt("  /reject b0003 too slow"), ("reject", "b0003"))
+        self.assertEqual(human.parse_prompt("/mark:approve 0012"), ("approve", "0012", []))
+        self.assertEqual(human.parse_prompt("  /reject b0003 too slow"), ("reject", "b0003", ["too", "slow"]))
+        self.assertEqual(human.parse_prompt("/mark:approve 0012 planning。\nmore"), ("approve", "0012", ["planning"]))
         self.assertIsNone(human.parse_prompt("please approve 0012"))
         self.assertIsNone(human.parse_prompt("/mark:status"))
 
@@ -81,8 +82,23 @@ class HumanTokenTest(unittest.TestCase):
         self.assertFalse(human.consume(self.cfg, ("approve",), "0012-x"))
 
     def test_tokens_expire(self):
-        human.record(self.cfg, "/mark:approve", now=time.time() - human.TOKEN_TTL - 1)
+        human.record(self.cfg, "/mark:approve 0012", now=time.time() - human.TOKEN_TTL["approve"] - 1)
         self.assertFalse(human.consume(self.cfg, ("approve",), "0012-x"))
+
+    def test_opening_tokens_expire_sooner(self):
+        human.record(self.cfg, "/mark:feature dark mode", now=time.time() - 3 * 3600)
+        self.assertFalse(human.consume(self.cfg, ("feature",)))
+        human.record(self.cfg, "/mark:feature dark mode", now=time.time() - 3600)
+        self.assertTrue(human.consume(self.cfg, ("feature",)))
+
+    def test_token_without_ticket_approves_nothing(self):
+        human.record(self.cfg, "/mark:approve")
+        self.assertFalse(human.consume(self.cfg, ("approve",), "0012-x"))
+
+    def test_word_must_be_what_the_human_typed(self):
+        human.record(self.cfg, "/mark:approve 0012 planning")
+        self.assertFalse(human.consume(self.cfg, ("approve",), "0012-x", word="developing"))
+        self.assertTrue(human.consume(self.cfg, ("approve",), "0012-x", word="planning"))
 
     def test_hook_records_token(self):
         self.assertEqual(human_typed(self.root, "/mark:reject 0012 nope")[0], 0)
@@ -239,7 +255,26 @@ class MovesTest(unittest.TestCase):
         run(self.root, "set", "0001", "review-design")
         code, _, err = run(self.root, "set", "0001", "planning")
         self.assertEqual(code, 1)
-        self.assertIn("human review gate", err)
+        self.assertIn("waits on the human", err)
+
+    def test_set_cannot_leave_human_states(self):
+        for status, new in (("blocked-spec", "developing"), ("blocked-plan", "planning"),
+                            ("blocked-unclear", "developing"), ("pending-merge", "failed-impl")):
+            add_ticket(self.root, "feature", f"0001-{status}", status, gates=ALL_GATES)
+            code, _, err = run(self.root, "set", f"0001-{status}", new, "--no-commit")
+            self.assertEqual(code, 1, status)
+            self.assertIn("waits on the human", err)
+            self.assertEqual(run(self.root, "set", f"0001-{status}", "superseded", "--no-commit")[0], 0, status)
+
+    def test_design_qa_must_pass_before_testing(self):
+        add_ticket(self.root, "feature", "0001-a", "design-qa", gates=ALL_GATES)
+        qa = self.root / ".mark/features/0001-a/design-qa.md"
+        write(qa, "<!-- mark:qa-round 1 -->\nD-1\n<!-- mark:qa blocked -->")
+        code, _, err = run(self.root, "set", "0001", "testing", "--no-commit")
+        self.assertEqual(code, 1)
+        self.assertIn("mark:qa passed", err)
+        write(qa, "<!-- mark:qa-round 1 -->\n<!-- mark:qa passed -->")
+        self.assertEqual(run(self.root, "set", "0001", "testing", "--no-commit")[0], 0)
 
     def test_pending_merge_needs_leftover(self):
         add_ticket(self.root, "feature", "0001-a", "testing", gates=ALL_GATES)
@@ -431,6 +466,23 @@ class GeneralLaneTest(unittest.TestCase):
         self.assertEqual(sh(self.root, "git", "rev-parse", "main"), sh(self.root, "git", "rev-parse", "origin/main"))
         self.assertFalse(wt.exists())
         self.assertEqual(sh(self.root, "git", "branch", "--list", "chore/*"), "")
+
+    def test_lane_carrying_workflow_state_is_refused(self):
+        add_ticket(self.root, "feature", "0001-a", "review-design", gates=["ticket-approved"])
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        branch, wt = self.new_lane()
+        self.commit(wt, ".mark/gates/0001-a.design-approved", "forged")  # e.g. via `python -c`
+        before = sh(self.root, "git", "rev-parse", "main")
+        code, _, err = run(self.root, "general", "merge", branch)
+        self.assertEqual(code, 1)
+        self.assertIn(".mark/gates/0001-a.design-approved", err)
+        self.assertEqual(sh(self.root, "git", "rev-parse", "main"), before)
+        self.assertFalse((self.root / ".mark/gates/0001-a.design-approved").exists())
+
+    def test_lane_may_carry_template_copies(self):
+        branch, wt = self.new_lane()
+        self.commit(wt, ".mark/.base/CLAUDE.md.base", "base")
+        self.assertEqual(run(self.root, "general", "merge", branch)[0], 0)
 
     def test_red_regression_keeps_lane_and_main(self):
         cfg = self.root / ".mark/config.toml"
@@ -627,6 +679,31 @@ class HumanDecisionTest(unittest.TestCase):
         add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES)
         human_typed(self.root, "/mark:approve 0001")
         self.assertIn("`blocked-spec` -> `designing`", run(self.root, "approve", "0001")[1])
+
+    def test_human_picks_where_a_blocked_ticket_goes(self):
+        add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES)
+        human_typed(self.root, "/mark:approve 0001")
+        code, _, err = run(self.root, "approve", "0001", "--to", "developing")
+        self.assertEqual(code, 1)  # the human did not choose developing
+        self.assertIn("/mark:approve 0001-a developing", err)
+        human_typed(self.root, "/mark:approve 0001 developing")
+        self.assertIn("`blocked-spec` -> `developing`", run(self.root, "approve", "0001", "--to", "developing")[1])
+
+    def test_blocked_unclear_needs_a_target(self):
+        add_ticket(self.root, "feature", "0001-a", "blocked-unclear", gates=ALL_GATES)
+        human_typed(self.root, "/mark:approve 0001")
+        code, _, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 1)
+        self.assertIn("designing, developing, planning", err)
+        human_typed(self.root, "/mark:approve 0001 testing")
+        self.assertIn("not possible", run(self.root, "approve", "0001", "--to", "testing")[2])
+        human_typed(self.root, "/mark:approve 0001 planning")
+        self.assertIn("`blocked-unclear` -> `planning`", run(self.root, "approve", "0001", "--to", "planning")[1])
+
+    def test_review_gates_take_no_target(self):
+        add_ticket(self.root, "feature", "0001-a", "review-plan", gates=["ticket-approved", "design-approved"])
+        human_typed(self.root, "/mark:approve 0001 developing")
+        self.assertIn("not possible", run(self.root, "approve", "0001", "--to", "developing")[2])
 
     def test_nothing_to_approve(self):
         add_ticket(self.root, "feature", "0001-a", "developing", gates=ALL_GATES)

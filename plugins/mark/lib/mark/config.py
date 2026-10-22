@@ -104,15 +104,17 @@ class MarkConfig:
 
     @property
     def gates(self) -> dict[str, str]:
-        """role -> gate name required before dispatch (feature tickets only)."""
-        raw = self.data.get("gates", DEFAULT_GATES)
-        return {k: str(v) for k, v in raw.items() if v}
+        """role -> gate name required before dispatch (feature tickets only). A project key
+        replaces only that role's default; `""` removes the gate."""
+        merged = {**DEFAULT_GATES, **self._section("gates")}
+        return {k: str(v) for k, v in merged.items() if v}
 
     @property
     def outputs(self) -> dict[str, list[str]]:
-        """role -> files the role must leave in the ticket dir before it may stop."""
-        raw = self.data.get("outputs", DEFAULT_OUTPUTS)
-        return {k: [str(f) for f in v] for k, v in raw.items()}
+        """role -> files the role must leave in the ticket dir before it may stop. A project key
+        replaces only that role's default; `[]` requires nothing."""
+        merged = {**DEFAULT_OUTPUTS, **self._section("outputs")}
+        return {k: [str(f) for f in v] for k, v in merged.items() if isinstance(v, list)}
 
     @property
     def write_rules(self) -> list[WriteRule]:
@@ -224,9 +226,13 @@ def load_config(root: Path) -> MarkConfig:
     except (OSError, tomllib.TOMLDecodeError) as exc:
         raise ConfigError(f"cannot read {path}: {exc}") from exc
     cfg = MarkConfig(root=root, data=data)
-    if cfg.schema not in SUPPORTED_SCHEMAS:
+    try:
+        schema = cfg.schema
+    except (TypeError, ValueError):
+        raise ConfigError(f"{path}: mark_schema must be an integer") from None
+    if schema not in SUPPORTED_SCHEMAS:
         raise ConfigError(
-            f"{path} declares mark_schema={cfg.schema}, but this engine supports "
+            f"{path} declares mark_schema={schema}, but this engine supports "
             f"{sorted(SUPPORTED_SCHEMAS)}. Update the plugin or migrate the config."
         )
     return cfg

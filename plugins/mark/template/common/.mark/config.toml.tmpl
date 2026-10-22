@@ -1,11 +1,11 @@
 # Mark project configuration: the facts about this project. Keep it in git.
 # The workflow itself (roles, review gates, required outputs, who writes which ticket
 # artifact) ships with the Mark plugin and updates with it. To change a part of it for this
-# project, add the key here and it replaces the default, for example:
+# project, add the key here: it replaces that one default and the others stay, for example:
 #   [gates]
-#   coder-plan = "design-approved"
+#   tester = ""                          (no gate before the tester)
 #   [outputs]
-#   designer = ["design.md", "preview.html"]
+#   designer = ["design.md"]             (no preview.html required)
 # Role agents, dispatch prompts and artifact formats work the same way: add
 # .claude/agents/<role>.md, .mark/prompts/<scenario>.md or .mark/formats/<name>.md.
 mark_schema = 1

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import budget, e2e, flow, globs, states, tickets
+from .. import budget, e2e, globs, states, tickets
 from ..config import MAIN
 from ..gitutil import current_branch
 from .common import Env, Location
@@ -25,21 +25,33 @@ def _located(env: Env) -> Location | None:
     return loc if loc.rel is not None else None
 
 
+def cli_only_rules(env: Env) -> list[str]:
+    return cli_only_globs(env.cfg.state_rel)
+
+
+def cli_only_globs(state: str) -> list[str]:
+    """Files only the `mark` CLI writes (it runs as a Bash child process, which no hook sees).
+    They record human decisions and ticket state, so no tool call may write them, the main
+    thread's included: otherwise an orchestrator could approve its own gate."""
+    return [
+        ".mark/.base/**",                      # pristine template copies
+        f"{state}/locks/human/**",             # proof of human commands
+        f"{state}/gates/**",
+        f"{state}/features/*/{STATUS_FILE}",
+        f"{state}/bugs/*/{STATUS_FILE}",
+        "**/review-*.md",
+    ]
+
+
 def builtin_rules(env: Env) -> list[tuple[str, frozenset[str]]]:
     """Invariants no project config can loosen: the workflow's own control files."""
     state = env.cfg.state_rel
     main_only = frozenset({MAIN})
-    return [
+    return [(glob, frozenset()) for glob in cli_only_rules(env)] + [
         (".claude/**", main_only),
         (".mark/config.toml", main_only),
         (".mark/template.toml", main_only),
-        (".mark/.base/**", frozenset()),             # pristine template copies: only `mark` writes them
-        (f"{state}/locks/human/**", frozenset()),   # proof of human commands: nobody
-        (f"{state}/gates/**", main_only),
         (f"{state}/locks/**", main_only),
-        (f"{state}/features/*/{STATUS_FILE}", main_only),
-        (f"{state}/bugs/*/{STATUS_FILE}", main_only),
-        ("**/review-*.md", main_only),
     ]
 
 
@@ -57,8 +69,9 @@ def scope_block(env: Env, loc: Location) -> str | None:
         if globs.match(glob, loc.rel):
             if env.who in roles:
                 return None
-            allowed = ", ".join(sorted(roles)) or "-"
-            return env.t("guard.scope", who=env.who, rel=loc.rel, glob=glob, allowed=allowed)
+            if not roles:
+                return env.t("guard.scope_cli", rel=loc.rel)
+            return env.t("guard.scope", who=env.who, rel=loc.rel, glob=glob, allowed=", ".join(sorted(roles)))
     if env.role in env.cfg.roles and env.ticket_of_rel(loc.rel) is None:
         return env.t("guard.scope_unassigned", who=env.who, rel=loc.rel)
     return None
@@ -112,51 +125,6 @@ def _new_text(env: Env, old: str | None) -> str | None:
             return None  # the tool itself will reject this edit
         text = text.replace(before, after) if e.get("replace_all") else text.replace(before, after, 1)
     return text
-
-
-def status_guard(env: Env) -> str | None:
-    """status.md: main checkout on the main branch, valid content, legal move."""
-    loc = _located(env)
-    hit = env.ticket_of_rel(loc.rel if loc else None)
-    if hit is None or hit[2] != STATUS_FILE:
-        return None
-    kind, ticket_id, _ = hit
-    if env.is_git:
-        if not loc.in_main:
-            return env.t("guard.status.not_main", rel=loc.rel)
-        branch = current_branch(env.main)
-        if branch and branch != env.cfg.main_branch:
-            return env.t("guard.status.branch", branch=branch, main=env.cfg.main_branch)
-
-    try:
-        old_text = loc.path.read_text(encoding="utf-8")
-    except OSError:
-        old_text = None
-    new_text = _new_text(env, old_text)
-    if new_text is None:
-        return None
-    fields, note = tickets.parse_status(new_text)
-    ticket = tickets.Ticket(kind, ticket_id, loc.path, fields, note)
-    problems = tickets.ticket_problems(ticket, loc.rel)
-    if problems:
-        listed = "\n".join("  - " + env.t(p.key, **p.params) for p in problems)
-        return env.t("guard.status.invalid", problems=listed)
-
-    old_fields = tickets.parse_status(old_text)[0] if old_text else {}
-    old_status = old_fields.get("status", "")
-    new_status = fields.get("status", "")
-    if states.is_valid(kind, old_status) and not states.can_move(kind, old_status, new_status):
-        allowed = ", ".join(sorted(states.TRANSITIONS[kind][old_status])) or "-"
-        return env.t("guard.status.move", old=old_status, new=new_status, allowed=allowed)
-    old_ticket = tickets.Ticket(kind, ticket_id, loc.path, old_fields)
-    removed = sorted(set(flow.merge_after(old_ticket)) - set(flow.merge_after(ticket)))
-    if removed:
-        return env.t("guard.status.merge_after", refs=", ".join(removed), rel=loc.rel)
-    if new_status == "passed" and old_status != "passed":
-        blocked = flow.merge_blockers(env.cfg, ticket)
-        if blocked:
-            return env.t(blocked.key, **blocked.params)
-    return None
 
 
 def budget_guard(env: Env) -> str | None:
@@ -260,5 +228,5 @@ def journey_guard(env: Env) -> str | None:
                  index=f"{tests_dir}/{e2e.INDEX_FILE}")
 
 
-PRE_WRITE = [scope_guard, worktree_guard, ticket_guard, status_guard, budget_guard, e2e_guard,
+PRE_WRITE = [scope_guard, worktree_guard, ticket_guard, budget_guard, e2e_guard,
              journey_guard]
