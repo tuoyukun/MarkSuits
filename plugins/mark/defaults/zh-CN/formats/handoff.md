@@ -12,7 +12,7 @@
 <!-- mark:ac-table -->
 | AC | 判定 | 证据 |
 |---|---|---|
-| AC-1 | 已实现 | backend/tests/test_projects.py::test_summary |
+| AC-1 | 已实现 | src/projects.test.js::summary |
 | AC-2 | 已实现 | frontend/src/pages/Project.tsx（端到端） |
 | AC-3 | 未实现 | 见阻塞说明 |
 

@@ -20,7 +20,7 @@ Written by coder-plan; reviewed by the human at `review-plan`; read only for eve
 ```mermaid
 sequenceDiagram
   participant UI as frontend/project
-  participant API as backend/projects
+  participant API as projects API
   UI->>API: GET /projects/:id
   alt not found
     API-->>UI: 404

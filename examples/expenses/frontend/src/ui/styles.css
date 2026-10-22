@@ -1,0 +1,63 @@
+:root {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --text: #1f2328;
+  --muted: #6b7280;
+  --line: #e5e3de;
+  --accent: #2f6f4f;
+  --accent-text: #ffffff;
+  --danger: #b42318;
+  --radius: 10px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+.page { max-width: 560px; margin: 0 auto; padding: var(--space-6) var(--space-4); }
+.page__title { font-size: 28px; margin: 0 0 var(--space-4); letter-spacing: -0.01em; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+
+.button {
+  font: inherit; border-radius: 8px; border: 1px solid transparent; cursor: pointer;
+  padding: var(--space-2) var(--space-4);
+}
+.button:disabled { opacity: 0.5; cursor: not-allowed; }
+.button--primary { background: var(--accent); color: var(--accent-text); }
+.button--ghost { background: transparent; color: var(--muted); }
+.button--ghost:hover { color: var(--text); }
+
+.expense-form { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3); }
+.field {
+  flex: 1; min-width: 0; font: inherit; padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.field--amount { flex: 0 0 96px; text-align: right; }
+.field:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.form-error { flex-basis: 100%; margin: 0; color: var(--danger); font-size: 14px; }
+
+.expense-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.expense {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--line);
+}
+.expense__label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.expense__amount { font-variant-numeric: tabular-nums; }
+.expense .button--ghost { font-size: 20px; line-height: 1; padding: var(--space-1) var(--space-2); }
+
+.empty { margin: 0; padding: var(--space-6) var(--space-3); color: var(--muted); text-align: center;
+  border-top: 1px solid var(--line); }
+
+.total { margin: 0; padding: var(--space-3); text-align: right; border-top: 1px solid var(--line); }
+.total strong { font-variant-numeric: tabular-nums; }
+
+/* preview page only */
+.preview-case { margin: 0 0 var(--space-6); }
+.preview-case__label { font: 600 13px/1.4 ui-monospace, monospace; color: var(--muted); margin: 0 0 var(--space-2); }

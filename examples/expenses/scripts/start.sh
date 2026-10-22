@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Shipped by Mark. Starts every module that runs a server (its start.sh starts it in the
+# background on the port in .env and returns once it answers).
+exec bash "$(dirname "$0")/each.sh" start.sh optional "frontend"

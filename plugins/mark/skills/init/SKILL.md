@@ -22,6 +22,9 @@ Speak the human's language.
 3. **Pick the profile.** Mark ships these profiles (`--profile`):
    - `web-fullstack`: a browser frontend, a backend service and browser end-to-end tests, in
      one repository. Features go through the designer and a design review.
+   - `web-frontend`: a browser frontend with no backend of its own (a static site, or an app
+     on third-party APIs or localStorage) and browser end-to-end tests. Designer and design
+     review as in `web-fullstack`.
    - `service`: a backend service or API with no UI of its own; end-to-end tests call the
      running service over its public interface (HTTP, say). No designer: features start at
      planning.
@@ -30,7 +33,7 @@ Speak the human's language.
      `Makefile`...), the CI config, the top-level layout and any existing `CLAUDE.md`.
    - New: ask the human what they are building and on what stack.
 
-   If no profile fits (a CLI, a library, a frontend with no backend, a mobile app, a data
+   If no profile fits (a CLI, a library, a mobile app, a data
    pipeline...), **stop**: say Mark does not support that kind of project yet, more profiles
    will follow, and write nothing.
 
@@ -42,8 +45,8 @@ Speak the human's language.
    | `--locale` | the human's language: `en` or `zh-CN` | same |
    | `--project-name` | ask | from the manifest or the directory name |
    | `--main-branch` | `main` | the branch the dry run shows |
-   | `--frontend-dir`, `--backend-dir` (web-fullstack) | planned directories | where that code is now |
-   | `--ui-dir` (web-fullstack) | `<frontend>/src/ui` | the presentational components (only the designer writes there) |
+   | `--frontend-dir` (web-*), `--backend-dir` (web-fullstack) | planned directories | where that code is now |
+   | `--ui-dir` (web-*) | `<frontend>/src/ui` | the presentational components (only the designer writes there) |
    | `--service-dir` (service) | `service` | where the service code is now |
    | `--tests-dir` | planned end-to-end test directory | where the end-to-end tests are |
    | `--worktree-setup` | empty | the install step a fresh checkout needs, like `npm ci` |
@@ -97,7 +100,7 @@ Speak the human's language.
    - New: suggest the first ticket, `/mark:feature` for the project skeleton (framework,
      each module set up in its own directory as the Layout section says, the commands in
      `CLAUDE.md`). Its acceptance criteria describe what works, such as "the home page lists
-     the posts"; the tester writes the end-to-end tests. In `web-fullstack` it has no UI to
+     the posts"; the tester writes the end-to-end tests. In the web profiles it has no UI to
      design, so the human may waive design review with `.mark/gates/<id>.design-approved.waived`; the stack choice is
      reviewed at plan review. Its plan creates each module's entry points, so its own merge
      already runs the full regression. Once it lands, set `[worktree] setup` and, if it runs

@@ -31,6 +31,7 @@ LOCALES = ("en", "zh-CN")
 # Each profile's module directory answers, in the order its modules self-test and stop.
 PROFILES = {
     "web-fullstack": ("frontend_dir", "backend_dir", "ui_dir", "tests_dir"),
+    "web-frontend": ("frontend_dir", "ui_dir", "tests_dir"),
     "service": ("service_dir", "tests_dir"),
 }
 DIR_DEFAULTS = {"frontend_dir": "frontend", "backend_dir": "backend", "service_dir": "service",

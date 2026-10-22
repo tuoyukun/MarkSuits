@@ -20,7 +20,7 @@
 ```mermaid
 sequenceDiagram
   participant UI as frontend/project
-  participant API as backend/projects
+  participant API as projects API
   UI->>API: GET /projects/:id
   alt 不存在
     API-->>UI: 404

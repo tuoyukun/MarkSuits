@@ -1,0 +1,86 @@
+# CLAUDE.md — expenses
+
+> This file explains **what the project is and how to build it**: stack, layout, module
+> boundaries, commands, docs and commit conventions. Every Mark role agent reads it first.
+> How the agents collaborate: `mark rules collaboration`, not here.
+
+## 1. Overview
+
+TODO: one paragraph on what expenses does and for whom.
+
+## 2. Tech stack
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Frontend (`frontend/`) | TODO | |
+| APIs the app calls (none, or third-party) | TODO | |
+| End-to-end tests (`tests/`) | TODO | |
+
+## 3. Layout
+
+Each module is self-contained: its dependencies, config and scripts live in its own
+directory, and it installs, runs and tests from there. The repository root holds only what
+this table lists. A path no write rule assigns (`[[write_rules]]` in `.mark/config.toml`) is
+written by the main thread only, so a new top-level path needs a row here and a write rule.
+
+| Path | What | Written by |
+|---|---|---|
+| `frontend/` | frontend app, with its own dependencies and config | coder-impl (`frontend/src/ui/`: designer) |
+| `tests/` | end-to-end tests, with their own dependencies and config; `JOURNEYS.md` lists them | tester |
+| `docs/adr/` | architecture decision records | coder-plan |
+| `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
+| `scripts/` | the entry points below; shipped by Mark, never edited by a ticket | main thread |
+| `README.md`, `.gitignore`, `.mark/`, `.claude/` | project docs and workflow files | main thread |
+
+`scripts/` only calls each module's own entry point, run from inside the module with the
+checkout's `.env` exported (each worktree's own ports among them):
+
+| Entry point | Who provides it | Does |
+|---|---|---|
+| `selftest.sh` | `frontend/` (required once it exists) | white-box self-test: the module's lint, type check, unit tests, build |
+| `regression.sh` | `tests/` (required once it exists) | black-box regression: the whole end-to-end suite, driving the app as a user |
+| `start.sh`, `stop.sh` | `frontend/` | serve the app (dev or static server) in the background on its port from `.env` and return once it answers; stop it |
+
+## 4. Module boundaries
+
+| Module | Owns | May depend on | Must not |
+|---|---|---|---|
+| `frontend/src/ui` | Presentational components and their preview (designer only) | design tokens, props types | requests, routing, global state |
+| rest of `frontend` | API calls, state, routing, wiring the UI components (coder-impl, as tech-plan.md says) | `frontend/src/ui` through its props | changing `frontend/src/ui` props types |
+
+APIs the app calls are not ours to run. End-to-end tests never call a real third-party API
+and never stub the network in the browser: the app reads each API's base URL from `.env`,
+and the tests run a fake of that API from `tests/` (tester) and point the URL at it.
+
+## 5. Commands
+
+Role agents run exactly these. Keep them working from a fresh worktree.
+
+| Purpose | Command |
+|---|---|
+| Install dependencies | TODO |
+| Start / stop / restart the app | `bash scripts/start.sh` / `bash scripts/stop.sh` / `bash scripts/restart.sh` |
+| Open the UI preview | TODO |
+| Self-test (white-box, every module) | `bash scripts/selftest.sh` |
+| End-to-end tests (selected specs) | TODO |
+| Full regression (what a merge must pass, `[merge] regression`) | `bash scripts/selftest.sh && bash scripts/regression.sh` |
+
+## 6. Red lines
+
+1. No architecture-level decision without an ADR (`docs/adr/`).
+2. No reaching across module boundaries outside defined contracts.
+3. Changing a module requires updating its `CONTEXT.md`.
+4. Nothing at the repository root that the Layout table does not list: no shared
+   dependencies, tool config or scripts there. A module's commands go in its own entry
+   points, never in `scripts/`.
+
+## 7. Commit format
+
+```
+type(module): what changed
+
+Why:
+How:
+Rejected:
+Refs: <ticket id> <R-N / FAIL-N / D-N>
+```

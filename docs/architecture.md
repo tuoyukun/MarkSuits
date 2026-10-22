@@ -402,7 +402,7 @@ plugin install is the whole setup.
 
 - **Answers** (`scaffold.keys(profile)`): project name, locale, profile, main branch, the profile's
   module directories (`scaffold.PROFILES`: `web-fullstack` frontend / backend / UI / tests,
-  `service` service / tests), worktree setup command. `mark init
+  `web-frontend` frontend / UI / tests, `service` service / tests), worktree setup command. `mark init
   --<answer> <value>`; defaults fill the rest; `--dry-run` shows the plan and writes nothing.
 - **Checks before writing**: a git repository (an empty directory is `git init`ed), on the main
   branch, clean tree, git identity set, not already a Mark project, and no template file already
@@ -524,4 +524,6 @@ role works in under `[[write_rules]]`; the CLAUDE.md template gained a Layout se
 instead of optional plugins; the interaction floor of the planned `mark-web-e2e` landed in
 v0.22–v0.23, its verdict criteria registry and `mark-design-system` token guards were dropped)
 `service` ✅ (v0.25: designer optional, `[paths]` modules not hard-coded, `examples/notes`) ·
-`cli` (CLIs and libraries) · `web-frontend` · `mobile`.
+`web-frontend` ✅ (v0.26: web-fullstack without the backend; third-party APIs are faked from the
+test directory, never stubbed in the browser; `examples/expenses`) · `mobile`. `cli` (CLIs and
+libraries) was dropped.

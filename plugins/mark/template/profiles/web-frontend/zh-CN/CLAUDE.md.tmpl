@@ -1,0 +1,83 @@
+# CLAUDE.md — {{ project_name }}
+
+> 本文件讲**这个工程是什么、怎么构建**：技术栈、目录、模块边界、命令、文档与 commit 规范。
+> 每个 Mark 角色 agent 开工先读它。agent 之间怎么协作见 `mark rules collaboration`，不在这里。
+
+## 1. 概述
+
+TODO：用一段话说明 {{ project_name }} 做什么、给谁用。
+
+## 2. 技术栈
+
+| 层 | 选型 | 备注 |
+|---|---|---|
+| 前端（`{{ frontend_dir }}/`） | TODO | |
+| 应用调用的 API（无，或第三方） | TODO | |
+| 端到端测试（`{{ tests_dir }}/`） | TODO | |
+
+## 3. 目录结构
+
+每个模块自成一体：依赖、配置和脚本都放在自己的目录里，在自己的目录里安装、运行和测试。仓库根目录
+只放这张表列出的东西。没有写入规则（`.mark/config.toml` 的 `[[write_rules]]`）分配的路径只有主线程
+能写，所以新增顶层路径要先在这里加一行，并配上写入规则。
+
+| 路径 | 内容 | 谁写 |
+|---|---|---|
+| `{{ frontend_dir }}/` | 前端应用，自带依赖和配置 | coder-impl（`{{ ui_dir }}/`：designer） |
+| `{{ tests_dir }}/` | 端到端测试，自带依赖和配置；`JOURNEYS.md` 列出全部用例 | tester |
+| `docs/adr/` | 架构决策记录 | coder-plan |
+| `CLAUDE.md` | 本文件 | 主线程、coder-plan、coder-impl |
+| `scripts/` | 下面这些入口；由 Mark 提供，工单不改 | 主线程 |
+| `README.md`、`.gitignore`、`.mark/`、`.claude/` | 项目文档和流程文件 | 主线程 |
+
+`scripts/` 只负责调用各模块自己的入口脚本：在模块目录里执行，并导出本 checkout 的 `.env`
+（其中包括每个 worktree 独占的端口）：
+
+| 入口 | 由谁提供 | 做什么 |
+|---|---|---|
+| `selftest.sh` | `{{ frontend_dir }}/`（建好后必须有） | 白盒自测：本模块的 lint、类型检查、单元测试、build |
+| `regression.sh` | `{{ tests_dir }}/`（建好后必须有） | 黑盒回归：整套端到端用例，像用户一样操作应用 |
+| `start.sh`、`stop.sh` | `{{ frontend_dir }}/` | 用 `.env` 里的端口在后台提供应用（开发服务器或静态服务器），能响应后再返回；停止服务 |
+
+## 4. 模块边界
+
+| 模块 | 负责 | 可依赖 | 不得 |
+|---|---|---|---|
+| `{{ ui_dir }}` | 纯展示组件及其预览（仅 designer） | design tokens、props 类型 | 发请求、路由、全局状态 |
+| `{{ frontend_dir }}` 其余部分 | 调 API、状态、路由、把 UI 组件接起来（coder-impl，按 tech-plan.md） | 通过 props 使用 `{{ ui_dir }}` | 改 `{{ ui_dir }}` 的 props 类型 |
+
+应用调用的 API 不归我们运行。端到端测试从不调用真实的第三方 API，也不在浏览器里拦截网络：应用从
+`.env` 读取每个 API 的 base URL，测试从 `{{ tests_dir }}/` 起一个该 API 的假服务（tester 写），并把
+URL 指向它。
+
+## 5. 命令
+
+角色 agent 只跑这些命令。请保证它们在一个全新的 worktree 里也能跑通。
+
+| 用途 | 命令 |
+|---|---|
+| 安装依赖 | TODO |
+| 启动 / 停止 / 重启应用 | `bash scripts/start.sh` / `bash scripts/stop.sh` / `bash scripts/restart.sh` |
+| 打开 UI 预览 | TODO |
+| 自测（白盒，所有模块） | `bash scripts/selftest.sh` |
+| 端到端测试（指定 spec） | TODO |
+| 全量回归（合并必须通过，即 `[merge] regression`） | `bash scripts/selftest.sh && bash scripts/regression.sh` |
+
+## 6. 红线
+
+1. 架构级决策必须先写 ADR（`docs/adr/`）。
+2. 不得绕过既定契约跨越模块边界。
+3. 改动模块必须同步更新该模块的 `CONTEXT.md`。
+4. 根目录不放「目录结构」表以外的东西：不放跨模块共享的依赖、工具配置或脚本。模块的命令写进
+   它自己的入口脚本，不写进 `scripts/`。
+
+## 7. Commit 格式
+
+```
+type(module): 改了什么
+
+Why:
+How:
+Rejected:
+Refs: <工单号> <R-N / FAIL-N / D-N>
+```

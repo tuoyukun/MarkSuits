@@ -12,7 +12,7 @@ Written by coder-impl; read by the designer (design QA) and the tester.
 <!-- mark:ac-table -->
 | AC | status | evidence |
 |---|---|---|
-| AC-1 | implemented | backend/tests/test_projects.py::test_summary |
+| AC-1 | implemented | src/projects.test.js::summary |
 | AC-2 | implemented | frontend/src/pages/Project.tsx (end-to-end) |
 | AC-3 | not implemented | see Blocked |
 

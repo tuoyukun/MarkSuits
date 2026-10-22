@@ -4,6 +4,7 @@
 |---|---|
 | [`todo/`](todo/) | A small todo app (vanilla JS frontend, Python standard-library backend, Playwright end-to-end tests), generated from the Mark template (`web-fullstack` profile) in `en` and filled in. It ships with one known bug so the bug chain has something to fix. |
 | [`notes/`](notes/) | A notes JSON API with no UI (Python standard library; end-to-end tests over HTTP with `unittest`), from the `service` profile. No designer: features go straight to planning. It also ships with one known bug. See [the notes walkthrough](#the-notes-service-service-profile). |
+| [`expenses/`](expenses/) | An expense tracker with no backend (vanilla JS, data in localStorage, Playwright end-to-end tests), from the `web-frontend` profile. Designer and design review as in `todo/`. One known bug. See [the expenses walkthrough](#the-expense-tracker-web-frontend-profile). |
 
 The scaffold files in `todo/` (`.mark/`) are exactly what `mark init` writes (role agents,
 prompts and formats come from the plugin); `tests/test_example.py` re-renders them and fails if they drift. Only `CLAUDE.md`
@@ -158,6 +159,34 @@ A feature, with no design step:
 After you confirm, the ticket opens at `planning` and the **coder-plan** goes first; the
 only human review is the plan review (`/mark:approve <id>`). Then coder-impl and tester run
 to `pending-merge`.
+
+## The expense tracker (`web-frontend` profile)
+
+```bash
+python3 examples/sandbox.py ~/mark-sandbox/expenses --example expenses
+cd ~/mark-sandbox/expenses
+npm --prefix tests ci && npm --prefix tests exec playwright install chromium
+bash scripts/selftest.sh && bash scripts/regression.sh   # baseline: everything green
+claude --plugin-dir <path to this repo>/plugins/mark
+```
+
+A bug: amounts lose their cents.
+
+```
+/mark:fix I added a lunch for 12.50 and the list shows 12.00; the total is wrong too.
+```
+
+(The cause: `store.parseAmount` uses `parseInt`. The baseline tests only use whole amounts.)
+The chain is the same as in the todo app.
+
+A feature, with a design step:
+
+```
+/mark:feature Give each expense a category (Food, Transport, Other) and show a subtotal per category under the list.
+```
+
+The designer builds the category picker and the subtotals in `frontend/src/ui/` and stops at
+design review; coder-plan plans the store and wiring; coder-impl, design QA and the tester follow.
 
 ## Updating the examples
 

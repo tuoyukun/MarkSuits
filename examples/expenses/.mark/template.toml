@@ -1,0 +1,12 @@
+# Written by `mark init`; do not edit. Upgrades read the answers below.
+version = "0.26.0"
+
+[answers]
+project_name = "expenses"
+locale = "en"
+profile = "web-frontend"
+main_branch = "main"
+frontend_dir = "frontend"
+ui_dir = "frontend/src/ui"
+tests_dir = "tests"
+worktree_setup = "npm --prefix tests ci"

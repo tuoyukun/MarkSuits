@@ -21,12 +21,14 @@ from mark import brief, budget, cli, scaffold, tickets
 from mark.config import load_config
 from mark.flow import SCENARIOS, Action, Ctx
 
-# Example -> (directory with its unit tests, commands its CLAUDE.md must name).
+# Example -> (module whose selftest.sh runs its unit tests, commands its CLAUDE.md must name).
 EXAMPLES = {
     "todo": ("backend", ("npm --prefix tests ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
                          "npx playwright test", "bash scripts/selftest.sh && bash scripts/regression.sh")),
     "notes": ("service", ("bash scripts/selftest.sh", "bash scripts/start.sh", "bash regression.sh -k",
                           "bash scripts/selftest.sh && bash scripts/regression.sh")),
+    "expenses": ("frontend", ("npm --prefix tests ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
+                              "npx playwright test", "bash scripts/selftest.sh && bash scripts/regression.sh")),
 }
 EXAMPLE = REPO_ROOT / "examples" / "todo"
 SANDBOX = REPO_ROOT / "examples" / "sandbox.py"
@@ -96,7 +98,7 @@ class ExampleProjectTest(unittest.TestCase):
 
     def test_unit_tests_pass(self):
         for name, root in self.examples():
-            res = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=root / EXAMPLES[name][0],
+            res = subprocess.run(["bash", "selftest.sh"], cwd=root / EXAMPLES[name][0],
                                  capture_output=True, text=True, timeout=120)
             self.assertEqual(res.returncode, 0, res.stderr[-2000:])
 

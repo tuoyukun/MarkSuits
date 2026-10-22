@@ -125,6 +125,23 @@ class ChecksTest(unittest.TestCase):
         record = tomllib.loads((root / scaffold.RECORD).read_text())
         self.assertEqual(set(record["answers"]), set(scaffold.keys("service")))
 
+    def test_web_frontend_profile(self):
+        root = repo(self)
+        code, _, err = init(root, "--profile", "web-frontend", "--backend-dir", "api")
+        self.assertIn("Unknown answer", err)  # no backend in this profile
+        code, out, err = init(root, "--profile", "web-frontend", "--frontend-dir", "web")
+        self.assertEqual(code, 0, err)
+        self.assertIn('--ui-dir "web/src/ui"', out)
+        cfg = load_config(root)
+        self.assertEqual((cfg.profile, cfg.module_dirs, cfg.tests_profile),
+                         ("web-frontend", ["web", "web/src/ui"], "playwright"))
+        self.assertIn("designer", cfg.roles)
+        self.assertEqual([r.glob for r in cfg.write_rules][-3:], ["web/src/ui/**", "tests/**", "web/**"])
+        self.assertIn('selftest.sh required "web"\n', (root / "scripts/selftest.sh").read_text())
+        self.assertNotIn("backend", (root / "CLAUDE.md").read_text())
+        record = tomllib.loads((root / scaffold.RECORD).read_text())
+        self.assertEqual(set(record["answers"]), set(scaffold.keys("web-frontend")))
+
     def test_dry_run_writes_nothing(self):
         root = repo(self)
         code, out, _ = init(root, "--dry-run", "--worktree-setup", "npm ci")
