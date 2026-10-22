@@ -2,7 +2,8 @@
 
 | Example | What it is |
 |---|---|
-| [`todo/`](todo/) | A small todo app (vanilla JS frontend, Python standard-library backend, Playwright end-to-end tests), generated from the Mark template in `en` and filled in. It ships with one known bug so the bug chain has something to fix. |
+| [`todo/`](todo/) | A small todo app (vanilla JS frontend, Python standard-library backend, Playwright end-to-end tests), generated from the Mark template (`web-fullstack` profile) in `en` and filled in. It ships with one known bug so the bug chain has something to fix. |
+| [`notes/`](notes/) | A notes JSON API with no UI (Python standard library; end-to-end tests over HTTP with `unittest`), from the `service` profile. No designer: features go straight to planning. It also ships with one known bug. See [the notes walkthrough](#the-notes-service-service-profile). |
 
 The scaffold files in `todo/` (`.mark/`) are exactly what `mark init` writes (role agents,
 prompts and formats come from the plugin); `tests/test_example.py` re-renders them and fails if they drift. Only `CLAUDE.md`
@@ -129,9 +130,38 @@ the decision to the human. Try it as a second `/mark:fix`.
   command.
 - `mark status` at any time; every ticket's state is in `.mark/{features,bugs}/<id>/`.
 
-## Updating the example
+## The notes service (`service` profile)
 
-When the template changes, re-render the scaffold in place from `.mark/template.toml`:
+```bash
+python3 examples/sandbox.py ~/mark-sandbox/notes --example notes
+cd ~/mark-sandbox/notes
+bash scripts/selftest.sh && bash scripts/regression.sh   # baseline: everything green, nothing to install
+claude --plugin-dir <path to this repo>/plugins/mark
+```
+
+A bug: deleting a note and then adding one makes another note disappear.
+
+```
+/mark:fix After I delete a note and add a new one, a different note I had is gone from the list.
+```
+
+(The cause: `store.add` numbers a note `len(notes) + 1`, so it can reuse a live id and
+overwrite that note.) The chain is the same as in the todo app: fix-plan, coder-impl, tester
+(a new end-to-end test over HTTP), then `mark merge`.
+
+A feature, with no design step:
+
+```
+/mark:feature Search notes: GET /api/notes?q=<text> returns only the notes whose text contains it, ignoring case.
+```
+
+After you confirm, the ticket opens at `planning` and the **coder-plan** goes first; the
+only human review is the plan review (`/mark:approve <id>`). Then coder-impl and tester run
+to `pending-merge`.
+
+## Updating the examples
+
+When the template changes, re-render every example's scaffold in place from its `.mark/template.toml`:
 
 ```bash
 python3 tools/sync_example.py    # leaves CLAUDE.md and .gitignore alone; merge those by hand if needed

@@ -1,6 +1,6 @@
 ---
 name: coder-impl
-description: Mark implementer. Implements the approved tech-plan.md (or a bug's fix-plan.md) in the frontend (except the UI directory) and the backend, with unit tests, and writes handoff.md with an acceptance self-check. Never changes the plan, the design contract or end-to-end tests. Dispatched by the Mark orchestrator only.
+description: Mark implementer. Implements the approved tech-plan.md (or a bug's fix-plan.md) in the project's modules (except the UI directory), with unit tests, and writes handoff.md with an acceptance self-check. Never changes the plan, the design contract or end-to-end tests. Dispatched by the Mark orchestrator only.
 tools: Read, Write, Edit, Glob, Grep, Bash
 skills:
   - mark:role-rules
@@ -15,10 +15,10 @@ The shared Mark role rules are preloaded above. If they are not in your context,
 
 - **Input:** the approved `tech-plan.md` (`T-N` tasks, `SD-N` sequence diagrams) for a
   feature, or `fix-plan.md` (its `AC-N` and `[inline]` items) for a bug; `design.md` and the
-  components in the UI directory when the feature has a design. Directories are under
-  `[paths]` in `.mark/config.toml` (`frontend`, `backend`, `ui`, `tests`).
-- **Output:** code in the frontend (except the UI directory) and the backend, unit tests
-  next to that code, and `handoff.md` in the format `mark format handoff.md` prints.
+  components in the UI directory when the feature has a design. Module directories are under
+  `[paths]` in `.mark/config.toml` (for example `frontend`, `backend`, `ui`, `tests`).
+- **Output:** code in the modules (except the UI directory and the tests directory), unit
+  tests next to that code, and `handoff.md` in the format `mark format handoff.md` prints.
 
 ## Rules
 
@@ -32,9 +32,10 @@ The shared Mark role rules are preloaded above. If they are not in your context,
    the UI directory or change props types. Do not restyle components from outside, wrap them
    to force a layout, or change design tokens. If a prop is missing, that is `blocked-plan`
    with the missing prop and the `AC-N` it blocks.
-4. **Unit tests are yours.** End-to-end tests cover what a user can click and see; they
+4. **Unit tests are yours.** End-to-end tests cover what a user can do through the
+   product's public interface (the UI of a web app, the API of a service); they
    belong to the tester and live in the end-to-end test directory (`[paths] tests` in `.mark/config.toml`). Acceptance criteria tagged `[unit]`, and any
-   other no user action can reach (pure functions, algorithms, data structures, backend contracts, error codes,
+   other no user action can reach (pure functions, algorithms, data structures, internal contracts, error codes,
    permission branches) are yours to cover with unit tests now, without waiting for the
    tester to send them back. In the self-check, point those `AC-N` at the test that covers
    them; that test file must exist.

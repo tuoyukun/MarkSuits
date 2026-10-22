@@ -177,8 +177,7 @@ def e2e_guard(env: Env) -> str | None:
     new_text = _new_text(env, old_text)
     if new_text is None:
         return None
-    modules = [env.cfg.path("frontend"), env.cfg.path("backend")]
-    found = e2e.problems(loc.rel, old_text, new_text, tests_dir, modules, env.cfg.tests_profile,
+    found = e2e.problems(loc.rel, old_text, new_text, tests_dir, env.cfg.module_dirs, env.cfg.tests_profile,
                          _imported(loc.path, new_text))
     if not found:
         return None

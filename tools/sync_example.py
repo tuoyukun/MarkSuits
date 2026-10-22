@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Re-render the Mark template into an example project from its recorded answers.
 
-    python3 tools/sync_example.py [examples/todo]
+    python3 tools/sync_example.py [examples/<name>]     (default: every example)
 
 Overwrites every template file except the ones the project owns (CLAUDE.md, .gitignore),
 rewrites the pristine copies under .mark/.base/ and the version in .mark/template.toml, and
@@ -22,9 +22,16 @@ OWNED = {"CLAUDE.md", ".gitignore"}
 
 
 def main(argv: list[str]) -> int:
-    root = Path(argv[0]) if argv else REPO / "examples" / "todo"
+    roots = [Path(a) for a in argv] or sorted(p.parent.parent for p in (REPO / "examples").glob(f"*/{scaffold.RECORD}"))
+    for root in roots:
+        print(f"== {root.name}")
+        sync(root)
+    return 0
+
+
+def sync(root: Path) -> None:
     answers = tomllib.loads((root / scaffold.RECORD).read_text(encoding="utf-8"))["answers"]
-    answers = {k: v for k, v in answers.items() if k in scaffold.KEYS}  # keys a release dropped
+    answers = {k: v for k, v in answers.items() if k in scaffold.keys(answers.get("profile", "web-fullstack"))}  # keys a release dropped
     files = scaffold.render(scaffold.resolve(answers, root))
     for rel, text in files.items():
         for target in ([] if rel in OWNED else [rel]) + [scaffold.base_path(rel)]:
@@ -46,7 +53,6 @@ def main(argv: list[str]) -> int:
             print("kept (edited, now an override)", rel)
         base.unlink()
     (root / scaffold.RECORD).write_text(scaffold.record_text(scaffold.resolve(answers, root)), encoding="utf-8")
-    return 0
 
 
 if __name__ == "__main__":

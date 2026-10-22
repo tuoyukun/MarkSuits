@@ -27,6 +27,9 @@ SUPPORTED_SCHEMAS = frozenset({1})
 MAIN = "main"
 
 DEFAULT_ROLES = ("designer", "coder-plan", "coder-impl", "tester", "fix-plan")
+# Profiles (`profile` in the config, chosen at `mark init`) whose product has no UI: their
+# features have no designer, so they start at planning and have no design review.
+NO_UI_PROFILES = frozenset({"service"})
 DEFAULT_GATES = {"coder-plan": "design-approved", "coder-impl": "plan-approved",
                  "tester": "plan-approved"}
 DEFAULT_OUTPUTS = {"designer": ["design.md", "preview.html"], "coder-plan": ["tech-plan.md"],
@@ -98,15 +101,22 @@ class MarkConfig:
         return self.root / self.state_rel
 
     @property
+    def profile(self) -> str:
+        return str(self.data.get("profile", "web-fullstack"))
+
+    @property
     def roles(self) -> frozenset[str]:
         """Pipeline role names (bare, without plugin prefix)."""
-        return frozenset(self.data.get("roles", DEFAULT_ROLES))
+        default = [r for r in DEFAULT_ROLES if r != "designer" or self.profile not in NO_UI_PROFILES]
+        return frozenset(self.data.get("roles", default))
 
     @property
     def gates(self) -> dict[str, str]:
         """role -> gate name required before dispatch (feature tickets only). A project key
-        replaces only that role's default; `""` removes the gate."""
-        merged = {**DEFAULT_GATES, **self._section("gates")}
+        replaces only that role's default; `""` removes the gate. Without a designer there is
+        no design to approve."""
+        default = {k: v for k, v in DEFAULT_GATES.items() if v != "design-approved" or "designer" in self.roles}
+        merged = {**default, **self._section("gates")}
         return {k: str(v) for k, v in merged.items() if v}
 
     @property
@@ -171,6 +181,12 @@ class MarkConfig:
     def path(self, name: str) -> str:
         """A module directory from `[paths]` (frontend, backend, ui, tests); "" when unset."""
         return str(self._section("paths").get(name, "")).strip("/")
+
+    @property
+    def module_dirs(self) -> list[str]:
+        """Production code directories: every `[paths]` entry but the tests and Mark's own."""
+        return [d for k in self._section("paths") if k not in ("state_dir", "prompts", "tests")
+                and (d := self.path(k))]
 
     @property
     def tests_profile(self) -> str:

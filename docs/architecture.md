@@ -112,6 +112,11 @@ text, so templates can be localized freely.
 | pending-merge | automated merge (regression → ff-only → push); owner `orchestrator`, a failed merge stops for the human | — | — |
 | passed | done | — | — |
 
+A profile without a UI (`profile = "service"`, v0.25) has no designer (`config.NO_UI_PROFILES`
+drops it from the default `roles`, and with it the `design-approved` gate): a new feature starts
+at `planning` (`states.initial`), and no move may enter a status whose role the project lacks
+(`flow.no_role`; `blocked-spec` then goes back to `planning`).
+
 Bug chain: fix-plan → coder-impl → tester, no review gates. General mode: no subagents,
 non-code changes only, on a throwaway lane (see General mode below).
 
@@ -395,8 +400,9 @@ The template lives in the plugin, `plugins/mark/template/`, and `mark init` (`li
 driven by the `/mark:init` skill) writes it into a project. There is no external generator: one
 plugin install is the whole setup.
 
-- **Answers** (`scaffold.KEYS`): project name, locale, profile, main branch, frontend / backend /
-  UI / end-to-end test directories, worktree setup command. `mark init
+- **Answers** (`scaffold.keys(profile)`): project name, locale, profile, main branch, the profile's
+  module directories (`scaffold.PROFILES`: `web-fullstack` frontend / backend / UI / tests,
+  `service` service / tests), worktree setup command. `mark init
   --<answer> <value>`; defaults fill the rest; `--dry-run` shows the plan and writes nothing.
 - **Checks before writing**: a git repository (an empty directory is `git init`ed), on the main
   branch, clean tree, git identity set, not already a Mark project, and no template file already
@@ -407,8 +413,8 @@ plugin install is the whole setup.
   written, the common ancestor for a later 3-way upgrade (the `.base` suffix keeps Claude Code and
   git from reading the copies as a live `CLAUDE.md`, agent or `.gitignore`). Both are write-protected
   by built-in rules.
-- **The skill** decides what the command cannot: new vs existing project, whether the stack fits
-  the only profile (`web-fullstack`; anything else stops with nothing written), the answers
+- **The skill** decides what the command cannot: new vs existing project, which profile fits
+  (none fits: it stops with nothing written), the answers
   (proposed from the manifests and CI config, confirmed by the human), and afterwards fills in
   `CLAUDE.md` in a general lane.
 
@@ -431,8 +437,10 @@ Three layers of instructions reach a role, from durable to specific:
 3. **Scenario template** (built-in, per locale): why this dispatch happens, done-when, what to read, what to write.
    Only `{{placeholders}}` from `brief.PLACEHOLDERS`; never how to do the work.
 
-**Locales.** `template/common/` holds what is the same in every locale (`.mark/config.toml`,
-`.gitignore`); `template/<locale>/` holds the rest (`CLAUDE.md`, `.mark/README.md`). Built-in
+**Locales and profiles.** `template/common/` holds what is the same in every locale and profile
+(`.gitignore`, `scripts/`, whose module lists come from the derived `{{ modules }}`);
+`template/<locale>/` holds `.mark/README.md`; `template/profiles/<profile>/common/` the
+profile's `.mark/config.toml` and `.../<locale>/` its `CLAUDE.md`. Built-in
 prompts, formats and the collaboration guide have one full set per locale under `defaults/`;
 built-in agents are English only (a plugin cannot localize them per project), and roles write
 artifacts in the project's locale. A `*.tmpl` file has
@@ -512,6 +520,8 @@ package manifest and tool config at the repository root. Migration: list every d
 role works in under `[[write_rules]]`; the CLAUDE.md template gained a Layout section
 (`mark upgrade` brings it in), and `/mark:init` agrees the layout with the human.
 
-**Phase 3 — optional plugins**
-`mark-web-e2e` (interaction floor, verdict criteria registry) · `mark-design-system`
-(token guards) · `mark-ios`.
+**Phase 3 — profiles** (re-planned 2026-10-22: one plugin, a profile per kind of project,
+instead of optional plugins; the interaction floor of the planned `mark-web-e2e` landed in
+v0.22–v0.23, its verdict criteria registry and `mark-design-system` token guards were dropped)
+`service` ✅ (v0.25: designer optional, `[paths]` modules not hard-coded, `examples/notes`) ·
+`cli` (CLIs and libraries) · `web-frontend` · `mobile`.

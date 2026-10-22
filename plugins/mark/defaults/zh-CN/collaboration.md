@@ -26,6 +26,9 @@ feature: designing → review-design → planning → review-plan → developing
 bug:     planning → developing → testing → pending-merge → passed
 ```
 
+没有 UI 的项目（`profile = "service"`）没有 designer：feature 从 `planning` 开始，没有设计评审，
+也没有设计验收。
+
 | 状态 | 谁来做 | 制品 |
 |---|---|---|
 | `designing` | designer | `design.md` + UI 组件 + 预览 + `preview.html`（人审看它） |

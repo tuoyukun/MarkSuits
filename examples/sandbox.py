@@ -54,7 +54,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Sandbox ready: {dest}  (origin: {origin})\n")
     print("Next:")
     print(f"  cd {dest}")
-    print("  npm --prefix tests ci && npm --prefix tests exec playwright install chromium")
+    if (dest / "tests" / "package.json").is_file():
+        print("  npm --prefix tests ci && npm --prefix tests exec playwright install chromium")
     print(f"  claude --plugin-dir {PLUGIN}")
     print("Then follow the walkthrough in examples/README.md.")
     return 0

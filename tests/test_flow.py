@@ -10,7 +10,7 @@ import zlib
 from tests._support import (FULL_CONFIG, add_origin, add_templates, add_ticket, add_worktree, hook,
                             human_typed, make_project, make_repo, sh, status_text)
 
-from mark import cli, flow, human, reviews
+from mark import cli, flow, human, reviews, tickets
 from mark.config import load_config
 
 ALL_GATES = ["ticket-approved", "design-approved", "plan-approved"]
@@ -226,6 +226,39 @@ class NextActionTest(unittest.TestCase):
         write(self.root / ".mark/locks/0001-a.coder-plan.result.json",
               json.dumps({"result": "PASSED", "at": (d / "status.md").stat().st_mtime - 5}))
         self.assertEqual(self.next("0001").kind, "dispatch")
+
+
+class NoDesignerTest(unittest.TestCase):
+    """`profile = "service"`: features skip the designer."""
+
+    def setUp(self):
+        self.root = make_repo('mark_schema = 1\nlocale = "en"\nprofile = "service"\n[project]\nmain_branch = "main"\n')
+
+    def test_feature_starts_at_planning_and_needs_its_requirement(self):
+        t = tickets.claim(load_config(self.root), "feature", "add an endpoint")
+        self.assertEqual(t.status, "planning")
+        self.assertEqual(t.get("owner"), "coder-plan")
+        gate = self.root / ".mark/gates" / f"{t.id}.ticket-approved"
+        write(gate, "ok\n")
+        self.assertEqual(ctx_next(self.root, t.id).message, "next.no_brief")
+        write(t.path.parent / "requirement.md", "AC-1")
+        a = ctx_next(self.root, t.id)
+        self.assertEqual((a.kind, a.role, a.scenario), ("dispatch", "coder-plan", "coder-plan"))
+
+    def test_no_move_to_a_designer_status(self):
+        add_ticket(self.root, "feature", "0001-a", "blocked-unclear", gates=ALL_GATES)
+        ctx = ctx_of(self.root, "0001")
+        self.assertNotIn("designing", flow.approve_targets(ctx))
+        with self.assertRaises(flow.FlowError) as e:
+            flow._move(ctx, "designing", None)
+        self.assertEqual(e.exception.key, "flow.no_role")
+
+    def test_blocked_spec_goes_back_to_planning(self):
+        add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES)
+        human_typed(self.root, "/mark:approve 0001")
+        code, out, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("status: planning", (self.root / ".mark/features/0001-a/status.md").read_text())
 
 
 class MovesTest(unittest.TestCase):

@@ -1,0 +1,11 @@
+# Written by `mark init`; do not edit. Upgrades read the answers below.
+version = "0.25.0"
+
+[answers]
+project_name = "notes"
+locale = "en"
+profile = "service"
+main_branch = "main"
+service_dir = "service"
+tests_dir = "tests"
+worktree_setup = ""

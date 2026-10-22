@@ -398,7 +398,8 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
         return Action("stop", _STOP_KEYS[status], {**base, "preview": preview_note(ctx)})
 
     action = _dispatch(ctx, status)
-    if action.scenario in ("designer-initial", "fix-plan-initial"):
+    first = ("designer-initial", "fix-plan-initial", "coder-plan" if _unstaffed(ctx, "designing") else "")
+    if action.scenario in first:
         brief = REQUIRED_BRIEF[kind]
         if not (ctx.state_dir / brief).is_file():
             return Action("stop", "next.no_brief", {**base, "file": f"{ctx.rel_dir}/{brief}"})
@@ -587,8 +588,16 @@ def _write_status(ctx: Ctx, new: str, note: str | None, extra: dict[str, str]) -
     ctx.ticket = candidate
 
 
+def _unstaffed(ctx: Ctx, status: str) -> str | None:
+    """The role a status needs when this project has no such role (no designer, say)."""
+    role = states.ROLE_FOR_STATUS[ctx.kind].get(status)
+    return role if role and role not in ctx.cfg.roles else None
+
+
 def _move(ctx: Ctx, new: str, note: str | None, extra: dict[str, str] | None = None) -> str:
     old = ctx.ticket.status
+    if (role := _unstaffed(ctx, new)) and new != old:
+        raise FlowError("flow.no_role", new=new, role=role)
     if not states.can_move(ctx.kind, old, new):
         allowed = ", ".join(sorted(states.TRANSITIONS[ctx.kind].get(old, ()))) or "-"
         raise FlowError("flow.illegal", old=old, new=new, allowed=allowed)
@@ -675,7 +684,8 @@ class Outcome:
 
 def approve_targets(ctx: Ctx) -> list[str]:
     """Where `mark approve --to` may send a blocked ticket: its legal moves."""
-    return sorted(states.TRANSITIONS[ctx.kind].get(ctx.ticket.status, frozenset()) - {"superseded"})
+    return sorted(s for s in states.TRANSITIONS[ctx.kind].get(ctx.ticket.status, frozenset())
+                  if s != "superseded" and not _unstaffed(ctx, s))
 
 
 def approve(ctx: Ctx, to: str | None = None) -> Outcome:
@@ -693,6 +703,8 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
     if status not in APPROVE or (ctx.kind == states.BUG and status == "blocked-spec"):
         raise FlowError("flow.approve_nothing", status=status, id=ctx.id)
     gate, review, new = APPROVE[status]
+    if new and _unstaffed(ctx, new):
+        new = "planning"  # blocked-spec without a designer: the plan is redone instead
     if to:
         if gate or to not in approve_targets(ctx):
             allowed = ", ".join(approve_targets(ctx)) if not gate else "-"

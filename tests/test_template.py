@@ -120,10 +120,18 @@ class TemplateConfigTest(unittest.TestCase):
         self.assertEqual(tomllib.loads(files[".mark/config.toml"])["worktree"]["setup"], 'npm test -- --grep "a\\b"')
 
     def test_template_uses_only_known_answers(self):
-        for loc in LOCALES:
-            for p in (TEMPLATE / loc).rglob("*.tmpl"):
-                for name in re.findall(r"\{\{\s*(\w+)\s*\}\}", p.read_text(encoding="utf-8")):
-                    self.assertIn(name, scaffold.KEYS, p)
+        for p in TEMPLATE.rglob("*.tmpl"):
+            parts = p.relative_to(TEMPLATE).parts
+            known = scaffold.keys(parts[1]) if parts[0] == "profiles" else scaffold.KEYS
+            for name in re.findall(r"\{\{\s*(\w+)\s*\}\}", p.read_text(encoding="utf-8")):
+                self.assertIn(name, (*known, "modules", "modules_start"), p)
+
+    def test_profiles_ship_the_same_files_in_every_locale(self):
+        for profile in scaffold.PROFILES:
+            sets = [{q.relative_to(TEMPLATE / "profiles" / profile / loc).as_posix()
+                     for q in (TEMPLATE / "profiles" / profile / loc).rglob("*") if q.is_file()} for loc in LOCALES]
+            self.assertEqual(sets[0], sets[1], profile)
+            self.assertIn("CLAUDE.md.tmpl", sets[0], profile)
 
 
 class ShippedScriptsTest(unittest.TestCase):
@@ -286,21 +294,23 @@ class GeneratedProjectTest(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = Path(tempfile.mkdtemp(prefix="mark-gen-"))
         cls.projects: dict[str, Path] = {}
-        for loc in LOCALES:
-            dest = cls.tmp / loc
-            dest.mkdir()
-            err = io.StringIO()
-            code = cli.main(["init", "--locale", loc, "--project-name", "demo"], cwd=dest,
-                            out=io.StringIO(), err=err)
-            assert code == 0, err.getvalue()
-            cls.projects[loc] = dest
+        for profile in scaffold.PROFILES:
+            for loc in LOCALES:
+                dest = cls.tmp / profile / loc
+                dest.mkdir(parents=True)
+                err = io.StringIO()
+                code = cli.main(["init", "--locale", loc, "--project-name", "demo", "--profile", profile],
+                                cwd=dest, out=io.StringIO(), err=err)
+                assert code == 0, err.getvalue()
+                cls.projects[f"{loc}:{profile}"] = dest
 
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def test_layout(self):
-        for loc, root in self.projects.items():
+        for key, root in self.projects.items():
+            loc = key.split(":")[0]
             paths = [p.relative_to(root).as_posix() for p in root.rglob("*")
                      if p.is_file() and ".git" not in p.relative_to(root).parts]
             for p in paths:
@@ -317,7 +327,8 @@ class GeneratedProjectTest(unittest.TestCase):
                                  (root / rel).read_text(encoding="utf-8"), f"{loc}: base of {rel}")
 
     def test_rendered_docs_have_no_placeholders_left(self):
-        for loc, root in self.projects.items():
+        for key, root in self.projects.items():
+            loc = key.split(":")[0]
             for rel in ("CLAUDE.md", ".mark/README.md"):
                 text = (root / rel).read_text(encoding="utf-8")
                 self.assertNotIn("{%", text, f"{loc}/{rel}")
@@ -326,7 +337,8 @@ class GeneratedProjectTest(unittest.TestCase):
             self.assertEqual(load_config(root).locale, loc)
 
     def test_shipped_docs_fit_the_default_budget(self):
-        for loc, root in self.projects.items():
+        for key, root in self.projects.items():
+            loc = key.split(":")[0]
             cfg = load_config(root)
             self.assertTrue(cfg.doc_budget, loc)
             for p in root.rglob("*.md"):
@@ -336,12 +348,15 @@ class GeneratedProjectTest(unittest.TestCase):
                     self.assertLessEqual(p.stat().st_size, limit, f"{loc}/{rel}")
 
     def test_every_scenario_renders(self):
-        for loc, root in self.projects.items():
+        for key, root in self.projects.items():
+            loc = key.split(":")[0]
             cfg = load_config(root)
             feature = Ctx(cfg, tickets.claim(cfg, "feature", "demo feature", slug="demo"))
             bug = Ctx(cfg, tickets.claim(cfg, "bug", "demo bug", slug="crash"))
             for scenario, role in SCENARIOS.items():
                 ctxs = [bug] if role == "fix-plan" else [feature] if role in ("designer", "coder-plan") else [feature, bug]
+                if role not in cfg.roles:
+                    continue
                 for ctx in ctxs:
                     with self.subTest(locale=loc, scenario=scenario, kind=ctx.kind):
                         review = ctx.state_dir / "review-design.md"

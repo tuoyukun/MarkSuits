@@ -19,25 +19,32 @@ Speak the human's language.
 2. **New or existing?** It is **new** when the repository has no source code yet (at most a
    README, a LICENSE, a .gitignore). Otherwise it is **existing**.
 
-3. **Check the stack fits.** Mark ships one role pack today, `web-fullstack`: a browser
-   frontend, a backend service, and browser end-to-end tests, in one repository.
+3. **Pick the profile.** Mark ships these profiles (`--profile`):
+   - `web-fullstack`: a browser frontend, a backend service and browser end-to-end tests, in
+     one repository. Features go through the designer and a design review.
+   - `service`: a backend service or API with no UI of its own; end-to-end tests call the
+     running service over its public interface (HTTP, say). No designer: features start at
+     planning.
+
    - Existing: read the manifests (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`,
      `Makefile`...), the CI config, the top-level layout and any existing `CLAUDE.md`.
    - New: ask the human what they are building and on what stack.
 
-   If it is not a web app with a frontend and a backend (a CLI, a library, a mobile app, a
-   backend-only service, a data pipeline...), **stop**: say Mark only supports web full-stack
-   projects for now, more templates will follow, and write nothing.
+   If no profile fits (a CLI, a library, a frontend with no backend, a mobile app, a data
+   pipeline...), **stop**: say Mark does not support that kind of project yet, more profiles
+   will follow, and write nothing.
 
 4. **Propose the answers** as one table and wait for the human to confirm or correct it:
 
    | answer | new project | existing project |
    |---|---|---|
+   | `--profile` | from step 3 | same |
    | `--locale` | the human's language: `en` or `zh-CN` | same |
    | `--project-name` | ask | from the manifest or the directory name |
    | `--main-branch` | `main` | the branch the dry run shows |
-   | `--frontend-dir`, `--backend-dir` | planned directories | where that code is now |
-   | `--ui-dir` | `<frontend>/src/ui` | the presentational components (only the designer writes there) |
+   | `--frontend-dir`, `--backend-dir` (web-fullstack) | planned directories | where that code is now |
+   | `--ui-dir` (web-fullstack) | `<frontend>/src/ui` | the presentational components (only the designer writes there) |
+   | `--service-dir` (service) | `service` | where the service code is now |
    | `--tests-dir` | planned end-to-end test directory | where the end-to-end tests are |
    | `--worktree-setup` | empty | the install step a fresh checkout needs, like `npm ci` |
 
@@ -51,10 +58,10 @@ Speak the human's language.
    In the same message, propose the **layout**: every top-level path and the role that
    writes it. A role may write only paths a write rule assigns to it; everything else is the
    main thread's.
-   - New: frontend, backend and end-to-end tests are each self-contained (own dependencies,
+   - New: each code module and the end-to-end tests are self-contained (own dependencies,
      config and scripts); the root holds only `CLAUDE.md`, `README.md`, `.gitignore`, `.mark/`,
      `.claude/` and the `scripts/` Mark ships. No shared package manifest or tool config at the root.
-   - Existing: list the top-level paths that are not the frontend, backend, tests or
+   - Existing: list the top-level paths that are not a code module, the tests or
      `docs/adr/`, and propose an owner for each (a `[[write_rules]]` entry), or say it stays
      with the main thread.
 
@@ -62,12 +69,12 @@ Speak the human's language.
    Report the result in two lines.
 
 6. **Fill in CLAUDE.md.** Every role reads it first: stack, layout, module boundaries, and the
-   exact commands (install, dev server, UI preview, unit tests, lint, end-to-end, full
+   exact commands (install, dev server, UI preview if any, unit tests, lint, end-to-end, full
    regression). Write the confirmed layout into its Layout section, and add the write rules
    the human agreed to `.mark/config.toml` in the same lane.
    The merge check is fixed: `bash scripts/selftest.sh && bash scripts/regression.sh`. Those
    scripts call each module's own entry points, so an existing project needs them before the
-   lane can land: in the same lane, write `selftest.sh` in the frontend and backend (their
+   lane can land: in the same lane, write `selftest.sh` in each code module (its
    lint, type check, unit tests, build), `regression.sh` in the test directory (the whole
    end-to-end suite), and `start.sh` / `stop.sh` in each module that runs a server, each
    wrapping the commands the project already uses. Run them once in the lane; the human
@@ -90,8 +97,8 @@ Speak the human's language.
    - New: suggest the first ticket, `/mark:feature` for the project skeleton (framework,
      each module set up in its own directory as the Layout section says, the commands in
      `CLAUDE.md`). Its acceptance criteria describe what works, such as "the home page lists
-     the posts"; the tester writes the end-to-end tests. It has no UI to design, so the human
-     may waive design review with `.mark/gates/<id>.design-approved.waived`; the stack choice is
+     the posts"; the tester writes the end-to-end tests. In `web-fullstack` it has no UI to
+     design, so the human may waive design review with `.mark/gates/<id>.design-approved.waived`; the stack choice is
      reviewed at plan review. Its plan creates each module's entry points, so its own merge
      already runs the full regression. Once it lands, set `[worktree] setup` and, if it runs
      servers, `[worktree] ports` (read by the module start scripts and test configs) with

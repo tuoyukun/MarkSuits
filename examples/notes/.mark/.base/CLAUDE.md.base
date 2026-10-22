@@ -1,0 +1,84 @@
+# CLAUDE.md — notes
+
+> This file explains **what the project is and how to build it**: stack, layout, module
+> boundaries, commands, docs and commit conventions. Every Mark role agent reads it first.
+> How the agents collaborate: `mark rules collaboration`, not here.
+
+## 1. Overview
+
+TODO: one paragraph on what notes does and for whom: which clients call it, and
+over which interface (HTTP API, gRPC, message queue...).
+
+## 2. Tech stack
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Service (`service/`) | TODO | |
+| Storage | TODO | |
+| End-to-end tests (`tests/`) | TODO | black-box: only the public interface |
+
+## 3. Layout
+
+Each module is self-contained: its dependencies, config and scripts live in its own
+directory, and it installs, runs and tests from there. The repository root holds only what
+this table lists. A path no write rule assigns (`[[write_rules]]` in `.mark/config.toml`) is
+written by the main thread only, so a new top-level path needs a row here and a write rule.
+
+| Path | What | Written by |
+|---|---|---|
+| `service/` | the service, with its own dependencies, config and unit tests | coder-impl |
+| `tests/` | end-to-end tests, with their own dependencies and config | tester |
+| `docs/adr/` | architecture decision records | coder-plan |
+| `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
+| `scripts/` | the entry points below; shipped by Mark, never edited by a ticket | main thread |
+| `README.md`, `.gitignore`, `.mark/`, `.claude/` | project docs and workflow files | main thread |
+
+`scripts/` only calls each module's own entry point, run from inside the module with the
+checkout's `.env` exported (each worktree's own ports among them):
+
+| Entry point | Who provides it | Does |
+|---|---|---|
+| `selftest.sh` | `service/` (required once it exists) | white-box self-test: lint, type check, unit tests, build |
+| `regression.sh` | `tests/` (required once it exists) | black-box regression: the whole end-to-end suite, calling the running service as a client would |
+| `start.sh`, `stop.sh` | `service/` | start it in the background on its port from `.env` and return once it answers; stop it |
+
+## 4. Module boundaries and contracts
+
+The public interface is the contract the end-to-end tests check: list its endpoints (or
+messages), their errors, and where the full spec lives (an OpenAPI file, say).
+
+| Module | Owns | May depend on | Must not |
+|---|---|---|---|
+| TODO | | | |
+
+## 5. Commands
+
+Role agents run exactly these. Keep them working from a fresh worktree.
+
+| Purpose | Command |
+|---|---|
+| Install dependencies | TODO |
+| Start / stop / restart the service | `bash scripts/start.sh` / `bash scripts/stop.sh` / `bash scripts/restart.sh` |
+| Self-test (white-box) | `bash scripts/selftest.sh` |
+| End-to-end tests (selected cases) | TODO |
+| Full regression (what a merge must pass, `[merge] regression`) | `bash scripts/selftest.sh && bash scripts/regression.sh` |
+
+## 6. Red lines
+
+1. No architecture-level decision without an ADR (`docs/adr/`).
+2. No change to the public interface without a plan that says so; a breaking change needs an ADR.
+3. Changing a module requires updating its `CONTEXT.md`.
+4. Nothing at the repository root that the Layout table does not list: no shared
+   dependencies, tool config or scripts there. A module's commands go in its own entry
+   points, never in `scripts/`.
+
+## 7. Commit format
+
+```
+type(module): what changed
+
+Why:
+How:
+Rejected:
+Refs: <ticket id> <R-N / FAIL-N>
+```

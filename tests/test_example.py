@@ -1,4 +1,4 @@
-"""The example project in `examples/todo` must stay a valid, current Mark project.
+"""The example projects in `examples/` must stay valid, current Mark projects.
 
 - Always: its config loads, every scenario renders for it, its own unit tests pass,
   and `examples/sandbox.py` turns it into a working repository.
@@ -21,6 +21,13 @@ from mark import brief, budget, cli, scaffold, tickets
 from mark.config import load_config
 from mark.flow import SCENARIOS, Action, Ctx
 
+# Example -> (directory with its unit tests, commands its CLAUDE.md must name).
+EXAMPLES = {
+    "todo": ("backend", ("npm --prefix tests ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
+                         "npx playwright test", "bash scripts/selftest.sh && bash scripts/regression.sh")),
+    "notes": ("service", ("bash scripts/selftest.sh", "bash scripts/start.sh", "bash regression.sh -k",
+                          "bash scripts/selftest.sh && bash scripts/regression.sh")),
+}
 EXAMPLE = REPO_ROOT / "examples" / "todo"
 SANDBOX = REPO_ROOT / "examples" / "sandbox.py"
 # Generated once, then filled in by the project.
@@ -33,53 +40,71 @@ def _answers(root: Path) -> dict[str, str]:
 
 
 class ExampleProjectTest(unittest.TestCase):
+    def examples(self):
+        for name in EXAMPLES:
+            with self.subTest(example=name):
+                yield name, REPO_ROOT / "examples" / name
+
     def test_config_and_paths(self):
-        cfg = load_config(EXAMPLE)
-        self.assertEqual(cfg.locale, "en")
-        for key in ("frontend", "backend", "ui", "tests"):
-            self.assertTrue((EXAMPLE / cfg._section("paths")[key]).is_dir(), key)
+        for _, root in self.examples():
+            cfg = load_config(root)
+            self.assertEqual(cfg.locale, "en")
+            for d in (*cfg.module_dirs, cfg.path("tests")):
+                self.assertTrue((root / d).is_dir(), d)
 
     def test_docs_fit_their_budget(self):
-        cfg = load_config(EXAMPLE)
-        for p in EXAMPLE.rglob("*.md"):
-            rel = p.relative_to(EXAMPLE).as_posix()
-            limit = budget.limit_for(cfg, rel)
-            if limit and not SKIP_DIRS & set(p.parts):
-                self.assertLessEqual(p.stat().st_size, limit, rel)
+        for _, root in self.examples():
+            cfg = load_config(root)
+            for p in root.rglob("*.md"):
+                rel = p.relative_to(root).as_posix()
+                limit = budget.limit_for(cfg, rel)
+                if limit and not SKIP_DIRS & set(p.parts):
+                    self.assertLessEqual(p.stat().st_size, limit, rel)
 
     def test_claude_md_is_filled_in(self):
-        text = (EXAMPLE / "CLAUDE.md").read_text(encoding="utf-8")
-        self.assertNotIn("TODO", text)
-        for command in ("npm --prefix tests ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
-                        "npx playwright test", "bash scripts/selftest.sh && bash scripts/regression.sh"):
-            self.assertIn(command, text)
+        for name, root in self.examples():
+            text = (root / "CLAUDE.md").read_text(encoding="utf-8")
+            self.assertNotIn("TODO", text)
+            for command in EXAMPLES[name][1]:
+                self.assertIn(command, text)
 
     def test_answers_are_recorded(self):
-        answers = _answers(EXAMPLE)
-        self.assertEqual(answers, scaffold.resolve(answers, EXAMPLE))
-        self.assertEqual(answers["locale"], "en")
+        for _, root in self.examples():
+            answers = _answers(root)
+            self.assertEqual(answers, scaffold.resolve(answers, root))
+            self.assertEqual(answers["locale"], "en")
 
     def test_every_scenario_renders(self):
         tmp = Path(tempfile.mkdtemp(prefix="mark-example-"))
         self.addCleanup(shutil.rmtree, tmp, True)
-        root = tmp / "todo"
-        shutil.copytree(EXAMPLE / ".mark", root / ".mark")
-        cfg = load_config(root)
-        feature = Ctx(cfg, tickets.claim(cfg, "feature", "demo", slug="demo"))
-        bug = Ctx(cfg, tickets.claim(cfg, "bug", "demo", slug="demo"))
-        for scenario, role in SCENARIOS.items():
-            ctx = bug if role == "fix-plan" else feature
-            with self.subTest(scenario=scenario):
-                action = Action("dispatch", role=role, scenario=scenario, trigger="FAIL-1 (verdict.md)",
-                                review=str(ctx.state_dir / "review-design.md"),
-                                pending_rounds=[1], pending_refs=["R-1"])
-                out = brief.render(ctx, action, prev="done")
-                self.assertNotIn("{{", out)
+        for name, src in self.examples():
+            root = tmp / name
+            shutil.copytree(src / ".mark", root / ".mark")
+            cfg = load_config(root)
+            feature = Ctx(cfg, tickets.claim(cfg, "feature", "demo", slug="demo"))
+            bug = Ctx(cfg, tickets.claim(cfg, "bug", "demo", slug="demo"))
+            for scenario, role in SCENARIOS.items():
+                if role not in cfg.roles:
+                    continue
+                ctx = bug if role == "fix-plan" else feature
+                with self.subTest(example=name, scenario=scenario):
+                    action = Action("dispatch", role=role, scenario=scenario, trigger="FAIL-1 (verdict.md)",
+                                    review=str(ctx.state_dir / "review-design.md"),
+                                    pending_rounds=[1], pending_refs=["R-1"])
+                    out = brief.render(ctx, action, prev="done")
+                    self.assertNotIn("{{", out)
 
-    def test_backend_unit_tests_pass(self):
-        res = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=EXAMPLE / "backend",
-                             capture_output=True, text=True, timeout=120)
-        self.assertEqual(res.returncode, 0, res.stderr[-2000:])
+    def test_unit_tests_pass(self):
+        for name, root in self.examples():
+            res = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=root / EXAMPLES[name][0],
+                                 capture_output=True, text=True, timeout=120)
+            self.assertEqual(res.returncode, 0, res.stderr[-2000:])
+
+    def test_service_example_regression_passes(self):
+        root = REPO_ROOT / "examples" / "notes"
+        res = subprocess.run(["bash", "scripts/regression.sh"], cwd=root, capture_output=True, text=True,
+                             timeout=120)
+        self.assertEqual(res.returncode, 0, res.stdout[-2000:] + res.stderr[-2000:])
 
     def test_sandbox_creates_a_working_repository(self):
         tmp = Path(tempfile.mkdtemp(prefix="mark-sandbox-"))
@@ -110,15 +135,18 @@ def _files(root: Path) -> dict[str, bytes]:
 
 class ExampleScaffoldSyncTest(unittest.TestCase):
     def test_scaffold_matches_the_template(self):
-        generated, example = scaffold.render(_answers(EXAMPLE)), _files(EXAMPLE)
-        stale = [rel for rel, text in generated.items()
-                 if (rel not in PROJECT_OWNED and example.get(rel) != text.encode())
-                 or example.get(scaffold.base_path(rel)) != text.encode()]
-        self.assertEqual(stale, [], "examples/todo is out of date with the template; regenerate it "
-                                    "(see examples/README.md, 'Updating the example')")
-        for rel in PROJECT_OWNED:
-            self.assertIn(rel, example)
-        self.assertTrue(example[".gitignore"].startswith(generated[".gitignore"].encode()))
+        for name in EXAMPLES:
+            root = REPO_ROOT / "examples" / name
+            with self.subTest(example=name):
+                generated, example = scaffold.render(_answers(root)), _files(root)
+                stale = [rel for rel, text in generated.items()
+                         if (rel not in PROJECT_OWNED and example.get(rel) != text.encode())
+                         or example.get(scaffold.base_path(rel)) != text.encode()]
+                self.assertEqual(stale, [], f"examples/{name} is out of date with the template; regenerate "
+                                            "it (see examples/README.md, 'Updating the examples')")
+                for rel in PROJECT_OWNED:
+                    self.assertIn(rel, example)
+                self.assertTrue(example[".gitignore"].startswith(generated[".gitignore"].encode()))
 
 
 if __name__ == "__main__":

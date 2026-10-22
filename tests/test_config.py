@@ -86,6 +86,14 @@ class WorkflowDefaultsTest(unittest.TestCase):
     def test_empty_list_requires_nothing(self):
         self.assertEqual(self.cfg('[outputs]\ntester = []\n').outputs["tester"], [])
 
+    def test_service_profile_has_no_designer_and_no_design_gate(self):
+        cfg = self.cfg('profile = "service"\n[paths]\nstate_dir = ".mark"\nservice = "api/"\ntests = "e2e"\n')
+        self.assertNotIn("designer", cfg.roles)
+        self.assertEqual(cfg.gates, {"coder-impl": "plan-approved", "tester": "plan-approved"})
+        self.assertEqual(cfg.module_dirs, ["api"])
+        own = self.cfg('profile = "service"\nroles = ["designer", "coder-plan"]\n')
+        self.assertIn("coder-plan", own.gates)  # a project that lists the designer gets its gate back
+
     def test_schema_must_be_an_integer(self):
         with self.assertRaises(ConfigError):
             load_config(make_project('mark_schema = "one"\n'))

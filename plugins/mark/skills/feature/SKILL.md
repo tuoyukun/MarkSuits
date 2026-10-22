@@ -1,5 +1,5 @@
 ---
-description: Start or continue a Mark feature ticket (designer, coder-plan, coder-impl, tester; human review after design and after plan). Use when the human asks to build a feature or to continue a feature ticket.
+description: Start or continue a Mark feature ticket (designer, coder-plan, coder-impl, tester; human review after design and after plan; projects without a UI skip the design). Use when the human asks to build a feature or to continue a feature ticket.
 argument-hint: <ticket-id | feature description>
 allowed-tools: Bash(mark:*)
 ---
@@ -34,4 +34,4 @@ output; this step checks the input.
    `TICKET-ID: <id>`.
    Write `.mark/features/<id>/requirement.md` with what you agreed, including numbered
    acceptance criteria, then `mark commit <id>`.
-6. **First step.** `mark next <id>`, dispatch the designer, record, report, stop.
+6. **First step.** `mark next <id>`, dispatch the role it names (the designer, or coder-plan in a project without a UI), record, report, stop.

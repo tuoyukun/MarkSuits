@@ -22,8 +22,8 @@ lane. Main does not change until the human says to land it. Speak the human's la
    Never edit `.mark/.base/` or `.mark/template.toml`; `mark upgrade` owns them.
 4. **Module entry points.** When the upgrade adds `scripts/` (the merge check becomes
    `bash scripts/selftest.sh && bash scripts/regression.sh`), the lane cannot land until every
-   existing module has its entry points. In the lane, write `selftest.sh` in the frontend and
-   backend, `regression.sh` in the test directory, and `start.sh` / `stop.sh` in each module
+   existing module has its entry points. In the lane, write `selftest.sh` in each code module
+   (`[paths]`), `regression.sh` in the test directory, and `start.sh` / `stop.sh` in each module
    that runs a server, each wrapping the commands `CLAUDE.md` lists today; point the Commands
    section of `CLAUDE.md` at `scripts/`; run both scripts once; commit in the lane.
    Also: with `[tests] profile = "playwright"`, `mark merge` also needs `JOURNEYS.md` in the test

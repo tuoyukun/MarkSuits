@@ -31,15 +31,18 @@ interaction, events, state changes) these never count: grepping or reading sourc
 scanning page HTML for strings, checking only that an API returns 200, citing the design or
 plan text.
 
-The one valid method is to drive the app like a user and assert on the result:
+The one valid method is to use the product through its public interface, as its users do
+(`CLAUDE.md` says which: a browser for a web app, requests to the running service for an
+API), and assert on the result:
 
-- **Every test case performs a real action** (click, type, press, drag, select, …;
-  navigation alone does not count) and **asserts after it**. Assertions that all come before
-  the first action only test the initial render.
+- **Every test case performs a real action** (in a browser: click, type, press, drag,
+  select, …, and navigation alone does not count; for a service: a request a client would
+  send) and **asserts after it**. Assertions that all come before the first action only test
+  the initial render.
 - **No skipped tests.** A skipped test verifies nothing but still looks like coverage.
 - **No fixed sleeps.** Wait for a condition, not for time.
-- **No stubs or internals:** no network stubbing, synthetic events or page state set from
-  code; no importing production code or reading its source. A hook enforces these rules on
+- **No stubs or internals:** no network stubbing, synthetic events, page state or
+  database rows set from code; no importing production code or reading its source. A hook enforces these rules on
   what you write (`[tests]` in `.mark/config.toml`); helpers that act or assert count.
 - **Each test case says what it covers** with a comment naming the ticket and criterion
   (for example `covers: 0012/AC-3`), so coverage can be traced from the test itself.
@@ -61,7 +64,7 @@ which existing test to extend and which new tests to add.
 ## Criteria a user cannot reach
 
 Criteria tagged `[unit]`, and some others, no user action can drive: pure functions, algorithms, data structures,
-backend contracts, static facts. Do not invent an action-free end-to-end test for them.
+internal contracts, static facts. Do not invent an action-free end-to-end test for them.
 If `handoff.md` points them at a unit test that exists and passes, accept that. Otherwise
 open a failure with `failureType: needs-unit-test`, `routeTo: coder-impl`.
 

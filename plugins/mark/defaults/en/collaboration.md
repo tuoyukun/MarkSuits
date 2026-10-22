@@ -27,6 +27,9 @@ feature: designing → review-design → planning → review-plan → developing
 bug:     planning → developing → testing → pending-merge → passed
 ```
 
+A project without a UI (`profile = "service"`) has no designer: its features start at
+`planning`, with no design review and no design QA.
+
 | Status | Who acts | Artifact |
 |---|---|---|
 | `designing` | designer | `design.md` + UI components + preview + `preview.html` (what the human reviews) |

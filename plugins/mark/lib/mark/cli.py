@@ -328,8 +328,8 @@ def cmd_init(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
         p = scaffold.plan(cwd, given)
         loc = p.answers["locale"]
         out.write(t(loc, "init.plan", root=p.root, version=scaffold.version()) + "\n")
-        for key in scaffold.KEYS:
-            out.write(f"  --{key.replace('_', '-')} {json.dumps(p.answers[key], ensure_ascii=False)}\n")
+        for key, value in p.answers.items():
+            out.write(f"  --{key.replace('_', '-')} {json.dumps(value, ensure_ascii=False)}\n")
         out.write(t(loc, "init.writes", n=len(p.write)) + "\n")
         for rel in p.kept:
             out.write(t(loc, "init.kept", rel=rel) + "\n")

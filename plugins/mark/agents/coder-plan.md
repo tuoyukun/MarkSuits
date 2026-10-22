@@ -33,9 +33,9 @@ The shared Mark role rules are preloaded above. If they are not in your context,
    Every `T-N` can be found as a call in some `SD-N`, and every `AC-N` is covered by some
    `T-N`, or by the tester when only an end-to-end test can deliver it.
 4. **Every task is coder-impl's, inside its write scope** (`[[write_rules]]` in
-   `.mark/config.toml`). The designer already built the UI directory (`[paths] ui`): your
-   tasks cover the container side (data, timing, wiring the components with the right
-   props), no "make it look like the design" tasks. The tester owns the end-to-end test
+   `.mark/config.toml`). When the feature has a design, the designer already built the UI
+   directory (`[paths] ui`): your tasks cover the container side (data, timing, wiring the
+   components with the right props), no "make it look like the design" tasks. The tester owns the end-to-end test
    directory (`[paths] tests`): its cases, config and setup. Plan no `T-N` there; where an
    `AC-N` needs an end-to-end test, write "tester" next to it in the task list. Every file
    goes where the layout in `CLAUDE.md` puts it, inside a module; a new top-level path is an

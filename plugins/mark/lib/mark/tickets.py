@@ -291,7 +291,7 @@ def claim(cfg: MarkConfig, kind: str, desc: str, slug: str | None = None,
             break
         else:
             raise ClaimError("claim.exhausted", n=MAX_PROBE, path=str(base))
-        initial = states.INITIAL[kind]
+        initial = states.initial(kind, cfg.roles)
         fields = {
             "status": initial,
             "owner": states.ROLE_FOR_STATUS[kind][initial],

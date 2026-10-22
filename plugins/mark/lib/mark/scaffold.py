@@ -3,7 +3,8 @@
 Only project files live here (config, CLAUDE.md, .gitignore, .mark/README.md); role agents,
 prompts and formats are built into the plugin (see `defaults.py`).
 
-The template lives in `template/common/` plus `template/<locale>/`. A file ending in `.tmpl`
+The template lives in `template/common/` and `template/<locale>/`, then
+`template/profiles/<profile>/common/` and `.../<locale>/` (config, CLAUDE.md). A file ending in `.tmpl`
 has every `{{ answer }}` filled in and loses the suffix; every other file is copied as it is
 (dispatch prompts keep their own `{{placeholder}}`s for `mark dispatch`).
 
@@ -27,16 +28,28 @@ from .gitutil import current_branch, git, has_remote
 _PLUGIN = Path(__file__).resolve().parents[2]
 TEMPLATE = _PLUGIN / "template"
 LOCALES = ("en", "zh-CN")
-PROFILES = ("web-fullstack",)
+# Each profile's module directory answers, in the order its modules self-test and stop.
+PROFILES = {
+    "web-fullstack": ("frontend_dir", "backend_dir", "ui_dir", "tests_dir"),
+    "service": ("service_dir", "tests_dir"),
+}
+DIR_DEFAULTS = {"frontend_dir": "frontend", "backend_dir": "backend", "service_dir": "service",
+                "tests_dir": "tests"}
 RECORD = ".mark/template.toml"
 BASE_DIR = ".mark/.base"
 KEPT = {"CLAUDE.md"}           # kept as it is when the project already has one
 MERGED = {".gitignore"}        # gains the missing lines when the project already has one
 
-# Answer keys in the order `mark init` reports them; defaults are filled by `resolve`.
+# Every answer key; a profile uses the common ones plus its own directories.
 KEYS = ("project_name", "locale", "profile", "main_branch", "frontend_dir", "backend_dir",
-        "ui_dir", "tests_dir", "worktree_setup")
-DIR_KEYS = ("frontend_dir", "backend_dir", "ui_dir", "tests_dir")
+        "ui_dir", "service_dir", "tests_dir", "worktree_setup")
+
+
+def keys(profile: str) -> tuple[str, ...]:
+    """Answer keys of a profile, in the order `mark init` reports them."""
+    return ("project_name", "locale", "profile", "main_branch", *PROFILES[profile], "worktree_setup")
+
+
 _VAR = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
 
@@ -46,31 +59,33 @@ def version() -> str:
 
 def resolve(given: dict[str, str], root: Path) -> dict[str, str]:
     """Fill defaults and validate; raises FlowError on a bad answer."""
-    unknown = sorted(set(given) - set(KEYS))
+    a = {k: v.strip() for k, v in given.items()}
+    a.setdefault("profile", "web-fullstack")
+    if a["profile"] not in PROFILES:
+        raise FlowError("init.bad_choice", answer="profile", value=a["profile"], choices=", ".join(PROFILES))
+    wanted = keys(a["profile"])
+    unknown = sorted(set(given) - set(wanted))
     if unknown:
         raise FlowError("init.unknown_answer", keys=", ".join(unknown))
-    a = {k: v.strip() for k, v in given.items()}
     a.setdefault("project_name", root.name)
     a.setdefault("locale", "en")
-    a.setdefault("profile", PROFILES[0])
     a.setdefault("main_branch", current_branch(root) or "main")
-    a.setdefault("frontend_dir", "frontend")
-    a.setdefault("backend_dir", "backend")
-    a.setdefault("ui_dir", f"{a['frontend_dir'].rstrip('/')}/src/ui")
-    a.setdefault("tests_dir", "tests")
+    for key in PROFILES[a["profile"]]:
+        if key in DIR_DEFAULTS:
+            a.setdefault(key, DIR_DEFAULTS[key])
+    if "ui_dir" in wanted:
+        a.setdefault("ui_dir", f"{a['frontend_dir'].rstrip('/')}/src/ui")
     a.setdefault("worktree_setup", "")
     if a["locale"] not in LOCALES:
         raise FlowError("init.bad_choice", answer="locale", value=a["locale"], choices=", ".join(LOCALES))
-    if a["profile"] not in PROFILES:
-        raise FlowError("init.bad_choice", answer="profile", value=a["profile"], choices=", ".join(PROFILES))
-    for key in KEYS:
+    for key in wanted:
         if "\n" in a[key] or (not a[key] and key != "worktree_setup"):
             raise FlowError("init.bad_answer", answer=key, value=a[key])
-    for key in DIR_KEYS:
+    for key in PROFILES[a["profile"]]:
         a[key] = a[key].rstrip("/")
         if a[key].startswith("/") or ".." in a[key].split("/") or not a[key]:
             raise FlowError("init.bad_dir", answer=key, value=a[key])
-    return {k: a[k] for k in KEYS}
+    return {k: a[k] for k in wanted}
 
 
 def _fill(text: str, answers: dict[str, str], toml: bool) -> str:
@@ -82,10 +97,18 @@ def _fill(text: str, answers: dict[str, str], toml: bool) -> str:
     return _VAR.sub(sub, text)
 
 
+def modules(answers: dict[str, str]) -> list[str]:
+    """Directories with their own selftest.sh / start.sh: the profile's code modules."""
+    return [answers[k] for k in PROFILES[answers["profile"]] if k not in ("ui_dir", "tests_dir")]
+
+
 def render(answers: dict[str, str]) -> dict[str, str]:
     """{project-relative path: content} for the whole template."""
+    mods = [f'"{d}"' for d in modules(answers)]
+    answers = {**answers, "modules": " ".join(mods), "modules_start": " ".join(reversed(mods))}
     out: dict[str, str] = {}
-    for layer in ("common", answers["locale"]):
+    profile = f"profiles/{answers['profile']}"
+    for layer in ("common", answers["locale"], f"{profile}/common", f"{profile}/{answers['locale']}"):
         top = TEMPLATE / layer
         for p in sorted(top.rglob("*")):
             if not p.is_file() or p.name == ".DS_Store":
@@ -125,7 +148,7 @@ def appended(old: str, lines: list[str]) -> str:
 def record_text(answers: dict[str, str]) -> str:
     lines = ["# Written by `mark init`; do not edit. Upgrades read the answers below.",
              f'version = "{version()}"', "", "[answers]"]
-    lines += [f"{k} = {json.dumps(answers[k], ensure_ascii=False)}" for k in KEYS]
+    lines += [f"{k} = {json.dumps(v, ensure_ascii=False)}" for k, v in answers.items()]
     return "\n".join(lines) + "\n"
 
 

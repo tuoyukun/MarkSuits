@@ -33,6 +33,11 @@ HELD = HUMAN | {MERGE}
 
 INITIAL = {FEATURE: "designing", BUG: "planning"}
 
+
+def initial(kind: str, roles: frozenset[str]) -> str:
+    """First status of a new ticket; a feature skips design when the project has no designer."""
+    return "planning" if kind == FEATURE and "designer" not in roles else INITIAL[kind]
+
 _BLOCKED = ("blocked-plan", "blocked-spec", "blocked-unclear")
 
 # Allowed moves. Every non-terminal status may also move to "superseded"
@@ -48,7 +53,7 @@ _FEATURE_EDGES: dict[str, tuple[str, ...]] = {
     "failed-impl": ("design-qa", "testing", "blocked-plan", "blocked-unclear"),
     "pending-merge": ("passed", "failed-impl", "planning"),
     "blocked-plan": ("planning", "developing"),
-    "blocked-spec": ("designing", "developing"),
+    "blocked-spec": ("designing", "planning", "developing"),
     "blocked-unclear": ("designing", "planning", "developing"),
     "passed": (),
     "superseded": (),

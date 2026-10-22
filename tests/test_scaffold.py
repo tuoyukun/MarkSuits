@@ -108,6 +108,23 @@ class ChecksTest(unittest.TestCase):
                 self.assertIn(text, err)
         self.assertFalse((root / ".mark").exists())
 
+    def test_service_profile(self):
+        root = repo(self)
+        code, _, err = init(root, "--profile", "service", "--frontend-dir", "web")
+        self.assertIn("Unknown answer", err)  # not a service answer
+        code, out, err = init(root, "--profile", "service", "--service-dir", "api")
+        self.assertEqual(code, 0, err)
+        self.assertIn('--service-dir "api"', out)
+        self.assertNotIn("--frontend-dir", out)
+        cfg = load_config(root)
+        self.assertEqual((cfg.profile, cfg.module_dirs, cfg.tests_profile), ("service", ["api"], "none"))
+        self.assertNotIn("designer", cfg.roles)
+        self.assertIn("api/**", [r.glob for r in cfg.write_rules])
+        self.assertIn('selftest.sh required "api"\n', (root / "scripts/selftest.sh").read_text())
+        self.assertIn("`api/`", (root / "CLAUDE.md").read_text())
+        record = tomllib.loads((root / scaffold.RECORD).read_text())
+        self.assertEqual(set(record["answers"]), set(scaffold.keys("service")))
+
     def test_dry_run_writes_nothing(self):
         root = repo(self)
         code, out, _ = init(root, "--dry-run", "--worktree-setup", "npm ci")

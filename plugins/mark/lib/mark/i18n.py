@@ -600,6 +600,7 @@ MESSAGES["en"].update({
     "flow.iso.push_failed": "Could not push {branch} to origin. Fix the remote and retry; the work must not live on one machine only.",
     "flow.invalid_status": "The new status.md would be invalid:\n{problems}",
     "flow.illegal": "Illegal move `{old}` -> `{new}`. Allowed from `{old}`: {allowed}.",
+    "flow.no_role": "`{new}` needs the {role}, and this project has none (`roles` / `profile` in .mark/config.toml).",
     "flow.human_gate": (
         "{id} is at `{status}`, which waits on the human. Only /mark:approve or /mark:reject (typed by the\n"
         "human) move it on; `mark merge` lands a `pending-merge` ticket. Report and stop."
@@ -816,6 +817,7 @@ MESSAGES["zh-CN"].update({
     "flow.iso.push_failed": "无法把 {branch} 推到 origin。修好远端后重试；产出不能只存在一台机器上。",
     "flow.invalid_status": "新的 status.md 不合规：\n{problems}",
     "flow.illegal": "非法跳转 `{old}` -> `{new}`。从 `{old}` 只能到：{allowed}。",
+    "flow.no_role": "`{new}` 需要 {role}，而本项目没有这个角色（见 .mark/config.toml 的 `roles` / `profile`）。",
     "flow.human_gate": (
         "{id} 停在 `{status}`，这一步等人决定。只有 Human 输入的 /mark:approve 或 /mark:reject 能推动它；\n"
         "`pending-merge` 由 `mark merge` 合入。报告后停下。"
@@ -896,7 +898,8 @@ MESSAGES["en"].update({
     "init.done": (
         "Mark is set up: one commit on {main}. Next:\n"
         "  - fill in the TODOs in CLAUDE.md (stack, module boundaries, commands); roles read it first\n"
-        "  - set `[merge] regression` and `[worktree] setup` in .mark/config.toml once the project has tests\n"
+        "  - give each module its entry points (selftest.sh, regression.sh; see CLAUDE.md, Layout) and set\n"
+        "    `[worktree] setup` in .mark/config.toml once the project has dependencies\n"
         "  - start work with /mark:feature or /mark:fix"
     ),
     "init.pushed": "Pushed {main} to origin.",
@@ -924,7 +927,8 @@ MESSAGES["zh-CN"].update({
     "init.done": (
         "Mark 已启用：{main} 上一次提交。接下来：\n"
         "  - 补完 CLAUDE.md 里的 TODO（技术栈、模块边界、命令），每个角色开工先读它\n"
-        "  - 工程有了测试后，在 .mark/config.toml 里设置 `[merge] regression` 和 `[worktree] setup`\n"
+        "  - 给每个模块写好入口脚本（selftest.sh、regression.sh，见 CLAUDE.md 的目录结构），工程有了依赖后\n"
+        "    在 .mark/config.toml 里设置 `[worktree] setup`\n"
         "  - 用 /mark:feature 或 /mark:fix 开始干活"
     ),
     "init.pushed": "已把 {main} 推到 origin。",

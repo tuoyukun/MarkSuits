@@ -99,7 +99,7 @@ def plan(root: Path) -> Plan:
     if _ver(old) >= _ver(new):
         raise FlowError("upgrade.current", version=old, plugin=new)
     # Keys the recording plugin did not know get today's defaults.
-    answers = scaffold.resolve({k: v for k, v in given.items() if k in scaffold.KEYS}, root)
+    answers = scaffold.resolve({k: v for k, v in given.items() if k in scaffold.keys(given.get("profile", "web-fullstack"))}, root)
     files = scaffold.render(answers)
     p = Plan(old, new, answers)
     on_disk = {b.relative_to(root / scaffold.BASE_DIR).as_posix()[:-len(".base")]
