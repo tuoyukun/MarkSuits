@@ -113,7 +113,7 @@ class TemplateConfigTest(unittest.TestCase):
     def test_ticket_briefs_are_main_only(self):
         for name in ("requirement.md", "bug.md"):
             self.assertEqual(self.cfg.write_rules[[r.glob for r in self.cfg.write_rules]
-                                                  .index(f"**/{name}")].roles, {MAIN}, name)
+                                                  .index(f".mark/*/*/{name}")].roles, {MAIN}, name)
 
     def test_quotes_in_answers_stay_valid_toml(self):
         files = scaffold.render({**ANSWERS, "worktree_setup": 'npm test -- --grep "a\\b"'})

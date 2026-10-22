@@ -60,8 +60,9 @@ class LoadConfigTest(unittest.TestCase):
         cfg = load_config(make_project('mark_schema = 1\n[[write_rules]]\nglob = "**/design.md"\n'
                                        'roles = ["designer", "main"]\n[[write_rules]]\nglob = "src/**"\nroles = ["coder-impl"]\n'))
         rules = {r.glob: r.roles for r in cfg.write_rules}
-        self.assertEqual(rules["**/requirement.md"], {"main"})
+        self.assertEqual(rules[".mark/*/*/requirement.md"], {"main"})
         self.assertEqual(rules["**/design.md"], {"designer", "main"})
+        self.assertNotIn(".mark/*/*/design.md", rules)   # a legacy **/ override still replaces it
         self.assertEqual([r.glob for r in cfg.write_rules].count("**/design.md"), 1)
         self.assertEqual(cfg.write_rules[-1].glob, "src/**")   # defaults come first
         self.assertEqual(cfg.outputs["designer"], ["design.md", "preview.html"])

@@ -32,15 +32,19 @@ DEFAULT_GATES = {"coder-plan": "design-approved", "coder-impl": "plan-approved",
 DEFAULT_OUTPUTS = {"designer": ["design.md", "preview.html"], "coder-plan": ["tech-plan.md"],
                    "fix-plan": ["fix-plan.md"], "coder-impl": ["handoff.md"],
                    "tester": ["verdict.md"]}
-# Who writes each ticket artifact, plus the docs every project has. They come before the
-# project's `[[write_rules]]`; a project rule with the same glob replaces the default.
+# Who writes each ticket artifact (inside `<state_dir>/<kind>/<id>/` only, so a project file
+# such as `frontend/preview.html` is not caught), plus the docs every project has. They come
+# before the project's `[[write_rules]]`; a project rule with the same glob, or with
+# `**/<artifact>`, replaces the default.
 # A path no rule matches is the main thread's (see `guards.write.scope_block`).
+TICKET_ARTIFACT_RULES = (
+    ("requirement.md", ("main",)), ("bug.md", ("main",)),
+    ("design.md", ("designer",)), ("design-qa.md", ("designer",)),
+    ("preview.html", ("designer",)), ("tech-plan.md", ("coder-plan",)),
+    ("fix-plan.md", ("fix-plan",)), ("handoff.md", ("coder-impl",)),
+    ("verdict.md", ("tester",)),
+)
 DEFAULT_WRITE_RULES = (
-    ("**/requirement.md", ("main",)), ("**/bug.md", ("main",)),
-    ("**/design.md", ("designer",)), ("**/design-qa.md", ("designer",)),
-    ("**/preview.html", ("designer",)), ("**/tech-plan.md", ("coder-plan",)),
-    ("**/fix-plan.md", ("fix-plan",)), ("**/handoff.md", ("coder-impl",)),
-    ("**/verdict.md", ("tester",)),
     ("CLAUDE.md", ("main", "coder-plan", "coder-impl")),
     ("**/CONTEXT.md", ("main", "designer", "coder-plan", "coder-impl", "tester")),
     ("docs/adr/**", ("main", "coder-plan")),
@@ -115,7 +119,10 @@ class MarkConfig:
         own = [WriteRule(str(r["glob"]), frozenset(r.get("roles", [])))
                for r in self.data.get("write_rules", []) if "glob" in r]
         taken = {r.glob for r in own}
-        return [WriteRule(g, frozenset(roles)) for g, roles in DEFAULT_WRITE_RULES if g not in taken] + own
+        artifacts = [(f"{self.state_rel}/*/*/{name}", roles) for name, roles in TICKET_ARTIFACT_RULES
+                     if f"**/{name}" not in taken]
+        return [WriteRule(g, frozenset(roles)) for g, roles in artifacts + list(DEFAULT_WRITE_RULES)
+                if g not in taken] + own
 
     @property
     def doc_budget(self) -> list[BudgetRule]:

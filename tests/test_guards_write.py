@@ -26,6 +26,12 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(write(self.wt, self.wt / "frontend/app.ts", "coder-impl")[0], 0)
         self.assertEqual(write(self.wt, self.tdir / "handoff.md", "coder-impl")[0], 0)
 
+    def test_artifact_names_outside_ticket_dirs_follow_project_rules(self):
+        self.assertEqual(write(self.wt, self.wt / "frontend/preview.html", "coder-impl")[0], 0)
+        self.assertEqual(write(self.wt, self.wt / "frontend/preview.html", "designer")[0], 2)
+        self.assertEqual(write(self.wt, self.tdir / "preview.html", "coder-impl")[0], 2)
+        self.assertEqual(write(self.wt, self.tdir / "preview.html", "designer")[0], 0)
+
     def test_plugin_prefixed_role_is_normalized(self):
         self.assertEqual(write(self.wt, self.wt / "frontend/app.ts", "mark:coder-impl")[0], 0)
 
