@@ -72,6 +72,9 @@ Speak the human's language.
    end-to-end suite), and `start.sh` / `stop.sh` in each module that runs a server, each
    wrapping the commands the project already uses. Run them once in the lane; the human
    reviews them with the rest.
+   With `[tests] profile = "playwright"`, `mark merge` also needs `JOURNEYS.md` in the test
+   directory to list every end-to-end test: run `mark journeys <worktree>`, write the rows it
+   prints with the path column filled in from reading each test, and commit it in the lane.
    The main checkout is now a Mark project, so edit it in a general lane, as in /mark:general:
    `mark general new`, edit `<worktree>/CLAUDE.md`, commit in the lane, `mark general merge <branch>`.
    - Existing project with its own `CLAUDE.md`: keep everything there and add only what is

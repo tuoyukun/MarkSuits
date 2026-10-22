@@ -44,6 +44,20 @@ The one valid method is to drive the app like a user and assert on the result:
 - **Each test case says what it covers** with a comment naming the ticket and criterion
   (for example `covers: 0012/AC-3`), so coverage can be traced from the test itself.
 
+## Extend before you add
+
+The plan's "End-to-end coverage" table (`tech-plan.md` or `fix-plan.md`) says, per criterion,
+which existing test to extend and which new tests to add.
+
+- `extend`: add the steps and assertions to that test and its `covers:`; keep its title.
+- `new`: add a test with exactly that title. A hook refuses any other new test, and
+  `mark merge` refuses the branch.
+- If a criterion cannot be covered as planned, do not work around it: verdict `FAILED`,
+  `failureType: unclear`, naming the test you would add and why.
+- Keep `JOURNEYS.md` in the test directory current (`mark format journeys.md`): a row per
+  test you add, and the path and covers of each test you extend. `mark journeys <worktree>`
+  prints what is missing.
+
 ## Criteria a user cannot reach
 
 Criteria tagged `[unit]`, and some others, no user action can drive: pure functions, algorithms, data structures,

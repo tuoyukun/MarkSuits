@@ -27,7 +27,7 @@ written by the main thread only, so a new top-level path needs a row here and a 
 |---|---|---|
 | `{{ frontend_dir }}/` | frontend app, with its own dependencies and config | coder-impl (`{{ ui_dir }}/`: designer) |
 | `{{ backend_dir }}/` | backend service, with its own dependencies and config | coder-impl |
-| `{{ tests_dir }}/` | end-to-end tests, with their own dependencies and config | tester |
+| `{{ tests_dir }}/` | end-to-end tests, with their own dependencies and config; `JOURNEYS.md` lists them | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
 | `scripts/` | the entry points below; shipped by Mark, never edited by a ticket | main thread |

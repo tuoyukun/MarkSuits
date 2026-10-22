@@ -18,6 +18,8 @@ The human approved the design (if the feature has one). Now plan how to build it
 - Every `AC-N` is covered by a `T-N` (or by the tester, if only an end-to-end test delivers it);
   no `T-N` lies outside coder-impl's write scope; every `T-N` appears in an `SD-N`; each `T-N` is a
   concrete change.
+- End-to-end coverage: every `AC-N` has a row; `new` only where no existing test in
+  `JOURNEYS.md` can be extended, with the closest one named and why.
 - Architecture decisions have an ADR.
 - Open questions are empty. If they are not, report `blocked-unclear`.
 
@@ -26,6 +28,7 @@ The human approved the design (if the feature has one). Now plan how to build it
 - Requirement: `{{state_ticket_dir}}/requirement.md`
 - Design: `{{ticket_dir}}/design.md`, if present
 - Format: `mark format tech-plan.md`
+- Existing end-to-end tests: `JOURNEYS.md` in the test directory (`[paths] tests`)
 - Project: `{{worktree}}/CLAUDE.md` (stack, module boundaries, where ADRs live), and the code
   you plan to change
 

@@ -29,7 +29,7 @@ assigns (`[[write_rules]]` in `.mark/config.toml`) is written by the main thread
 |---|---|---|
 | `frontend/` | the browser app, no build step; `selftest.sh` | coder-impl (`frontend/src/ui/`: designer) |
 | `backend/` | the HTTP server, its unit tests; `selftest.sh`, `start.sh`, `stop.sh` | coder-impl |
-| `tests/` | end-to-end specs, Playwright config, `package.json`; `regression.sh` | tester |
+| `tests/` | end-to-end specs, Playwright config, `package.json`; `regression.sh`; `JOURNEYS.md` (every test and its path) | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
 | `scripts/` | entry points shipped by Mark; they call each module's own | main thread |

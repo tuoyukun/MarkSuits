@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import brief, defaults, flow, general, merge, scaffold, states, tickets, updates, upgrade
+from . import brief, defaults, e2e, flow, general, merge, scaffold, states, tickets, updates, upgrade
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -415,9 +415,28 @@ def cmd_format(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> in
     return 0
 
 
+def cmd_journeys(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark journeys [<checkout>]`: what JOURNEYS.md lacks or lists in vain; 0 when it matches."""
+    if len(args) > 1:
+        _say(cfg, err, "cli.usage")
+        return 2
+    root = Path(args[0]).resolve() if args else cfg.root
+    tests_dir = cfg.path("tests")
+    if cfg.tests_profile != "playwright" or not tests_dir:
+        _say(cfg, out, "cli.journeys.off")
+        return 0
+    add, drop = e2e.index_drift(root, tests_dir)
+    if not add and not drop:
+        _say(cfg, out, "cli.journeys.ok", index=f"{tests_dir}/{e2e.INDEX_FILE}")
+        return 0
+    _say(cfg, out, "cli.journeys.drift", index=f"{tests_dir}/{e2e.INDEX_FILE}",
+         add="\n".join(add) or "-", drop="\n".join(f"  - {x}" for x in drop) or "  -")
+    return 1
+
+
 COMMANDS = {"format": cmd_format, "next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
             "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim, "merge": cmd_merge,
-            "general": cmd_general, "upgrade": cmd_upgrade}
+            "general": cmd_general, "upgrade": cmd_upgrade, "journeys": cmd_journeys}
 
 
 def main(argv: list[str] | None = None, cwd: Path | None = None,

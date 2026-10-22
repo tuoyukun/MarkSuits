@@ -15,13 +15,15 @@ what it promised.
 
 - Every criterion is checked: the `AC-N` of the requirement (feature) or of the fix plan
   (bug), and every `S-N` of the design, if there is one.
-- Existing tests that already cover a criterion were reused and run; missing ones were
-  added. Every new test case performs a real user action, asserts after it, and says what
-  it covers.
+- Tests follow the plan's "End-to-end coverage": extended where it says `extend`, added
+  only where it says `new`, with that exact title. Every test you add or extend performs a
+  real user action, asserts after it, and says what it covers.
+- `JOURNEYS.md` in the test directory matches the suite: `mark journeys {{worktree}}` exits 0.
 - Criteria a user cannot reach are either covered by a unit test named in the handoff, or
   opened as `needs-unit-test`.
-- Flows that cross two or more components or modules have an end-to-end test of the whole
-  path. Missing such a flow is your miss, not the requirement's.
+- Flows that cross two or more components or modules are covered along the whole path, by
+  the test the plan names. If the plan misses such a flow, that is `FAILED` with
+  `failureType: unclear`, not a test you add on your own.
 - `verdict.md` follows the format. For `PASSED`: main merged into the branch and the full
   regression green, recorded on the Regression line.
 

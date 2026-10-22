@@ -37,6 +37,14 @@ sequenceDiagram
 ## 完整使用路径
 <本单做完后用户从入口到完成怎么走；哪里还断着>
 
+## 端到端覆盖
+<!-- mark:e2e-plan -->
+| AC | action | test | 要加的步骤 / 为什么没有已有用例能扩展 |
+|---|---|---|---|
+| AC-1 | extend | <JOURNEYS.md 里的完整用例标题> | <要加哪些步骤，加在哪一步之后> |
+| AC-2 | new | <新用例的标题> | closest: <最接近的已有用例标题>；<为什么在它上面加步骤也覆盖不了> |
+| AC-3 | unit | - | <由单元测试覆盖（coder-impl）> |
+
 ## 自查
 - 已复用：<既有模块/工具 → 用在 T-N>
 - 坚持新建：<什么，为什么不能扩展既有实现>
@@ -55,5 +63,8 @@ sequenceDiagram
 - 每条 `AC-N` 至少被一个 `T-N` 覆盖；只有端到端测试能交付的，标「tester」。每个 `T-N` 都出现在
   某张 `SD-N` 里。
 - 每个 `T-N` 都是 coder-impl 的活：不落在 UI 目录（designer）或端到端测试目录（tester）。
+- **端到端覆盖：**先读 `<tests>/JOURNEYS.md`。每条 `AC-N` 写一行。默认 `extend`：在路径已经经过
+  这个状态的已有用例上加步骤。只有任何已有用例加步骤都到不了时才写 `new`，并写明最接近的用例和原因。
+  人在这里审新旅程；tester 不能新建这里没写的用例。`extend`、`new`、`unit` 在任何语言下都照写。
 - 时序图用 Mermaid `sequenceDiagram`，并画出失败分支。
 - 不设 changelog 段：返工历史写在 commit 正文里，引用 `R-N`。

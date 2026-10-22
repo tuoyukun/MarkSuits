@@ -43,7 +43,8 @@ MESSAGES: dict[str, dict[str, str]] = {
             "usage: mark <command> [options]\n"
             "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
             "  mark status [--active | --json | --check]\n"
-            "  mark unlock <ticket-id> <role>"
+            "  mark unlock <ticket-id> <role>\n"
+            "  mark journeys [<checkout>]"
         ),
     },
     "zh-CN": {
@@ -77,7 +78,8 @@ MESSAGES: dict[str, dict[str, str]] = {
             "用法：mark <命令> [选项]\n"
             "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
             "  mark status [--active | --json | --check]\n"
-            "  mark unlock <工单编号> <角色>"
+            "  mark unlock <工单编号> <角色>\n"
+            "  mark journeys [<checkout>]"
         ),
     },
 }
@@ -117,6 +119,20 @@ MESSAGES["en"].update({
         "so it reaches main through the normal merge path. If this path is meant to be edited on main,\n"
         "add it to `[worktree] main_writable` in .mark/config.toml. For a docs/config change that belongs\n"
         "to no ticket, open a throwaway lane with `mark general new` (/mark:general)."
+    ),
+    "cli.journeys.off": "Journey checks are off: `[tests] profile` is not \"playwright\".",
+    "cli.journeys.ok": "`{index}` lists exactly the end-to-end tests there are.",
+    "cli.journeys.drift": (
+        "`{index}` does not match the suite. Rows to add (write the path column):\n{add}\n"
+        "Rows to remove (no such test):\n{drop}"
+    ),
+    "guard.journey": (
+        "`{rel}` adds end-to-end tests the plan does not name as new:\n{tests}\n"
+        "New tests this ticket may add (plan, `<!-- mark:e2e-plan -->`): {planned}.\n"
+        "Extend the existing test the plan names for that criterion instead: add the steps and its\n"
+        "`covers:`. A test keeps its title when you change it. If no existing test can cover it, do not\n"
+        "add one anyway: report FAILED with `failureType: unclear` and say which test you would add and\n"
+        "why, so the plan can be changed. Existing tests are listed in `{index}`."
     ),
     "guard.e2e": (
         "`{rel}` breaks the black-box rules for end-to-end tests:\n{problems}\n"
@@ -282,6 +298,19 @@ MESSAGES["zh-CN"].update({
         "请在工单的 worktree（`{wt_dir}/` 下）里改，走正常合并进 main。\n"
         "如果这个路径本来就该在 main 上改，把它加进 .mark/config.toml 的 `[worktree] main_writable`。\n"
         "不属于任何工单的文档/配置改动，用 `mark general new`（/mark:general）开一条一次性车道。"
+    ),
+    "cli.journeys.off": "旅程检查未开启：`[tests] profile` 不是 \"playwright\"。",
+    "cli.journeys.ok": "`{index}` 恰好列出了全部端到端用例。",
+    "cli.journeys.drift": (
+        "`{index}` 与用例不一致。需要添加的行（请补上路径一栏）：\n{add}\n"
+        "需要删除的行（没有对应用例）：\n{drop}"
+    ),
+    "guard.journey": (
+        "`{rel}` 新增了计划里没有申报为新建的端到端用例：\n{tests}\n"
+        "本单允许新建的用例（计划里的 `<!-- mark:e2e-plan -->`）：{planned}。\n"
+        "请改为扩展计划为这条验收点指定的已有用例：加上步骤和对应的 `covers:`。修改用例时保持标题不变。\n"
+        "如果确实没有已有用例能覆盖，也不要自行新建：判 FAILED，`failureType: unclear`，说明你要新建哪条、\n"
+        "为什么，交给人改计划。已有用例见 `{index}`。"
     ),
     "guard.e2e": (
         "`{rel}` 违反了端到端测试的黑盒规则：\n{problems}\n"
@@ -483,6 +512,16 @@ MESSAGES["en"].update({
     ),
     "merge.ff_failed": "`{main}` cannot fast-forward to `{branch}` (it has commits the branch lacks). Push or drop them, then retry.",
     "merge.push_failed": "Pushing {main} failed, so the local fast-forward was undone. Pull, then retry `mark merge`.",
+    "merge.journey_unplanned": (
+        "The branch adds end-to-end tests its plan does not name as new (`<!-- mark:e2e-plan -->`):\n{tests}\n"
+        "Fold them into the existing tests the plan names, or change the plan so a human sees the new\n"
+        "journeys at review; then merge again."
+    ),
+    "merge.journey_index": (
+        "`{index}` must list exactly the end-to-end tests there are (one row per test title).\n"
+        "Tests with no row:\n{missing}\nRows with no test:\n{stale}\n"
+        "The tester keeps it current; fix it on the branch, then merge again."
+    ),
     "merge.no_regression": "No `[merge] regression` command is configured; merging on the tester's verdict alone.",
     "merge.green": "Regression passed: `{cmd}`.",
     "merge.landed": "`{branch}` fast-forwarded into {main} and pushed.",
@@ -670,6 +709,15 @@ MESSAGES["zh-CN"].update({
     ),
     "merge.ff_failed": "`{main}` 无法快进到 `{branch}`（main 上有分支没有的提交）。先推送或丢弃它们，再重试。",
     "merge.push_failed": "推送 {main} 失败，本地快进已撤销。先拉取，再重试 `mark merge`。",
+    "merge.journey_unplanned": (
+        "分支新增了计划没有申报为新建的端到端用例（`<!-- mark:e2e-plan -->`）：\n{tests}\n"
+        "把它们并进计划指定的已有用例，或者改计划，让人在评审时看到这些新旅程；然后再合并。"
+    ),
+    "merge.journey_index": (
+        "`{index}` 必须恰好列出现有的全部端到端用例（每个用例标题一行）。\n"
+        "没有对应行的用例：\n{missing}\n没有对应用例的行：\n{stale}\n"
+        "这份索引由 tester 维护；在分支上改好后再合并。"
+    ),
     "merge.no_regression": "没有配置 `[merge] regression` 命令；仅凭 tester 结论合并。",
     "merge.green": "回归通过：`{cmd}`。",
     "merge.landed": "`{branch}` 已快进合入 {main} 并推送。",

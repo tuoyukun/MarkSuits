@@ -264,6 +264,25 @@ the files it imports relatively, since suites often keep gestures in `helpers/`.
 Comments and string contents are blanked before matching. Measured on a 602-block legacy
 Playwright suite: no false positives besides real network stubs.
 
+**Extend before adding (v0.23).** Suites grow because the cheapest move for a tester is one
+more test per criterion, and nothing pushes back; a cap on the count does not work either,
+since how many journeys a product needs differs by orders of magnitude between projects. So
+the decision moves to where a human already looks: the plan. `tech-plan.md` and `fix-plan.md`
+carry "End-to-end coverage" (`<!-- mark:e2e-plan -->`), one row per criterion: `extend
+<existing title>` with the steps to add, `new <title>` with the closest existing test and why
+it cannot be extended, or `unit`. The planner reads `<tests>/JOURNEYS.md`
+(`<!-- mark:journeys -->`, tester-owned: every test's title, file, path through the app and
+covers), and the human sees each new journey at plan review; a bug has no review, but the
+reason is on record. No separate test review: the human could not judge one. Enforcement,
+with `[tests] profile = "playwright"`: the tester's write may add only tests titled as the
+plan's `new` rows (`guards.write.journey_guard`; a title already present in another spec is a
+move, not an addition; changing a test keeps its title); `mark merge` re-checks that the
+branch adds no test beyond them against the merged base (`merge._journeys`; shell writes
+cannot slip past) and that `JOURNEYS.md` lists exactly the tests there are. General lanes
+have no plan and get only the index check. `mark journeys [<checkout>]` prints the rows to
+add (file and `covers:` filled in) and to drop, which is also how an existing suite gets its
+first index in the init or upgrade lane.
+
 ### General mode (v0.9)
 
 A change that belongs to no ticket (docs, prompts, role files, config) runs through

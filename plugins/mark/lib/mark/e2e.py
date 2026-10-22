@@ -227,3 +227,93 @@ def problems(rel_file: str, old: str | None, new: str, tests_dir: str, module_di
     if profile == "playwright" and _SPEC.search(rel_file):
         found += spec_problems(old, new, imported)
     return found
+
+
+# --------------------------------------------------------------------------
+# Journey reuse: extend an existing end-to-end test before adding a new one.
+#
+# The plan (tech-plan.md / fix-plan.md) decides, per acceptance criterion, which existing test
+# gets more steps or which new journey is added and why no existing one could be extended; the
+# human reviews that with the plan. The tester may add only the tests the plan names as new.
+# `<tests>/JOURNEYS.md` lists every test so the planner can see what already exists.
+# --------------------------------------------------------------------------
+
+PLAN_ANCHOR = "<!-- mark:e2e-plan -->"
+INDEX_ANCHOR = "<!-- mark:journeys -->"
+INDEX_FILE = "JOURNEYS.md"
+PLAN_FILES = ("tech-plan.md", "fix-plan.md")
+
+
+def table_rows(text: str, anchor: str) -> list[list[str]]:
+    """Cells of the Markdown table that follows `anchor` (header and separator dropped)."""
+    at = text.find(anchor)
+    if at < 0:
+        return []
+    rows: list[list[str]] = []
+    started = False
+    for line in text[at + len(anchor):].splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            if started:
+                break
+            continue
+        started = True
+        cells = [c.strip().strip("`").strip() for c in line.strip("|").split("|")]
+        if all(set(c) <= set("-: ") for c in cells):
+            continue
+        rows.append(cells)
+    return rows[1:]                                   # first row is the header
+
+
+def planned_new(plan: str) -> set[str]:
+    """Titles of the tests the plan adds (`| AC-N | new | <title> | ... |`)."""
+    return {r[2] for r in table_rows(plan, PLAN_ANCHOR) if len(r) > 2 and r[1].lower() == "new" and r[2]}
+
+
+def indexed(index: str) -> set[str]:
+    """Test titles listed in JOURNEYS.md (first column)."""
+    return {r[0] for r in table_rows(index, INDEX_ANCHOR) if r and r[0]}
+
+
+def suite(root, tests_dir: str, skip: str | None = None) -> dict[str, str]:
+    """{test title: file} for every spec under `root/tests_dir`, except the file `skip`."""
+    out: dict[str, str] = {}
+    base = root / tests_dir
+    if not base.is_dir():
+        return out
+    for path in sorted(base.rglob("*")):
+        rel = path.relative_to(root).as_posix()
+        if "node_modules" in path.parts or not path.is_file() or not _SPEC.search(path.name) or rel == skip:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for b in extract_tests(text):
+            out.setdefault(b.title, rel)
+    return out
+
+
+def added_tests(old: str | None, new: str, elsewhere: set[str]) -> list[str]:
+    """Titles a write adds that no other spec has (moving a test between files is not adding)."""
+    before = {b.title for b in extract_tests(old or "")}
+    return [b.title for b in extract_tests(new) if b.title not in before and b.title not in elsewhere]
+
+
+_COVERS = re.compile(r"covers:\s*([^\n*]+?)\s*(?:\*/|$)", re.M)
+
+
+def index_drift(root, tests_dir: str) -> tuple[list[str], list[str]]:
+    """(rows to add, rows to drop) that would make JOURNEYS.md match the suite under `root`.
+    New rows carry the file and the `covers:` the test declares; the path is left to write."""
+    tests = suite(root, tests_dir)
+    path = root / tests_dir / INDEX_FILE
+    listed = indexed(path.read_text(encoding="utf-8")) if path.is_file() else set()
+    add = []
+    for title in sorted(set(tests) - listed):
+        rel = tests[title]
+        text = (root / rel).read_text(encoding="utf-8", errors="replace")
+        body = next((b.body for b in extract_tests(text) if b.title == title), "")
+        covers = ", ".join(m.strip() for m in _COVERS.findall(body)) or "-"
+        add.append(f"| {title} | {rel[len(tests_dir) + 1:]} | TODO: entry → steps → outcome | {covers} |")
+    return add, sorted(listed - set(tests))
