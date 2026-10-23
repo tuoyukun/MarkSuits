@@ -1,0 +1,12 @@
+# Open the app in Expo Go from this run's dev server and wait for the first screen.
+appId: host.exp.Exponent
+---
+- stopApp
+- openLink: "exp://127.0.0.1:${METRO_PORT}?__expo_disable_onboarding=1&__expo_disable_fab=1"
+- tapOn:                        # iOS asks "Open in "Expo Go"?" for a link from outside the app
+    text: Open
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: new-counter
+    timeout: 180000

@@ -6,6 +6,7 @@
 | [`notes/`](notes/) | A notes JSON API with no UI (Python standard library; end-to-end tests over HTTP with `unittest`), from the `service` profile. No designer: features go straight to planning. It also ships with one known bug. See [the notes walkthrough](#the-notes-service-service-profile). |
 | [`expenses/`](expenses/) | An expense tracker with no backend (vanilla JS, data in localStorage, Playwright end-to-end tests), from the `web-frontend` profile. Designer and design review as in `todo/`. One known bug. See [the expenses walkthrough](#the-expense-tracker-web-frontend-profile). |
 | [`habits/`](habits/) | A habit tracker: an Expo (React Native) app and a Python standard-library backend, Maestro end-to-end tests on the iOS simulator, from the `mobile-fullstack` profile. Designer and design review as in `todo/`; the preview is the web build of the real components. One known bug. See [the habits walkthrough](#the-habit-tracker-mobile-fullstack-profile). |
+| [`tally/`](tally/) | A tally counter with no backend: an Expo app keeping its data on the phone (AsyncStorage), Maestro end-to-end tests on the iOS simulator, from the `mobile` profile. One known bug. See [the tally walkthrough](#the-tally-counter-mobile-profile). |
 
 The scaffold files in `todo/` (`.mark/`) are exactly what `mark init` writes (role agents,
 prompts and formats come from the plugin); `tests/test_example.py` re-renders them and fails if they drift. Only `CLAUDE.md`
@@ -223,6 +224,38 @@ A feature, with a design step:
 The designer builds the confirmation in `app/src/ui/` and stops at design review with a
 `preview.html` built from the real components; coder-plan plans the backend route and the
 wiring; coder-impl, design QA on the simulator and the tester follow.
+
+## The tally counter (`mobile` profile)
+
+Same machine needs as the habit tracker; no backend.
+
+```bash
+python3 examples/sandbox.py ~/mark-sandbox/tally --example tally
+cd ~/mark-sandbox/tally
+(cd app && npm ci && npx expo start --ios)   # once: installs Expo Go on the simulator; Ctrl-C when the app shows
+bash scripts/selftest.sh && bash scripts/regression.sh   # baseline: everything green
+claude --plugin-dir <path to this repo>/plugins/mark
+```
+
+The end-to-end run (`e2e/regression.sh`) takes the device lock and starts its own dev
+server with a fresh storage key, so the app opens with no counters.
+
+A bug: the last change is lost when the app restarts.
+
+```
+/mark:fix I tapped + twice on a counter and it showed 2; after closing and reopening the app it shows 1.
+```
+
+(The cause: `App.js` saves the list from before the change. The unit tests cover only
+`src/tally.js`, and the baseline flows never reopen the app.)
+
+A feature, with a design step:
+
+```
+/mark:feature Let me set a goal on a counter: show "3 / 8" and mark the card when the goal is reached.
+```
+
+Counters saved before the feature have no goal, so the plan has to say what they load as.
 
 ## Updating the examples
 

@@ -31,6 +31,8 @@ EXAMPLES = {
                               "npx playwright test", "bash scripts/selftest.sh && bash scripts/regression.sh")),
     "habits": ("backend", ("cd app && npm ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
                            "cd e2e && bash regression.sh", "bash scripts/selftest.sh && bash scripts/regression.sh")),
+    "tally": ("app", ("cd app && npm ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
+                      "cd e2e && bash regression.sh", "bash scripts/selftest.sh && bash scripts/regression.sh")),
 }
 EXAMPLE = REPO_ROOT / "examples" / "todo"
 SANDBOX = REPO_ROOT / "examples" / "sandbox.py"

@@ -34,6 +34,7 @@ PROFILES = {
     "web-frontend": ("frontend_dir", "ui_dir", "tests_dir"),
     "service": ("service_dir", "tests_dir"),
     "mobile-fullstack": ("app_dir", "backend_dir", "ui_dir", "tests_dir"),
+    "mobile": ("app_dir", "ui_dir", "tests_dir"),
 }
 DIR_DEFAULTS = {"frontend_dir": "frontend", "backend_dir": "backend", "service_dir": "service",
                 "app_dir": "app", "tests_dir": "tests"}

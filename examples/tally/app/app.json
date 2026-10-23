@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "Tally",
+    "slug": "tally",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light"
+  }
+}

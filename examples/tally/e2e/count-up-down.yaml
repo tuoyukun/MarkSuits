@@ -1,0 +1,26 @@
+appId: host.exp.Exponent
+name: count up and down
+# covers: baseline/count, baseline/floor
+---
+- runFlow: subflows/open-app.yaml
+- tapOn:
+    id: new-counter
+- inputText: Tea
+- tapOn:
+    id: add-counter
+- tapOn:
+    id: plus-Tea
+- tapOn:
+    id: plus-Tea
+- assertVisible:
+    id: count-Tea
+    text: "2"
+- tapOn:
+    id: minus-Tea
+- tapOn:
+    id: minus-Tea
+- tapOn:
+    id: minus-Tea
+- assertVisible:
+    id: count-Tea
+    text: "0"

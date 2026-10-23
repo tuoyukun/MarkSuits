@@ -408,7 +408,7 @@ plugin install is the whole setup.
 - **Answers** (`scaffold.keys(profile)`): project name, locale, profile, main branch, the profile's
   module directories (`scaffold.PROFILES`: `web-fullstack` frontend / backend / UI / tests,
   `web-frontend` frontend / UI / tests, `service` service / tests, `mobile-fullstack` app /
-  backend / UI / tests), worktree setup command. `mark init
+  backend / UI / tests, `mobile` app / UI / tests), worktree setup command. `mark init
   --<answer> <value>`; defaults fill the rest; `--dry-run` shows the plan and writes nothing.
 - **Checks before writing**: a git repository (an empty directory is `git init`ed), on the main
   branch, clean tree, git identity set, not already a Mark project, and no template file already
@@ -534,5 +534,6 @@ v0.22–v0.23, its verdict criteria registry and `mark-design-system` token guar
 test directory, never stubbed in the browser; `examples/expenses`) · `mobile-fullstack` ✅
 (v0.27: a mobile app and its backend; `[tests] profile = "maestro"`; the designer's preview is
 the web build of the real components, or simulator screenshots when the stack has none;
-`examples/habits`, Expo + Maestro) · `mobile` (the app alone). `cli` (CLIs and libraries) was
+`examples/habits`, Expo + Maestro) · `mobile` ✅ (v0.28: the app alone; data on the device, each
+end-to-end run starts from empty app data; `examples/tally`, Expo + AsyncStorage + Maestro). `cli` (CLIs and libraries) was
 dropped.

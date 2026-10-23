@@ -31,13 +31,14 @@ Speak the human's language.
    - `mobile-fullstack`: a mobile app (React Native, Flutter, native...) and its backend
      service, in one repository; end-to-end tests drive the app on a simulator with Maestro.
      Designer and design review as in `web-fullstack`.
+   - `mobile`: a mobile app with no backend of its own (data on the device, or third-party
+     APIs); Maestro end-to-end tests on a simulator as in `mobile-fullstack`.
 
    - Existing: read the manifests (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`,
      `Makefile`...), the CI config, the top-level layout and any existing `CLAUDE.md`.
    - New: ask the human what they are building and on what stack.
 
-   If no profile fits (a CLI, a library, a mobile app without a backend in the repository,
-   a data pipeline...), **stop**: say Mark does not support that kind of project yet, more profiles
+   If no profile fits (a CLI, a library, a data pipeline...), **stop**: say Mark does not support that kind of project yet, more profiles
    will follow, and write nothing.
 
 4. **Propose the answers** as one table and wait for the human to confirm or correct it:
@@ -49,14 +50,14 @@ Speak the human's language.
    | `--project-name` | ask | from the manifest or the directory name |
    | `--main-branch` | `main` | the branch the dry run shows |
    | `--frontend-dir` (web-*), `--backend-dir` (web-fullstack) | planned directories | where that code is now |
-   | `--app-dir`, `--backend-dir` (mobile-fullstack) | `app`, `backend` | where that code is now |
-   | `--ui-dir` (web-*, mobile-fullstack) | `<frontend or app>/src/ui` | the presentational components (only the designer writes there) |
+   | `--app-dir` (mobile*), `--backend-dir` (mobile-fullstack) | `app`, `backend` | where that code is now |
+   | `--ui-dir` (web-*, mobile*) | `<frontend or app>/src/ui` | the presentational components (only the designer writes there) |
    | `--service-dir` (service) | `service` | where the service code is now |
    | `--tests-dir` | planned end-to-end test directory | where the end-to-end tests are |
    | `--worktree-setup` | empty | the install step a fresh checkout needs, like `npm ci` |
 
    If the end-to-end framework is not the profile's (Playwright for web-*, Maestro for
-   mobile-fullstack), also say that `[tests] profile` will be set in the CLAUDE.md lane
+   mobile*), also say that `[tests] profile` will be set in the CLAUDE.md lane
    (step 6) to the one it uses (`"playwright"`, `"maestro"`), or to `"none"` for any other
    framework: the hook then checks only that tests stay out of production code.
 

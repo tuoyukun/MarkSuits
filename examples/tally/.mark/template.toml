@@ -1,0 +1,12 @@
+# Written by `mark init`; do not edit. Upgrades read the answers below.
+version = "0.28.0"
+
+[answers]
+project_name = "tally"
+locale = "en"
+profile = "mobile"
+main_branch = "main"
+app_dir = "app"
+ui_dir = "app/src/ui"
+tests_dir = "e2e"
+worktree_setup = "cd app && npm ci"
