@@ -16,7 +16,34 @@ from .common import Env
 from .. import e2e, globs
 from .write import cli_only_rules, scope_block, worktree_block
 
-_SEGMENT_SPLIT = re.compile(r"&&|\|\||;|\|")
+_SEPARATORS = ("&&", "||", ";", "|", "\n")
+
+
+def _segments(command: str) -> list[str]:
+    """Simple commands of a command line: split at `&&`, `||`, `;`, `|` and newlines outside
+    quotes, heredoc bodies dropped, `\\`-newline continuations joined."""
+    text, out, start, i, quote = _strip_heredocs(command), [], 0, 0, ""
+    while i < len(text):
+        c = text[i]
+        if quote:
+            if c == "\\" and quote == '"':
+                i += 1
+            elif c == quote:
+                quote = ""
+        elif c in "'\"":
+            quote = c
+        elif c == "\\":
+            i += 1
+        else:
+            sep = next((x for x in _SEPARATORS if text.startswith(x, i)), None)
+            if sep:
+                out.append(text[start:i])
+                start = i + len(sep)
+                i = start
+                continue
+        i += 1
+    out.append(text[start:])
+    return [seg.replace("\\\n", " ") for seg in out]
 
 
 def _strip_heredocs(cmd: str) -> str:
@@ -60,7 +87,7 @@ def _commands(command: str, cwd: Path) -> list[tuple[Path | None, str, list[str]
     out: list[tuple[Path | None, str, list[str], dict[str, str]]] = []
     here: Path | None = cwd
     values: dict[str, str] = {}
-    for segment in _SEGMENT_SPLIT.split(_strip_heredocs(command)):
+    for segment in _segments(command):
         try:
             words = shlex.split(segment)
         except ValueError:
@@ -179,7 +206,7 @@ def _discards_work(env: Env, where: Path, args: list[str]) -> str | None:
     return None
 
 
-# Shell writes: `> f`, `>> f`, `tee f`, `touch f`, `sed -i … f`, `cp/mv … dest`. Quoted text is
+# Shell writes: `> f`, `>> f`, `tee f`, `touch f`, `sed/perl/ruby -i … f`, `cp/mv … dest`. Quoted text is
 # dropped first, so a quoted target is never checked (allowed, like any unclear case); so is a
 # target only the shell can resolve, or a relative one after a `cd` only the shell can resolve.
 _QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"")
@@ -197,8 +224,8 @@ def _shell_targets(here: Path | None, segment: str, words: list[str], values: di
     cmd, args = os.path.basename(words[0]), [w for w in words[1:] if not w.startswith("-")]
     if cmd in ("tee", "touch"):
         found += args
-    elif cmd == "sed" and any(w == "--in-place" or w.startswith("--in-place=")
-                              or re.match(r"^-[a-zA-Z]*i", w) for w in words[1:]):
+    elif cmd in ("sed", "perl", "ruby") and any(w == "--in-place" or w.startswith("--in-place=")
+                                                or re.match(r"^-[a-zA-Z0-9]*i", w) for w in words[1:]):
         found += [a for a in args if (f := full(a)) and os.path.isfile(f)]
     elif cmd in ("cp", "mv") and len(args) >= 2:
         *srcs, dest = args
@@ -221,7 +248,7 @@ def shell_write_guard(env: Env) -> str | None:
     """Subagents may not reach paths through the shell that Edit/Write would refuse. The main
     thread is held only to the files the `mark` CLI alone writes (gates, status, reviews...)."""
     command = str(env.tool_input.get("command") or "")
-    if ">" not in command and not re.search(r"\b(tee|touch|sed|cp|mv)\b", command):
+    if ">" not in command and not re.search(r"\b(tee|touch|sed|perl|ruby|cp|mv)\b", command):
         return None
     for here, segment, words, values in _commands(command, env.cwd):
         for target in _shell_targets(here, segment, words, values):
@@ -251,7 +278,7 @@ def mark_guard(env: Env) -> str | None:
         return env.t("guard.bash.human_tokens", dir=tokens)
     if env.role is None or "mark" not in command:
         return None
-    for segment in _SEGMENT_SPLIT.split(_strip_heredocs(command)):
+    for segment in _segments(command):
         try:
             words = shlex.split(segment)
         except ValueError:

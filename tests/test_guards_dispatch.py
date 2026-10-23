@@ -1,6 +1,8 @@
 """pre-dispatch, post-dispatch, subagent-stop and pre-bash guards."""
 import json
 import os
+import shutil
+import tempfile
 import time
 import unittest
 
@@ -394,6 +396,11 @@ class BashTest(unittest.TestCase):
         cmd = "cat > /dev/null <<'EOF'\ngit commit -m x\nEOF"
         self.assertEqual(bash(self.root, cmd, "coder-impl")[0], 0)
 
+    def test_newlines_separate_commands_outside_quotes(self):
+        self.assertEqual(bash(self.root, "ls\ngit commit -m x", "coder-impl")[0], 2)
+        self.assertEqual(bash(self.root, 'git commit -m "first line\n\nsecond; line"', "coder-impl")[0], 2)
+        self.assertEqual(bash(self.root, "git \\\n  commit -m x", "coder-impl")[0], 2)   # continuation
+
     def test_env_prefix_and_global_options(self):
         self.assertEqual(bash(self.root, "GIT_EDITOR=true git -c core.x=1 commit -m x", "tester")[0], 2)
 
@@ -425,6 +432,17 @@ class ShellWriteTest(unittest.TestCase):
         self.assertTrue(self.blocked("cp notes.md frontend/app.ts", "coder-plan"))
         self.assertTrue(self.blocked("cp notes.md frontend", "coder-plan"))      # into a dir
         self.assertTrue(self.blocked("mv frontend/app.ts notes2.md", "coder-plan"))  # source removed
+        self.assertTrue(self.blocked("perl -0pi -e 's/x/y/' frontend/app.ts", "coder-plan"))
+        self.assertTrue(self.blocked("ruby -i.bak -pe 'x' frontend/app.ts", "coder-plan"))
+
+    def test_each_line_is_its_own_command(self):
+        # Live: `cp a b` then more lines was read as one cp whose last word (`ok`) was the target.
+        scratch = tempfile.mkdtemp(prefix="mark-scratch-")
+        self.addCleanup(shutil.rmtree, scratch, True)
+        cmd = f"cp notes.md {scratch}/a.md\ncat > {scratch}/b.sh <<'EOF'\nx\nEOF\necho ok"
+        self.assertFalse(self.blocked(cmd, "designer"))
+        # ...and a write on a later line no longer hides as arguments of the first command.
+        self.assertTrue(self.blocked("ls\nsed -i '' 's/x/y/' frontend/app.ts", "coder-plan"))
 
     def test_role_writing_main_checkout_is_blocked(self):
         self.assertTrue(self.blocked("echo x > notes.md", "coder-impl", cwd=self.root))
@@ -435,6 +453,7 @@ class ShellWriteTest(unittest.TestCase):
         self.assertFalse(self.blocked("ls 2>/dev/null; echo x &>/dev/null", "coder-plan"))
         self.assertFalse(self.blocked("echo 'a > frontend/app.ts'", "coder-plan"))   # quoted text
         self.assertFalse(self.blocked("sed -n 's/x/y/p' frontend/app.ts", "coder-plan"))  # no -i
+        self.assertFalse(self.blocked("perl -ne 'print' frontend/app.ts", "coder-plan"))  # no -i
         self.assertFalse(self.blocked("echo x > frontend/app.ts", None))          # main thread: Edit rules only
 
     def test_shell_variables_are_expanded(self):

@@ -351,6 +351,7 @@ class MaestroGuardTest(unittest.TestCase):
                                      "agent_type": "tester", "tool_input": {"command": cmd}})[0]
         self.assertEqual(shell("cat >> tests/old.yaml <<'EOF'\n- tapOn: c\nEOF"), 2)
         self.assertEqual(shell("sed -i '' 's/a/b/' tests/old.yaml"), 2)
+        self.assertEqual(shell("perl -0pi -e 's/a/b/' tests/old.yaml"), 2)   # live gap in v0.28.0
         self.assertEqual(shell("bash tests/regression.sh > tests/run.log 2>&1"), 0)
 
     def test_flow_without_action_is_blocked(self):
