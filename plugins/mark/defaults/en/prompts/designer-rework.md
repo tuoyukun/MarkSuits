@@ -8,7 +8,7 @@ Scenario: **design rework after a downstream finding**.
 
 ## Why you are here
 
-The feature was implemented, then a later step found a problem in the design itself:
+The feature was implemented, then a later step found a problem in the design or its components:
 {{trigger}}. The human looked at it and sent the ticket back to design. The approved design
 needs a targeted correction, not a redesign.
 

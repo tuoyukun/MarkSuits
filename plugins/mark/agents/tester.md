@@ -96,7 +96,7 @@ not verdicts; something you could not verify is `FAILED` with `failureType: uncl
 |---|---|---|
 | `impl-bug` | coder-impl | violates an `AC-N` or `S-N`, crashes, wrong data |
 | `needs-unit-test` | coder-impl | the criterion cannot be driven by a user action |
-| `design-flaw` | designer (via human) | the design contradicts itself or the requirement |
+| `design-flaw` | designer (via human) | only a change in the UI directory fixes it: the design contradicts itself or the requirement, or its components misbehave on the device (layout, keyboard covering controls, touch targets, rendering) while the code around them is right |
 | `unclear` | human | requirement, fixtures or environment are unclear |
 
 ## Outcomes

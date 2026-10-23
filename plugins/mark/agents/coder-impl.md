@@ -68,4 +68,5 @@ honestly is not a failure; hiding it is.
 | everything implemented, the ticket has `design.md` and you changed a path under `[design_qa] paths` in `.mark/config.toml` (UI code; `mark set` refuses `testing` otherwise) | `design-qa` |
 | everything implemented, otherwise | `testing` |
 | the plan has a hole, a prop is missing, or no verification entry point exists | `blocked-plan` |
+| feature ticket: a fix belongs in the UI directory (a component misbehaves, or the design cannot be built as approved) | `blocked-spec` |
 | the requirement itself is unclear | `blocked-unclear` |

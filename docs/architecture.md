@@ -112,6 +112,11 @@ text, so templates can be localized freely.
 | pending-merge | automated merge (regression → ff-only → push); owner `orchestrator`, a failed merge stops for the human | — | — |
 | passed | done | — | — |
 
+A failure only the UI directory can fix (the tester's `design-flaw`, or coder-impl finding one
+while `developing` / `failed-impl`) goes to `blocked-spec`, and the human sends it back to the
+designer (`designer-rework`); `mark next` spells out the failureType → status mapping when it asks
+for the tester's outcome (v0.28.2).
+
 A profile without a UI (`profile = "service"`, v0.25) has no designer (`config.NO_UI_PROFILES`
 drops it from the default `roles`, and with it the `design-approved` gate): a new feature starts
 at `planning` (`states.initial`), and no move may enter a status whose role the project lacks

@@ -407,7 +407,10 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
     if result is not None:
         options = sorted(states.TRANSITIONS[kind][status] - {"superseded"})
         params = {**base, "role": action.role, "options": " | ".join(options),
-                  "reason": result.get("reason", ""), "wrapup": ""}
+                  "reason": result.get("reason", ""), "wrapup": "", "route": ""}
+        if action.role == "tester":
+            key = "next.record.route_spec" if "blocked-spec" in options else "next.record.route"
+            params["route"] = _msg(ctx.cfg.locale, key)
         if "pending-merge" in options:
             params["wrapup"] = _msg(ctx.cfg.locale, "next.record.wrapup", id=ctx.id)
         if result.get("result") == "PASSED":

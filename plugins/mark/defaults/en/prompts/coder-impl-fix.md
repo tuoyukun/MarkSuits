@@ -26,7 +26,8 @@ Fix exactly those ids. No refactoring of unrelated code.
 - `handoff.md` is updated: self-check rows that changed, and a line per id under "Fix
   rounds".
 - If the root cause is in the plan, or a fix would break another criterion, do not choose
-  on your own: describe it in "Blocked" and report `blocked-plan`.
+  on your own: describe it in "Blocked" and report `blocked-plan`. If only a change in the
+  UI directory fixes it (feature tickets), report `blocked-spec` instead.
 
 ## Read
 
@@ -43,4 +44,4 @@ The code and unit tests involved in the trigger ids, and `{{ticket_dir}}/handoff
 
 As in the role rules, with the trigger ids under `handled`. Outcome `design-qa` (the
 trigger was `D-N`, or the ticket has `design.md` and you changed UI code), `testing`,
-`blocked-plan` or `blocked-unclear`.
+`blocked-plan`, `blocked-spec` (feature) or `blocked-unclear`.

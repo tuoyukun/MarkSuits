@@ -10,7 +10,7 @@ import zlib
 from tests._support import (FULL_CONFIG, add_origin, add_templates, add_ticket, add_worktree, hook,
                             human_typed, make_project, make_repo, sh, status_text)
 
-from mark import cli, flow, human, reviews, tickets
+from mark import cli, flow, human, reviews, states, tickets
 from mark.config import load_config
 
 ALL_GATES = ["ticket-approved", "design-approved", "plan-approved"]
@@ -210,6 +210,19 @@ class NextActionTest(unittest.TestCase):
         self.assertIn("pending-merge", a.options)
         self.assertIn("log.md", a.params["wrapup"])
         self.assertIn("mark commit b0001-a", a.params["wrapup"])
+        self.assertNotIn("design-flaw", a.params["route"])   # a bug has no designer
+
+    def test_tester_failures_are_routed_by_failure_type(self):
+        d = add_ticket(self.root, "feature", "0001-a", "testing", gates=ALL_GATES)
+        write(self.root / ".mark/locks/0001-a.tester.result.json",
+              json.dumps({"result": "PASSED", "at": (d / "status.md").stat().st_mtime + 5}))
+        a = self.next("0001")
+        self.assertIn("`design-flaw` -> `blocked-spec`", a.params["route"])
+
+    def test_coder_impl_can_send_a_ui_fix_to_the_designer(self):
+        for status in ("developing", "failed-impl"):
+            self.assertTrue(states.can_move("feature", status, "blocked-spec"), status)
+            self.assertFalse(states.can_move("bug", status, "blocked-spec"), status)
 
     def test_previous_conclusion_is_the_newest_result(self):
         add_ticket(self.root, "feature", "0001-a", "planning", gates=ALL_GATES)
