@@ -21,5 +21,5 @@ Arguments: `$ARGUMENTS` (ticket id, then the human's comments)
 3. Run `mark reject <id> --item "<first>" --item "<second>" …`. It appends a pending round
    to the review file, moves the status and pushes.
 4. If it refuses, tell the human why and stop.
-5. Then dispatch the rework (`mark next`, `mark dispatch`) and keep looping until the
-   next human gate or a stop. The brief tells the agent which round is open.
+5. Then dispatch the rework (`mark next`, `mark dispatch`) and keep looping (dispatch, record,
+   merge) until the next human gate or a stop. The brief tells the agent which round is open.

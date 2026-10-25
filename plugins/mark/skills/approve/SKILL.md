@@ -27,5 +27,6 @@ Argument: `$ARGUMENTS`
    - `blocked-unclear` → only where the human typed (`designing`, `planning` or `developing`).
    Never add a status the human did not type.
 3. If it refuses, tell the human why in plain words and stop. Do not retry another way.
-4. Then keep looping (`mark next`, dispatch, record) until the next human gate or a stop,
-   reporting after each step.
+4. Then keep looping (`mark next`, dispatch, record, merge) until the next human gate or a stop,
+   reporting after each step. `pending-merge` is not a human gate: run `mark merge` without
+   asking again.
