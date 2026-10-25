@@ -116,6 +116,17 @@ A failure only the UI directory can fix (the tester's `design-flaw`, or coder-im
 while `developing` / `failed-impl`) goes to `blocked-spec`, and the human sends it back to the
 designer (`designer-rework`); `mark next` spells out the failureType → status mapping when it asks
 for the tester's outcome (v0.28.2).
+When such a rework (`blocked-spec` → `designing` with the plan already approved) changes only the
+UI directory and ticket artifacts, and leaves `design.md`'s props and integration contracts
+(`<!-- mark:props-contract -->`, `<!-- mark:integration-contract -->`) word for word, approving
+the design review keeps the approved plan: the ticket goes to `design-qa` (or `testing`) instead of
+`planning`. `mark approve` records the branch head as `rework-base` in `status.md` when it sends
+the ticket to design and drops it at the review (`flow.ui_only_rework`; v0.31). A design without
+the anchors, or anything outside the UI, redoes the plan as before.
+
+A plan may `extend` only end-to-end tests main already has; one an earlier round of the same
+ticket added is `new` (`guards.write.plan_extend_guard`, v0.31), so `mark merge` no longer finds
+it unplanned after the whole chain has run.
 
 A profile without a UI (`profile = "service"`, v0.25) has no designer (`config.NO_UI_PROFILES`
 drops it from the default `roles`, and with it the `design-approved` gate): a new feature starts

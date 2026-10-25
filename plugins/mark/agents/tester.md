@@ -99,6 +99,12 @@ not verdicts; something you could not verify is `FAILED` with `failureType: uncl
 | `design-flaw` | designer (via human) | only a change in the UI directory fixes it: the design contradicts itself or the requirement, or its components misbehave on the device (layout, keyboard covering controls, touch targets, rendering) while the code around them is right |
 | `unclear` | human | requirement, fixtures or environment are unclear |
 
+Before you type a `design-flaw` seen on a device, or a fix that "did not work", make sure the
+device runs the branch's current code: the dev server serves the latest files and the app has
+reloaded them (a one-line visible change you then revert shows it). A stale build caused by
+the project's own scripts is `impl-bug` naming the script; one you cannot explain is
+`unclear`. Neither is a `design-flaw`.
+
 ## Outcomes
 
 | Situation | outcome |

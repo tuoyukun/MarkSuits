@@ -22,9 +22,11 @@ Written by the designer; read by coder-plan, coder-impl and the tester.
 - kept on purpose: <what looks imperfect but stays, and why>
 
 ## Props contract
+<!-- mark:props-contract -->
 <per component: each prop, its meaning, which props the container controls>
 
 ## Integration contract
+<!-- mark:integration-contract -->
 1. Props that need a stable identity: <list, or "none">
 2. CSS the container must provide: <overflow, positioning, size …, or "none">
 3. z-index ranges used: <ranges, or "none">

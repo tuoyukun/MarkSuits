@@ -126,6 +126,11 @@ MESSAGES["en"].update({
         "`{index}` does not match the suite. Rows to add (write the path column):\n{add}\n"
         "Rows to remove (no such test):\n{drop}"
     ),
+    "guard.plan_extend": (
+        "`{rel}` extends end-to-end tests that are not on main:\n{tests}\n"
+        "`extend` is only for a test main already has (see main's `{index}`). A test this ticket's branch\n"
+        "added, in an earlier round included, is new: write `new` with `closest:` and why."
+    ),
     "guard.journey": (
         "`{rel}` adds end-to-end tests the plan does not name as new:\n{tests}\n"
         "New tests this ticket may add (plan, `<!-- mark:e2e-plan -->`): {planned}.\n"
@@ -301,6 +306,11 @@ MESSAGES["zh-CN"].update({
     "cli.journeys.drift": (
         "`{index}` 与用例不一致。需要添加的行（请补上路径一栏）：\n{add}\n"
         "需要删除的行（没有对应用例）：\n{drop}"
+    ),
+    "guard.plan_extend": (
+        "`{rel}` 扩展了 main 上还没有的端到端用例：\n{tests}\n"
+        "`extend` 只用于 main 上已有的用例（见 main 的 `{index}`）。本单分支新建的用例（包括前几轮建的）算新建：\n"
+        "写 `new`，并写明 `closest:` 和原因。"
     ),
     "guard.journey": (
         "`{rel}` 新增了计划里没有申报为新建的端到端用例：\n{tests}\n"
@@ -662,6 +672,8 @@ MESSAGES["en"].update({
     "set.done": "{id}: `{old}` -> `{new}`.",
     "approve.ticket": "Opening {id} approved (wrote {gate}).",
     "approve.done": "Approved {id}: `{old}` -> `{new}`.",
+    "approve.ui_only": ("The rework changed only the UI and kept the props and integration contracts, "
+                        "so the approved plan stands: planning and implementation are skipped."),
     "approve.gate": "Gate written: {gate}",
     "approve.rounds": "Review rounds settled: {rounds}",
     "reject.done": "Recorded round {round} ({refs}) in {file}. {id}: `{old}` -> `{new}`.",
@@ -885,6 +897,7 @@ MESSAGES["zh-CN"].update({
     "set.done": "{id}：`{old}` -> `{new}`。",
     "approve.ticket": "已批准建单 {id}（写入 {gate}）。",
     "approve.done": "已放行 {id}：`{old}` -> `{new}`。",
+    "approve.ui_only": "这轮返工只改了 UI，props 契约和集成契约没变，已批准的方案仍然成立：跳过方案和实现。",
     "approve.gate": "已写闸门：{gate}",
     "approve.rounds": "已结清人审轮次：{rounds}",
     "reject.done": "已在 {file} 记下第 {round} 轮（{refs}）。{id}：`{old}` -> `{new}`。",

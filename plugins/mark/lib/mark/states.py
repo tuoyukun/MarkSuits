@@ -45,7 +45,8 @@ _BLOCKED = ("blocked-plan", "blocked-spec", "blocked-unclear")
 # (ticket folded into another one); that edge is added below.
 _FEATURE_EDGES: dict[str, tuple[str, ...]] = {
     "designing": ("review-design", "blocked-spec", "blocked-unclear"),
-    "review-design": ("planning", "designing"),
+    # design-qa / testing: a rework that changed only the UI keeps the approved plan (flow.ui_only_rework)
+    "review-design": ("planning", "designing", "design-qa", "testing"),
     "planning": ("review-plan", "blocked-unclear"),
     "review-plan": ("developing", "planning"),
     "developing": ("design-qa", "testing", "blocked-plan", "blocked-spec", "blocked-unclear"),

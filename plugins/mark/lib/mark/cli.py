@@ -249,6 +249,8 @@ def cmd_approve(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> i
         _say(cfg, out, "approve.ticket", id=ctx.id, gate=f"{cfg.state_rel}/gates/{ctx.id}.{res.gate}")
         return _commit(cfg, ctx, f"{ctx.id}: opening approved", opts, out)
     _say(cfg, out, "approve.done", id=ctx.id, old=res.old, new=res.new)
+    if res.ui_only:
+        _say(cfg, out, "approve.ui_only")
     if res.gate:
         _say(cfg, out, "approve.gate", gate=f"{cfg.state_rel}/gates/{ctx.id}.{res.gate}")
     if res.rounds:

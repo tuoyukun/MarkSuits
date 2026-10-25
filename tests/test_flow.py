@@ -289,6 +289,65 @@ class NoDesignerTest(unittest.TestCase):
         self.assertIn("status: planning", (self.root / ".mark/features/0001-a/status.md").read_text())
 
 
+DESIGN = ("# d\n\n## Props contract\n<!-- mark:props-contract -->\nList(items)\n\n"
+          "## Integration contract\n<!-- mark:integration-contract -->\n1. none\n\n## Design intent\nv1\n")
+
+
+class UiOnlyReworkTest(unittest.TestCase):
+    """A design rework that changes only the UI keeps the approved plan (0001's FAIL-1 loop)."""
+
+    def setUp(self):
+        cfg = FULL_CONFIG + '\n[paths]\nui = "frontend/src/ui"\n\n[design_qa]\npaths = ["frontend/**"]\n'
+        self.root = make_repo(cfg)
+        self.dir = add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES)
+        self.wt = add_worktree(self.root, "feature", "0001-a")
+        self.commit({".mark/features/0001-a/design.md": DESIGN, "frontend/src/ui/List.tsx": "v1"})
+        human_typed(self.root, "/mark:approve 0001")
+        code, _, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("rework-base: ", (self.dir / "status.md").read_text())
+
+    def commit(self, files):
+        for rel, text in files.items():
+            write(self.wt / rel, text)
+        sh(self.wt, "git", "add", ".")
+        sh(self.wt, "git", "commit", "-qm", "work")
+
+    def approve_design(self):
+        self.assertEqual(run(self.root, "set", "0001", "review-design")[0], 0)
+        human_typed(self.root, "/mark:approve 0001")
+        code, out, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 0, err)
+        status = (self.dir / "status.md").read_text()
+        self.assertNotIn("rework-base", status)
+        return status, out
+
+    def test_ui_only_fix_goes_to_design_qa(self):
+        self.commit({"frontend/src/ui/List.tsx": "v2",
+                     ".mark/features/0001-a/design.md": DESIGN.replace("v1", "v2: keyboard dismisses")})
+        status, out = self.approve_design()
+        self.assertIn("status: design-qa", status)
+        self.assertIn("planning and implementation are skipped", out)
+        a = ctx_next(self.root, "0001")
+        self.assertEqual((a.kind, a.role), ("dispatch", "designer"), a)
+
+    def test_changed_contract_redoes_the_plan(self):
+        self.commit({".mark/features/0001-a/design.md": DESIGN.replace("1. none", "1. container pads the keyboard")})
+        self.assertIn("status: planning", self.approve_design()[0])
+
+    def test_code_outside_the_ui_redoes_the_plan(self):
+        self.commit({"frontend/src/App.tsx": "container change"})
+        self.assertIn("status: planning", self.approve_design()[0])
+
+    def test_design_without_anchors_redoes_the_plan(self):
+        self.commit({".mark/features/0001-a/design.md": "# old format\n", "frontend/src/ui/List.tsx": "v2"})
+        self.assertIn("status: planning", self.approve_design()[0])
+
+    def test_contracts_stop_at_the_next_heading(self):
+        self.assertEqual(flow._contracts(DESIGN), ["List(items)", "1. none"])
+        self.assertIsNone(flow._contracts("## Props contract\nx\n"))
+
+
 class MovesTest(unittest.TestCase):
     def setUp(self):
         self.root = make_repo()
@@ -457,6 +516,17 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(sh(self.root, "git", "branch", "--list", "bug/*"), "")
         self.assertNotIn("bug/b0001-x", sh(self.root, "git", "ls-remote", "--heads", "origin"))
         self.assertEqual(ctx_next(self.root, "b0001").kind, "done")
+
+    def test_merge_settles_reject_rounds(self):
+        review = self.dir / "review-merge.md"
+        write(review, "## Round 1 · 2026-10-25T07:30Z · pending <!-- mark:round 1 pending -->\n- R-1: x\n")
+        sh(self.root, "git", "add", str(review))
+        sh(self.root, "git", "commit", "-qm", "reject")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        code, out, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 0, err + out)
+        self.assertIn("<!-- mark:round 1 done -->", review.read_text())
+        self.assertEqual(sh(self.root, "git", "status", "--porcelain", "--untracked-files=no"), "")
 
     def test_red_regression_lands_nothing_and_next_stops(self):
         self.regression("echo boom && exit 3")

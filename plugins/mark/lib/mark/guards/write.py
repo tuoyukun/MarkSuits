@@ -247,5 +247,28 @@ def journey_guard(env: Env) -> str | None:
                  index=f"{tests_dir}/{e2e.INDEX_FILE}")
 
 
+def plan_extend_guard(env: Env) -> str | None:
+    """A plan extends only tests that are on main. A test this ticket's own branch added (an
+    earlier round's tester) is still new to main, and `mark merge` would refuse it as unplanned."""
+    loc = _located(env)
+    tests_dir = env.cfg.path("tests")
+    if (loc is None or env.role not in ("coder-plan", "fix-plan") or env.cfg.tests_profile == "none"
+            or not tests_dir or Path(loc.rel).name not in e2e.PLAN_FILES):
+        return None
+    try:
+        old_text = loc.path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        old_text = ""
+    new_text = _new_text(env, old_text or None)
+    if new_text is None:
+        return None
+    on_main = set(e2e.suite(env.main, tests_dir, env.cfg.tests_profile))
+    added = e2e.planned_extend(new_text) - e2e.planned_extend(old_text) - on_main
+    if not added:
+        return None
+    return env.t("guard.plan_extend", rel=loc.rel, tests="\n".join(f"  - {x}" for x in sorted(added)),
+                 index=f"{tests_dir}/{e2e.INDEX_FILE}")
+
+
 PRE_WRITE = [scope_guard, worktree_guard, ticket_guard, budget_guard, e2e_guard,
-             journey_guard]
+             journey_guard, plan_extend_guard]

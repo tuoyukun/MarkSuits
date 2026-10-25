@@ -22,9 +22,11 @@
 - 有意保留：<看着不完美但保留的地方，及理由>
 
 ## props 契约
+<!-- mark:props-contract -->
 <逐个组件：每个 prop 的含义，哪些 prop 由容器控制>
 
 ## 集成契约
+<!-- mark:integration-contract -->
 1. 需要引用稳定的 props：<列表，或「无」>
 2. 容器必须提供的 CSS：<overflow、定位、尺寸……，或「无」>
 3. 占用的 z-index 区间：<区间，或「无」>

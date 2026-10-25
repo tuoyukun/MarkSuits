@@ -583,11 +583,12 @@ def design_qa_needed(ctx: Ctx) -> bool:
     return False
 
 
-def _write_status(ctx: Ctx, new: str, note: str | None, extra: dict[str, str]) -> None:
+def _write_status(ctx: Ctx, new: str, note: str | None, extra: dict[str, str | None]) -> None:
     t = ctx.ticket
     fields = dict(t.fields)
     fields.update({"status": new, "owner": _owner(ctx.kind, new), "updated": _today(),
                    "updater": "orchestrator", **extra})
+    fields = {k: v for k, v in fields.items() if v is not None}  # None in `extra` drops a field
     body = t.note if note is None else " ".join(note.split())
     candidate = tickets.Ticket(ctx.kind, ctx.id, t.path, fields, body)
     problems = tickets.ticket_problems(candidate, ctx.rel_dir + "/status.md")
@@ -603,7 +604,7 @@ def _unstaffed(ctx: Ctx, status: str) -> str | None:
     return role if role and role not in ctx.cfg.roles else None
 
 
-def _move(ctx: Ctx, new: str, note: str | None, extra: dict[str, str] | None = None) -> str:
+def _move(ctx: Ctx, new: str, note: str | None, extra: dict[str, str | None] | None = None) -> str:
     old = ctx.ticket.status
     if (role := _unstaffed(ctx, new)) and new != old:
         raise FlowError("flow.no_role", new=new, role=role)
@@ -694,6 +695,44 @@ class Outcome:
     rounds: list[int] = field(default_factory=list)
     refs: list[str] = field(default_factory=list)
     review: str | None = None
+    ui_only: bool = False
+
+
+REWORK_BASE = "rework-base"
+CONTRACT_ANCHORS = ("<!-- mark:props-contract -->", "<!-- mark:integration-contract -->")
+
+
+def _contracts(text: str | None) -> list[str] | None:
+    """The props and integration contract sections of a design.md; None if either anchor is missing."""
+    if text is None:
+        return None
+    out = []
+    for anchor in CONTRACT_ANCHORS:
+        at = text.find(anchor)
+        if at < 0:
+            return None
+        body = re.split(r"^#{1,2} ", text[at + len(anchor):], maxsplit=1, flags=re.M)[0]
+        out.append(" ".join(body.split()))
+    return out
+
+
+def ui_only_rework(ctx: Ctx) -> bool:
+    """A design rework since `rework-base` changed only the UI directory and ticket artifacts,
+    and left the props and integration contracts as they were: the approved plan and the code
+    around the UI still hold, so planning and implementation have nothing to redo."""
+    base, ui = ctx.ticket.get(REWORK_BASE), ctx.cfg.path("ui")
+    if not base or not ui or not _is_git(ctx):
+        return False
+    head = f"refs/heads/{ctx.branch}"
+    code, out = git(["diff", "--name-only", f"{base}..{head}"], ctx.main)
+    if code != 0:
+        return False
+    if any(not p.startswith((ui.rstrip("/") + "/", ctx.rel_dir + "/")) for p in out.splitlines()):
+        return False
+    design = f"{ctx.rel_dir}/design.md"
+    before, after = (git(["show", f"{rev}:{design}"], ctx.main) for rev in (base, head))
+    old = _contracts(before[1] if before[0] == 0 else None)
+    return old is not None and old == _contracts(after[1] if after[0] == 0 else None)
 
 
 def approve_targets(ctx: Ctx) -> list[str]:
@@ -733,12 +772,23 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
         if named:
             raise FlowError("flow.approve_named", id=ctx.id, to=named[0])
     _require_human(ctx, "approve", word=to)
-    out = Outcome(status, new, gate=gate)
+    extra: dict[str, str | None] = {}
+    if status == "blocked-spec" and new == "designing" and ctx.kind == states.FEATURE \
+            and ctx.has_gate("plan-approved") and _is_git(ctx):
+        code, head = git(["rev-parse", f"refs/heads/{ctx.branch}"], ctx.main)
+        extra[REWORK_BASE] = head.strip() if code == 0 else None
+    ui_only = False
+    if status == "review-design" and ctx.ticket.get(REWORK_BASE):
+        ui_only = ui_only_rework(ctx)
+        if ui_only:
+            new = "design-qa" if design_qa_needed(ctx) else "testing"
+        extra[REWORK_BASE] = None
+    out = Outcome(status, new, gate=gate, ui_only=ui_only)
     if review:
         out.rounds = reviews.settle(ctx.review_path(review), ctx.cfg.locale)
     if gate:
         _write_gate(ctx, gate)
-    _move(ctx, new, None)
+    _move(ctx, new, None, extra)
     return out
 
 

@@ -169,6 +169,43 @@ class GuardTest(unittest.TestCase):
         self.assertIn("needs-unit-test", err)
 
 
+class PlanExtendGuardTest(unittest.TestCase):
+    """A plan may extend only tests main has; one this branch added is still new (0001 R-1)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = make_repo(CONFIG)
+        add_ticket(cls.root, "feature", "0001-a", "planning", gates=["ticket-approved", "design-approved"])
+        cls.wt = add_worktree(cls.root, "feature", "0001-a")
+        write(cls.root / "tests/e2e/main.spec.ts", block('  await page.click("a");\n  expect(1);', "on main"))
+        write(cls.wt / "tests/e2e/branch.spec.ts", block('  await page.click("a");\n  expect(1);', "branch only"))
+        cls.rel = ".mark/features/0001-a/tech-plan.md"
+
+    def write(self, content, agent="coder-plan"):
+        return hook("pre-write", {"hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": str(self.wt),
+                                  "agent_type": agent,
+                                  "tool_input": {"file_path": str(self.wt / self.rel), "content": content}})
+
+    def test_extending_a_test_main_has_is_fine(self):
+        self.assertEqual(self.write(plan(("AC-1", "extend", "on main", "add a step")))[0], 0)
+
+    def test_extending_a_branch_only_test_is_blocked(self):
+        code, err = self.write(plan(("AC-1", "extend", "branch only", "add a step")))
+        self.assertEqual(code, 2)
+        self.assertIn("  - branch only", err)
+        self.assertIn("`new`", err)
+        self.assertEqual(self.write(plan(("AC-1", "new", "branch only", "closest: none")))[0], 0)
+
+    def test_only_rows_the_write_adds_are_judged_and_only_for_planners(self):
+        old = plan(("AC-1", "extend", "branch only", "add a step"))
+        write(self.wt / self.rel, old)
+        try:
+            self.assertEqual(self.write(old.replace("## Risks", "## Risks\n- more"))[0], 0)
+        finally:
+            (self.wt / self.rel).unlink()
+        self.assertNotIn("not on main", self.write(old, agent="designer")[1])
+
+
 class MergeJourneyTest(unittest.TestCase):
     def setUp(self):
         self.root = make_repo(CONFIG)

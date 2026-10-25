@@ -402,6 +402,11 @@ def planned_new(plan: str) -> set[str]:
     return {r[2] for r in table_rows(plan, PLAN_ANCHOR) if len(r) > 2 and r[1].lower() == "new" and r[2]}
 
 
+def planned_extend(plan: str) -> set[str]:
+    """Titles of the existing tests the plan extends (`| AC-N | extend | <title> | ... |`)."""
+    return {r[2] for r in table_rows(plan, PLAN_ANCHOR) if len(r) > 2 and r[1].lower() == "extend" and r[2]}
+
+
 def indexed(index: str) -> set[str]:
     """Test titles listed in JOURNEYS.md (first column)."""
     return {r[0] for r in table_rows(index, INDEX_ANCHOR) if r and r[0]}

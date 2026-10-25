@@ -4,7 +4,8 @@
 # stop.sh stops it.
 set -euo pipefail
 port=${METRO_PORT:-8100}
-CI=1 npx expo start --port "$port" > .metro.log 2>&1 &
+# Not CI=1: that turns off file watching, so the app would keep an old bundle after edits.
+env -u CI npx expo start --port "$port" < /dev/null > .metro.log 2>&1 &
 echo $! > .metro.pid
 for _ in $(seq 120); do
   if curl -fs "http://127.0.0.1:$port/status" | grep -q running; then

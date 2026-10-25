@@ -21,7 +21,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from . import budget, e2e, flow
+from . import budget, e2e, flow, reviews
 from .flow import Ctx, FlowError
 from .gitutil import dirty_paths, git, has_remote, ref_exists, worktrees
 from .i18n import t
@@ -179,5 +179,6 @@ def _merge(ctx: Ctx) -> Notes:
                  for p in map(ctx.find, e2e.PLAN_FILES) if p is not None), "")
     notes = land(ctx.cfg, ctx.worktree, ctx.branch, ctx.id, conflict, plan)
     flow.set_status(ctx, "passed")
+    reviews.settle(ctx.review_path("merge"), ctx.cfg.locale)  # the merge answered every reject round
     notes += [(key, {}) for key in flow.commit(ctx, f"{ctx.id}: merged, pending-merge -> passed")]
     return notes + cleanup(ctx.cfg, ctx.worktree, ctx.branch)

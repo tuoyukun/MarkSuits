@@ -18,6 +18,10 @@ needs a targeted correction, not a redesign.
   consistent again (states, props, integration contract).
 - If the fix changes props or states, the change is spelled out in "Design intent" so
   coder-impl can follow it.
+- A fix the UI directory alone makes keeps the props and integration contracts word for word:
+  then, after the human's review, the approved plan stands and the ticket goes straight to
+  design QA. Change a contract only when the container must change too; that sends the ticket
+  back through planning.
 - Changed visuals were screenshotted and checked again.
 - `{{ticket_dir}}/preview.html` is rebuilt from the changed components.
 - Open questions are empty, or you report `blocked-unclear`.
