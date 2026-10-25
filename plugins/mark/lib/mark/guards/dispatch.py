@@ -1,11 +1,21 @@
 """Guards for subagent dispatch (PreToolUse: Agent | Task) and its lifecycle."""
 from __future__ import annotations
 
-from .. import tickets
+from .. import states, tickets
+from ..config import DEFAULT_ROLES
 from ..gitutil import (ahead_of, current_branch, dirty_paths, git, has_remote, is_ancestor,
                        patch_unique, ref_exists, worktrees)
 from . import locks
 from .common import Env, Target
+
+
+def staffed_guard(env: Env) -> str | None:
+    """A built-in role the project does not have (the designer in a service project) is no
+    free helper: it would skip every pipeline guard below."""
+    role = env.dispatch_role
+    if role in DEFAULT_ROLES and role not in env.cfg.roles:
+        return env.t("guard.dispatch.unstaffed", role=role)
+    return None
 
 
 def _pipeline_target(env: Env) -> Target | str | None:
@@ -26,6 +36,20 @@ def target_guard(env: Env) -> str | None:
     if not env.ticket_dir(target).is_dir():
         return env.t("guard.target.unknown", kind=target.kind, id=target.id)
     return None
+
+
+def status_guard(env: Env) -> str | None:
+    """The ticket's status names the role to dispatch. Gates are never revoked, so a gate alone
+    would let coder-impl start while a reworked plan still waits for review."""
+    target = _pipeline_target(env)
+    if not isinstance(target, Target):
+        return None
+    status = tickets.load_ticket(env.cfg, target.kind, target.id).status
+    want = states.ROLE_FOR_STATUS[target.kind].get(status)
+    if want == env.dispatch_role:
+        return None
+    return env.t("guard.dispatch.status", role=env.dispatch_role, id=target.id, status=status or "-",
+                 want=want or env.t("guard.dispatch.nobody"))
 
 
 def gate_guard(env: Env) -> str | None:
@@ -108,7 +132,7 @@ def dedup_guard(env: Env) -> str | None:
     return locks.acquire(env, target, env.dispatch_role)
 
 
-PRE_DISPATCH = [target_guard, gate_guard, branch_guard, status_commit_guard, dedup_guard]
+PRE_DISPATCH = [staffed_guard, target_guard, status_guard, gate_guard,branch_guard, status_commit_guard, dedup_guard]
 
 
 def status_reminder(env: Env) -> str | None:

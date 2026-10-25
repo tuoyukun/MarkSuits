@@ -42,17 +42,22 @@ already answers in it).
 | designer (`designing`) | design done | `review-design` |
 | | conflict in the requirement / contract | `blocked-spec` or `blocked-unclear` |
 | coder-plan (`planning`) | plan done | `review-plan` (plus `--merge-after <ids>` if it reports any) |
-| fix-plan (`planning`, bug) | plan done | `developing` (no review gate) |
+| fix-plan (`planning`, bug) | plan done, an item tagged `[ui]` | `designing` (no review gate) |
+| | plan done, no `[ui]` item | `developing` (no review gate) |
+| designer (`designing`, bug) | components fixed, other fix items left (or no `handoff.md` yet) | `developing` |
+| | components fixed, `handoff.md` exists and nothing else is left | `testing` |
 | coder-impl (`developing`, `failed-impl`) | implemented, self-check green | `testing` (if told design QA is required: `design-qa`) |
 | | the plan has a hole | `blocked-plan` |
+| | the fix belongs in the UI directory | `blocked-spec` |
 | designer (`design-qa`) | QA passed | `testing` |
 | | QA blocked (`D-N` items) | `failed-impl`; after two blocked rounds, `blocked-spec` and report |
 | tester (`testing`) | passed | wrap-up (below), then `pending-merge --leftover <N>` |
-| | `impl-bug` / `needs-unit-test` | `failed-impl` |
-| | `design-flaw` | feature: `blocked-spec`; bug: `blocked-unclear` (suggest a feature) |
-| | `unclear` | `blocked-unclear` |
+| | any `design-flaw` | `blocked-spec` (features and bugs) |
+| | otherwise any `unclear` | `blocked-unclear` |
+| | otherwise (`impl-bug` / `needs-unit-test`) | `failed-impl` |
 
-Any role that reports the requirement itself is unclear: `blocked-unclear`.
+Any role that reports the requirement itself is unclear: `blocked-unclear`. A project without a
+designer (`service`) never moves to `designing`; `blocked-spec` goes back to planning there.
 
 `blocked-*` and `pending-merge` wait on the human: `mark set` cannot move them on (only
 `superseded`). The human answers with `/mark:approve <id> [<status>]` or `/mark:reject`;

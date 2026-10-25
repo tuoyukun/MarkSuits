@@ -64,6 +64,24 @@ def _matches(arg: str, ticket_id: str | None) -> bool:
     return bool(arg) and (ticket_id == arg or ticket_id.startswith(arg + "-"))
 
 
+def words(cfg: MarkConfig, verb: str, ticket_id: str, now: float | None = None) -> list[str]:
+    """The words after the ticket in the newest live `verb` token for it; nothing is used up."""
+    now = time.time() if now is None else now
+    try:
+        names = sorted(os.listdir(token_dir(cfg)), reverse=True)
+    except OSError:
+        return []
+    for name in names:
+        try:
+            data = json.loads((token_dir(cfg) / name).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if data.get("verb") == verb and now - float(data.get("at", 0)) <= TOKEN_TTL[verb] \
+                and _matches(str(data.get("arg", "")), ticket_id):
+            return [str(w) for w in data.get("rest", [])]
+    return []
+
+
 def consume(cfg: MarkConfig, verbs: tuple[str, ...], ticket_id: str | None = None,
             now: float | None = None, word: str | None = None) -> bool:
     """Use up the newest live token for one of `verbs` that names `ticket_id` (and, with `word`,

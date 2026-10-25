@@ -1,5 +1,5 @@
 # Written by `mark init`; do not edit. Upgrades read the answers below.
-version = "0.29.1"
+version = "0.30.0"
 
 [answers]
 project_name = "tally"

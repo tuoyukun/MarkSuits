@@ -629,6 +629,11 @@ def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None
     if new == "testing" and old in ("developing", "failed-impl") and design_qa_needed(ctx) \
             and qa_result(ctx) != "passed":
         raise FlowError("flow.need_design_qa", id=ctx.id)
+    if old == "testing" and new == states.MERGE:
+        # The verdict on disk may be last round's PASSED; only a tester run since this status counts.
+        result = last_result(ctx, "tester")
+        if not result or result.get("result") != "PASSED":
+            raise FlowError("flow.no_tester_result", id=ctx.id)
     if old == "design-qa" and new == "failed-impl" and (n := qa_round(ctx)) >= QA_MAX_ROUNDS:
         raise FlowError("flow.qa_cap", id=ctx.id, n=n)
     if add_after:
@@ -722,6 +727,11 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
     if new is None:
         raise FlowError("flow.approve_need_to", id=ctx.id, status=status,
                         allowed=", ".join(approve_targets(ctx)))
+    if not to and not gate:
+        # The human named a status (`/mark:approve 0012 developing`): never take the default instead.
+        named = [w for w in human.words(ctx.cfg, "approve", ctx.id) if w in approve_targets(ctx) and w != new]
+        if named:
+            raise FlowError("flow.approve_named", id=ctx.id, to=named[0])
     _require_human(ctx, "approve", word=to)
     out = Outcome(status, new, gate=gate)
     if review:

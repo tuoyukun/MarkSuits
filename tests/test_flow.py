@@ -338,9 +338,25 @@ class MovesTest(unittest.TestCase):
         self.assertEqual(run(self.root, "set", "0001", "testing", "--no-commit")[0], 0)
 
     def test_pending_merge_needs_leftover(self):
-        add_ticket(self.root, "feature", "0001-a", "testing", gates=ALL_GATES)
+        d = add_ticket(self.root, "feature", "0001-a", "testing", gates=ALL_GATES)
+        write(self.root / ".mark/locks/0001-a.tester.result.json",
+              json.dumps({"result": "PASSED", "at": (d / "status.md").stat().st_mtime + 5}))
         self.assertIn("leftover", run(self.root, "set", "0001", "pending-merge")[2])
         self.assertEqual(run(self.root, "set", "0001", "pending-merge", "--leftover", "0")[0], 0)
+
+    def test_pending_merge_needs_a_tester_run_since_testing(self):
+        # A PASSED verdict from an earlier round must not land reworked code untested.
+        d = add_ticket(self.root, "bug", "b0001-a", "testing", gates=["ticket-approved"])
+        write(d / "verdict.md", "<!-- mark:verdict PASSED -->")
+        result = self.root / ".mark/locks/b0001-a.tester.result.json"
+        write(result, json.dumps({"result": "PASSED", "at": (d / "status.md").stat().st_mtime - 5}))
+        code, _, err = run(self.root, "set", "b0001", "pending-merge", "--leftover", "0")
+        self.assertEqual(code, 1)
+        self.assertIn("no tester run", err)
+        write(result, json.dumps({"result": "FAILED", "at": (d / "status.md").stat().st_mtime + 5}))
+        self.assertEqual(run(self.root, "set", "b0001", "pending-merge", "--leftover", "0")[0], 1)
+        write(result, json.dumps({"result": "PASSED", "at": (d / "status.md").stat().st_mtime + 5}))
+        self.assertEqual(run(self.root, "set", "b0001", "pending-merge", "--leftover", "0", "--no-commit")[0], 0)
 
     def test_design_qa_required_for_ui_changes(self):
         cfg_path = self.root / ".mark" / "config.toml"
@@ -754,6 +770,20 @@ class HumanDecisionTest(unittest.TestCase):
         self.assertIn("/mark:approve 0001-a developing", err)
         human_typed(self.root, "/mark:approve 0001 developing")
         self.assertIn("`blocked-spec` -> `developing`", run(self.root, "approve", "0001", "--to", "developing")[1])
+
+    def test_approve_never_drops_the_status_the_human_named(self):
+        d = add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES)
+        human_typed(self.root, "/mark:approve 0001 developing")
+        code, _, err = run(self.root, "approve", "0001")      # --to forgotten
+        self.assertEqual(code, 1)
+        self.assertIn("--to developing", err)
+        self.assertIn("status: blocked-spec", (d / "status.md").read_text())
+        self.assertIn("`blocked-spec` -> `developing`", run(self.root, "approve", "0001", "--to", "developing")[1])
+
+    def test_approve_default_with_other_words(self):
+        add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES)
+        human_typed(self.root, "/mark:approve 0001 looks fine")
+        self.assertIn("`blocked-spec` -> `designing`", run(self.root, "approve", "0001")[1])
 
     def test_blocked_unclear_needs_a_target(self):
         add_ticket(self.root, "feature", "0001-a", "blocked-unclear", gates=ALL_GATES)

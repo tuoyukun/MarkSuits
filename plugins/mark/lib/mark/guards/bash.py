@@ -137,8 +137,8 @@ def _pushes_main(args: list[str], branch: str, main: str) -> bool:
     refs = [a for a in args[1:] if not a.startswith("-")]
     if len(refs) <= 1:          # `git push` / `git push origin` push the current branch
         return branch == main
-    return any(r.split(":")[-1] in (main, f"refs/heads/{main}") or r == "HEAD" and branch == main
-               for r in refs[1:])
+    return any(r.lstrip("+").split(":")[-1] in (main, f"refs/heads/{main}")
+               or r.lstrip("+") == "HEAD" and branch == main for r in refs[1:])
 
 
 def git_guard(env: Env) -> str | None:
@@ -151,11 +151,11 @@ def git_guard(env: Env) -> str | None:
             continue
         branch = current_branch(where)
         sub = args[0]
-        if env.role and branch == main:
-            if sub == "commit":
-                return env.t("guard.bash.commit_main", who=env.role)
-            if sub == "push" and _pushes_main(args, branch, main):
-                return env.t("guard.bash.push_main", who=env.role)
+        if env.role and sub == "commit" and branch == main:
+            return env.t("guard.bash.commit_main", who=env.role)
+        # From any branch: `git push origin HEAD:main` in a ticket worktree lands work too.
+        if env.role and sub == "push" and _pushes_main(args, branch, main):
+            return env.t("guard.bash.push_main", who=env.role)
         lost = _discards_work(env, where, args)
         if lost:
             return lost
@@ -246,7 +246,8 @@ def _tests_block(env: Env, rel: str) -> str | None:
 
 def shell_write_guard(env: Env) -> str | None:
     """Subagents may not reach paths through the shell that Edit/Write would refuse. The main
-    thread is held only to the files the `mark` CLI alone writes (gates, status, reviews...)."""
+    thread is held only to the files the `mark` CLI alone writes (gates, status, reviews...) and to
+    the roles' artifacts in ticket dirs."""
     command = str(env.tool_input.get("command") or "")
     if ">" not in command and not re.search(r"\b(tee|touch|sed|perl|ruby|cp|mv)\b", command):
         return None
@@ -258,6 +259,10 @@ def shell_write_guard(env: Env) -> str | None:
             if env.role is None:
                 hit = any(globs.match(g, loc.rel) for g in cli_only_rules(env))
                 why = env.t("guard.scope_cli", rel=loc.rel) if hit else None
+                # A role's artifact in a ticket dir (verdict.md, design-qa.md...) carries anchors the
+                # engine trusts; the main thread may not forge it through the shell either.
+                if why is None and env.ticket_of_rel(loc.rel):
+                    why = scope_block(env, loc)
             else:
                 why = scope_block(env, loc) or worktree_block(env, loc) or _tests_block(env, loc.rel)
             if why:

@@ -27,6 +27,15 @@ class TargetAndGateTest(unittest.TestCase):
     def test_non_pipeline_agent_passes(self):
         self.assertEqual(dispatch(self.root, "Explore", "look around")[0], 0)
 
+    def test_role_the_project_lacks_is_refused(self):
+        # A service project has no designer; dispatching one must not skip every pipeline guard.
+        root = make_repo('mark_schema = 1\nlocale = "en"\nprofile = "service"\n')
+        add_ticket(root, "bug", "b0001-a", "developing", gates=["ticket-approved"])
+        code, err = dispatch(root, "mark:designer", anchor("bugs", "b0001-a"))
+        self.assertEqual(code, 2)
+        self.assertIn("no `designer`", err)
+        self.assertEqual(dispatch(root, "Explore", "look around")[0], 0)
+
     def test_missing_target(self):
         code, err = dispatch(self.root, "designer", "design something")
         self.assertEqual(code, 2)
@@ -157,7 +166,23 @@ class CommitAndDedupTest(unittest.TestCase):
 
     def test_other_roles_are_independent(self):
         self.assertEqual(dispatch(self.root, "coder-impl", self.prompt)[0], 0)
+        (self.tdir / "status.md").write_text((self.tdir / "status.md").read_text().replace("developing", "testing"))
+        sh(self.root, "git", "commit", "-qam", "testing")
         self.assertEqual(dispatch(self.root, "tester", self.prompt)[0], 0)
+
+    def test_status_decides_the_role(self):
+        # Gates are never revoked: plan-approved from round 1 must not start coder-impl at review-plan.
+        (self.tdir / "status.md").write_text((self.tdir / "status.md").read_text().replace("developing", "review-plan"))
+        sh(self.root, "git", "commit", "-qam", "review")
+        code, err = dispatch(self.root, "coder-impl", self.prompt)
+        self.assertEqual(code, 2)
+        self.assertIn("`review-plan`", err)
+        self.assertFalse((self.root / ".mark/locks/0001-a.coder-impl.lock").exists())
+
+    def test_wrong_role_for_the_status(self):
+        code, err = dispatch(self.root, "tester", self.prompt)
+        self.assertEqual(code, 2)
+        self.assertIn("dispatches coder-impl", err)
 
 
 class LifecycleTest(unittest.TestCase):
@@ -375,6 +400,12 @@ class BashTest(unittest.TestCase):
     def test_subagent_push_to_main_is_blocked(self):
         self.assertEqual(bash(self.root, "git push origin main", "tester")[0], 2)
         self.assertEqual(bash(self.wt, "git push origin feature/0001-a", "tester")[0], 0)
+        self.assertEqual(bash(self.wt, "git push -u origin HEAD", "tester")[0], 0)
+
+    def test_subagent_push_to_main_from_its_worktree_is_blocked(self):
+        for cmd in ("git push origin HEAD:main", "git push origin feature/0001-a:main",
+                    "git push origin +HEAD:refs/heads/main", "git push origin main"):
+            self.assertEqual(bash(self.wt, cmd, "coder-impl")[0], 2, cmd)
 
     def test_checking_out_ticket_branch_in_main_is_blocked(self):
         code, err = bash(self.root, "git checkout feature/0001-a")
@@ -455,6 +486,14 @@ class ShellWriteTest(unittest.TestCase):
         self.assertFalse(self.blocked("sed -n 's/x/y/p' frontend/app.ts", "coder-plan"))  # no -i
         self.assertFalse(self.blocked("perl -ne 'print' frontend/app.ts", "coder-plan"))  # no -i
         self.assertFalse(self.blocked("echo x > frontend/app.ts", None))          # main thread: Edit rules only
+
+    def test_main_thread_cannot_forge_role_artifacts(self):
+        # verdict.md / design-qa.md carry anchors that unlock merge and testing.
+        d = ".mark/features/0001-a"
+        self.assertTrue(self.blocked(f"echo '<!-- mark:verdict PASSED -->' > {d}/verdict.md", None))
+        self.assertTrue(self.blocked(f"echo x > {d}/design-qa.md", None, cwd=self.root))
+        self.assertFalse(self.blocked(f"echo x >> {d}/log.md", None, cwd=self.root))
+        self.assertFalse(self.blocked(f"echo x > {d}/requirement.md", None, cwd=self.root))
 
     def test_shell_variables_are_expanded(self):
         # The live failure: a variable holding the worktree, then `cd "$W"` from the main checkout.

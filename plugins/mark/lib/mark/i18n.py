@@ -171,6 +171,12 @@ MESSAGES["en"].update({
         "  <!-- mark:ticket features/<id> -->   (or bugs/<id>)\n"
         "or the ticket path `{state}/features/<id>/`. Prompt templates include the anchor."
     ),
+    "guard.dispatch.unstaffed": "This project has no `{role}` (`roles` / `profile` in .mark/config.toml), so it cannot be dispatched.",
+    "guard.dispatch.nobody": "nobody (it waits on the human or on `mark merge`)",
+    "guard.dispatch.status": (
+        "{id} is `{status}`, which dispatches {want}, not `{role}`. Run `mark next {id}` and dispatch what\n"
+        "`mark dispatch {id}` prints, unchanged."
+    ),
     "guard.target.unknown": "Ticket {kind} `{id}` does not exist in the main checkout. Check the id (`mark status`).",
     "guard.target.ambiguous": "The prompt points at several tickets ({targets}). Name exactly one target with a `mark:ticket` anchor.",
     "guard.target.short_ambiguous": "Short ticket id `{ref}` matches several directories. Use the full id.",
@@ -337,6 +343,12 @@ MESSAGES["zh-CN"].update({
         "认不出这次派 `{role}` 是为哪张工单。请在 prompt 里放且只放一个锚点：\n"
         "  <!-- mark:ticket features/<id> -->   （或 bugs/<id>）\n"
         "或写出工单路径 `{state}/features/<id>/`。派活模板里自带这个锚点。"
+    ),
+    "guard.dispatch.unstaffed": "本项目没有 `{role}`（见 .mark/config.toml 的 `roles` / `profile`），不能派它。",
+    "guard.dispatch.nobody": "无人（这一步等 Human 或 `mark merge`）",
+    "guard.dispatch.status": (
+        "{id} 停在 `{status}`，这一步该派 {want}，不是 `{role}`。先跑 `mark next {id}`，再原样使用\n"
+        "`mark dispatch {id}` 打印的内容派活。"
     ),
     "guard.target.unknown": "主仓里没有 {kind} 工单 `{id}`。请核对编号（`mark status`）。",
     "guard.target.ambiguous": "prompt 指向了多张工单（{targets}）。请用 `mark:ticket` 锚点只写一个目标。",
@@ -622,6 +634,14 @@ MESSAGES["en"].update({
         "{id} is at `{status}`: the human must say where it goes. Ask them to type\n"
         "/mark:approve {id} <status>, one of: {allowed}."
     ),
+    "flow.no_tester_result": (
+        "{id}: no tester run has finished since it reached `testing`, so the verdict on disk may be stale.\n"
+        "Dispatch the tester (`mark next {id}`) and record its outcome."
+    ),
+    "flow.approve_named": (
+        "The human named `{to}` (/mark:approve {id} {to}), not the default. Run it as they said:\n"
+        "  mark approve {id} --to {to}"
+    ),
     "flow.need_design_qa": "{id} has a design and its branch changes UI paths, so it goes through design QA before testing:\n  mark set {id} design-qa",
     "flow.qa_cap": (
         "{id}: design QA is still blocked after round {n}. Stop iterating; the human decides. Record it and report:\n"
@@ -839,6 +859,14 @@ MESSAGES["zh-CN"].update({
     "flow.approve_need_to": (
         "{id} 停在 `{status}`：去向要由 Human 指定。请 Human 输入\n"
         "/mark:approve {id} <状态>，可选：{allowed}。"
+    ),
+    "flow.no_tester_result": (
+        "{id}：进入 `testing` 之后还没有一次测试跑完，磁盘上的 verdict 可能是上一轮的。\n"
+        "先派 tester（`mark next {id}`），再记录它的结果。"
+    ),
+    "flow.approve_named": (
+        "Human 指定的去向是 `{to}`（/mark:approve {id} {to}），不是默认去向。按 Human 说的执行：\n"
+        "  mark approve {id} --to {to}"
     ),
     "flow.need_design_qa": "{id} 有设计稿，且分支改到了 UI 路径，测试前要先过集成态设计验收：\n  mark set {id} design-qa",
     "flow.qa_cap": "{id}：集成态设计验收第 {n} 轮仍未通过。不再迭代，交给 Human 决定。记录后报告：\n  mark set {id} blocked-spec",
