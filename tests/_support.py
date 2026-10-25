@@ -139,7 +139,7 @@ SCENARIO_ROLES = {
     "designer-integration-qa": "designer", "coder-plan": "coder-plan", "coder-plan-rework": "coder-plan",
     "coder-impl": "coder-impl", "coder-impl-fix": "coder-impl", "coder-impl-merge-rework": "coder-impl",
     "tester-initial": "tester", "tester-reverify": "tester", "fix-plan-initial": "fix-plan",
-    "fix-plan-rework": "fix-plan",
+    "fix-plan-rework": "fix-plan", "designer-bugfix": "designer",
 }
 
 

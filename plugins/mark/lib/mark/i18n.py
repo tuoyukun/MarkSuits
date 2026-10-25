@@ -462,9 +462,8 @@ MESSAGES["en"].update({
         "`{role}` finished {id} ({reason}). Record its outcome next (dispatch nothing else first); pick from its conclusion:\n"
         "  mark set {id} <{options}> --note \"<one line>\"{route}{wrapup}"
     ),
-    "next.record.route_spec": ("\nA FAILED verdict: any `design-flaw` -> `blocked-spec`; otherwise any `unclear` -> "
+    "next.record.route": ("\nA FAILED verdict: any `design-flaw` -> `blocked-spec`; otherwise any `unclear` -> "
                                "`blocked-unclear`; otherwise `failed-impl`."),
-    "next.record.route": "\nA FAILED verdict: any `unclear` -> `blocked-unclear`; otherwise `failed-impl`.",
     "next.record.wrapup": "\nBefore `pending-merge`: write the wrap-up table in the ticket's log.md and run `mark commit {id}`.",
     "next.wait": "{roles} is still working on {id}. Wait for its completion notice; never dispatch a second one.",
     "next.review": (
@@ -544,7 +543,7 @@ MESSAGES["en"].update({
     ),
     "general.done": "`{branch}` landed and the lane was removed.",
     "next.blocked_spec": (
-        "{id} is `blocked-spec`: the design contract has a problem. Report it to the human and stop.\n"
+        "{id} is `blocked-spec`: the design or its UI components have a problem. Report it to the human and stop.\n"
         "/mark:approve {id} sends it back to the designer; /mark:approve {id} developing goes on as it is."
     ),
     "next.blocked_plan": (
@@ -687,8 +686,7 @@ MESSAGES["zh-CN"].update({
         "`{role}` 已交回 {id}（{reason}）。接下来记录结果（在此之前不要派其他活）；按它的结论选一个：\n"
         "  mark set {id} <{options}> --note \"<一句话>\"{route}{wrapup}"
     ),
-    "next.record.route_spec": "\n结论为 FAILED 时：有任何 `design-flaw` -> `blocked-spec`；否则有 `unclear` -> `blocked-unclear`；否则 `failed-impl`。",
-    "next.record.route": "\n结论为 FAILED 时：有 `unclear` -> `blocked-unclear`；否则 `failed-impl`。",
+    "next.record.route": "\n结论为 FAILED 时：有任何 `design-flaw` -> `blocked-spec`；否则有 `unclear` -> `blocked-unclear`；否则 `failed-impl`。",
     "next.record.wrapup": "\n进入 `pending-merge` 之前：先在本单 log.md 写好收尾表，再运行 `mark commit {id}`。",
     "next.wait": "{roles} 还在处理 {id}。等它的完成通知，绝不派第二个。",
     "next.review": (
@@ -765,7 +763,7 @@ MESSAGES["zh-CN"].update({
     ),
     "general.done": "`{branch}` 已合入，车道已拆除。",
     "next.blocked_spec": (
-        "{id} 是 `blocked-spec`：设计契约有问题。报告 Human 后停下。\n"
+        "{id} 是 `blocked-spec`：设计或其 UI 组件有问题。报告 Human 后停下。\n"
         "/mark:approve {id} 退回 designer 返工；/mark:approve {id} developing 按现状继续。"
     ),
     "next.blocked_plan": (

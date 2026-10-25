@@ -21,8 +21,8 @@ class StateMachineTest(unittest.TestCase):
         self.assertFalse(states.can_move("feature", "designing", "planning"))
         self.assertFalse(states.can_move("feature", "planning", "developing"))
 
-    def test_bug_has_no_design_states(self):
-        for s in ("designing", "review-design", "review-plan", "design-qa", "blocked-spec"):
+    def test_bug_has_no_review_or_qa_states(self):
+        for s in ("review-design", "review-plan", "design-qa"):
             self.assertFalse(states.is_valid("bug", s), s)
 
     def test_terminal_states_have_no_exit(self):

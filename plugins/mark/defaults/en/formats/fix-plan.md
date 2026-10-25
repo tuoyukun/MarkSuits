@@ -15,6 +15,7 @@ the way, it does not contain the implementation.
 
 ## Fix
 - <file or module>: <what changes and why> [inline]
+- <component in the UI directory>: <what changes and why> [ui]
 
 ## Acceptance points
 <!-- mark:ac -->
@@ -50,5 +51,7 @@ Rules:
   state. Write `new` only when no existing test can reach it by adding steps, and name the
   closest one and why. The tester may add no test this table does not name as new.
   `extend`, `new` and `unit` are literal in every language.
+- Tag a fix item `[ui]` when it changes the UI directory: the designer does it before coder-impl,
+  and your outcome is `designing`. `inline` and `ui` are literal in every language.
 - If the fix needs a data model, cross-module contract or framework change, it is not a bug
   fix: say so in open questions.

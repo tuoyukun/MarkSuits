@@ -311,6 +311,7 @@ SCENARIOS: dict[str, str] = {
     "designer-review-rework": "designer",
     "designer-rework": "designer",
     "designer-integration-qa": "designer",
+    "designer-bugfix": "designer",
     "coder-plan": "coder-plan",
     "coder-plan-rework": "coder-plan",
     "fix-plan-initial": "fix-plan",
@@ -327,7 +328,13 @@ def _dispatch(ctx: Ctx, status: str) -> Action:
     kind = ctx.kind
     role = states.ROLE_FOR_STATUS[kind][status]
     a = Action("dispatch", role=role, message="next.dispatch")
-    if status == "designing":
+    if status == "designing" and kind == states.BUG:
+        a.scenario = "designer-bugfix"
+        if ctx.find("verdict.md"):
+            a.trigger = _failure_trigger(ctx)
+        else:
+            a.trigger = "handoff.md (blocked-spec)" if ctx.find("handoff.md") else "fix-plan.md ([ui])"
+    elif status == "designing":
         if _with_review(a, ctx, ("design",)):
             a.scenario = "designer-review-rework"
         elif ctx.find("verdict.md") or ctx.find("design-qa.md"):
@@ -409,8 +416,7 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
         params = {**base, "role": action.role, "options": " | ".join(options),
                   "reason": result.get("reason", ""), "wrapup": "", "route": ""}
         if action.role == "tester":
-            key = "next.record.route_spec" if "blocked-spec" in options else "next.record.route"
-            params["route"] = _msg(ctx.cfg.locale, key)
+            params["route"] = _msg(ctx.cfg.locale, "next.record.route")
         if "pending-merge" in options:
             params["wrapup"] = _msg(ctx.cfg.locale, "next.record.wrapup", id=ctx.id)
         if result.get("result") == "PASSED":
@@ -703,7 +709,7 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
         _require_human(ctx, "approve")
         _write_gate(ctx, TICKET_GATE)
         return Outcome(status, status, gate=TICKET_GATE)
-    if status not in APPROVE or (ctx.kind == states.BUG and status == "blocked-spec"):
+    if status not in APPROVE:
         raise FlowError("flow.approve_nothing", status=status, id=ctx.id)
     gate, review, new = APPROVE[status]
     if new and _unstaffed(ctx, new):

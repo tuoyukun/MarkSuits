@@ -7,10 +7,10 @@ import socket
 import unittest
 import zlib
 
-from tests._support import (FULL_CONFIG, add_origin, add_templates, add_ticket, add_worktree, hook,
+from tests._support import (FULL_CONFIG, PLUGIN_ROOT, add_origin, add_templates, add_ticket, add_worktree, hook,
                             human_typed, make_project, make_repo, sh, status_text)
 
-from mark import cli, flow, human, reviews, states, tickets
+from mark import brief, cli, flow, human, reviews, states, tickets
 from mark.config import load_config
 
 ALL_GATES = ["ticket-approved", "design-approved", "plan-approved"]
@@ -210,7 +210,7 @@ class NextActionTest(unittest.TestCase):
         self.assertIn("pending-merge", a.options)
         self.assertIn("log.md", a.params["wrapup"])
         self.assertIn("mark commit b0001-a", a.params["wrapup"])
-        self.assertNotIn("design-flaw", a.params["route"])   # a bug has no designer
+        self.assertIn("`design-flaw` -> `blocked-spec`", a.params["route"])   # bugs reach the designer too
 
     def test_tester_failures_are_routed_by_failure_type(self):
         d = add_ticket(self.root, "feature", "0001-a", "testing", gates=ALL_GATES)
@@ -222,7 +222,22 @@ class NextActionTest(unittest.TestCase):
     def test_coder_impl_can_send_a_ui_fix_to_the_designer(self):
         for status in ("developing", "failed-impl"):
             self.assertTrue(states.can_move("feature", status, "blocked-spec"), status)
-            self.assertFalse(states.can_move("bug", status, "blocked-spec"), status)
+            self.assertTrue(states.can_move("bug", status, "blocked-spec"), status)
+
+    def test_bug_fix_in_the_ui_dir_goes_to_the_designer(self):
+        self.assertTrue(states.can_move("bug", "planning", "designing"))
+        for new in ("developing", "testing"):
+            self.assertTrue(states.can_move("bug", "designing", new), new)
+        d = add_ticket(self.root, "bug", "b0001-a", "designing", gates=["ticket-approved"])
+        a = self.next("b0001")
+        self.assertEqual((a.role, a.scenario, a.trigger), ("designer", "designer-bugfix", "fix-plan.md ([ui])"))
+        write(d / "handoff.md", "x")
+        self.assertEqual(self.next("b0001").trigger, "handoff.md (blocked-spec)")
+        write(d / "verdict.md", "FAIL-3")
+        self.assertEqual(self.next("b0001").trigger, "FAIL-3 (verdict.md)")
+        for loc in ("en", "zh-CN"):   # no design.md / preview.html on a bug
+            text = (PLUGIN_ROOT / "defaults" / loc / "prompts" / "designer-bugfix.md").read_text(encoding="utf-8")
+            self.assertEqual(brief.parse_template(text).outputs, [], loc)
 
     def test_previous_conclusion_is_the_newest_result(self):
         add_ticket(self.root, "feature", "0001-a", "planning", gates=ALL_GATES)
@@ -725,6 +740,11 @@ class HumanDecisionTest(unittest.TestCase):
         add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES)
         human_typed(self.root, "/mark:approve 0001")
         self.assertIn("`blocked-spec` -> `designing`", run(self.root, "approve", "0001")[1])
+
+    def test_bug_blocked_spec_goes_to_the_designer(self):
+        add_ticket(self.root, "bug", "b0001-a", "blocked-spec", gates=ALL_GATES)
+        human_typed(self.root, "/mark:approve b0001")
+        self.assertIn("`blocked-spec` -> `designing`", run(self.root, "approve", "b0001")[1])
 
     def test_human_picks_where_a_blocked_ticket_goes(self):
         add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES)

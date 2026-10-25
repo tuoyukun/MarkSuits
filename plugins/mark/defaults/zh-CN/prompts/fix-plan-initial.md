@@ -34,4 +34,5 @@ role: fix-plan
 
 ## 汇报
 
-按角色规则。outcome 为 `developing`（下一步：coder-impl）或 `blocked-unclear`。
+按角色规则。outcome 为 `designing`（有标 `[ui]` 的项；下一步：designer）、`developing`（下一步：coder-impl）
+或 `blocked-unclear`。

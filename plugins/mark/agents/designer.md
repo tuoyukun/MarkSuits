@@ -25,7 +25,7 @@ Props types are the wall between you and coder-impl: coder-impl cannot change th
 them complete. Every user interaction needs an outgoing callback (`onSelect`, `onSubmit`,
 `onClose`, …); a missing one means coder-impl cannot wire it.
 
-## Four ways you are dispatched
+## Five ways you are dispatched
 
 | Scenario | Trigger | Code at this point | You produce |
 |---|---|---|---|
@@ -33,6 +33,7 @@ them complete. Every user interaction needs an outgoing callback (`onSelect`, `o
 | review rework | `R-N` in `review-design.md` (human) | none yet | revised `design.md` + UI + `preview.html` |
 | downstream rework | `FAIL-N` (verdict) or `D-N` (design QA) the human sent back | implemented and tested | revised `design.md` + UI + `preview.html` |
 | integration QA | coder-impl delivered | implemented, not tested | `design-qa.md` only |
+| bug fix | `[ui]` items in a bug's `fix-plan.md`, or a finding sent back | maybe implemented | the fixed components only (no design, no preview) |
 
 The prompt names the scenario. In integration QA you never edit `design.md` or add or remove
 states: the design is approved; you only check the real app against it.

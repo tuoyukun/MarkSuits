@@ -4,7 +4,8 @@ Two chains share one vocabulary:
 
 - feature: designer -> coder-plan -> coder-impl -> (design-qa) -> tester,
   with two human review gates (review-design, review-plan).
-- bug: fix-plan -> coder-impl -> tester, no review gates.
+- bug: fix-plan -> (designer, when the fix is in the UI directory) -> coder-impl -> tester,
+  no review gates.
 
 `status.md` answers "who acts next"; gate files answer "is it allowed". The
 state machine never replaces a gate check.
@@ -60,13 +61,15 @@ _FEATURE_EDGES: dict[str, tuple[str, ...]] = {
 }
 
 _BUG_EDGES: dict[str, tuple[str, ...]] = {
-    "planning": ("developing", "blocked-unclear"),
-    "developing": ("testing", "blocked-plan", "blocked-unclear"),
-    "testing": ("pending-merge", "failed-impl", "blocked-unclear"),
-    "failed-impl": ("testing", "blocked-plan", "blocked-unclear"),
+    "planning": ("designing", "developing", "blocked-unclear"),
+    "designing": ("developing", "testing", "blocked-unclear"),
+    "developing": ("testing", "blocked-plan", "blocked-spec", "blocked-unclear"),
+    "testing": ("pending-merge", "failed-impl", "blocked-spec", "blocked-unclear"),
+    "failed-impl": ("testing", "blocked-plan", "blocked-spec", "blocked-unclear"),
     "pending-merge": ("passed", "failed-impl", "planning"),
     "blocked-plan": ("planning", "developing"),
-    "blocked-unclear": ("planning", "developing"),
+    "blocked-spec": ("designing", "planning", "developing"),
+    "blocked-unclear": ("designing", "planning", "developing"),
     "passed": (),
     "superseded": (),
 }
@@ -96,6 +99,7 @@ ROLE_FOR_STATUS: dict[str, dict[str, str]] = {
     },
     BUG: {
         "planning": "fix-plan",
+        "designing": "designer",
         "developing": "coder-impl",
         "testing": "tester",
         "failed-impl": "coder-impl",

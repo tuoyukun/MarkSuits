@@ -14,7 +14,7 @@ The plan is ready: for a feature, the human approved `tech-plan.md`; for a bug,
 ## Done when
 
 - Every task is implemented: each `T-N` of the tech plan (feature), or each fix item,
-  including those tagged `[inline]` (bug). Failure branches in the sequence diagrams are
+  including those tagged `[inline]` (bug; `[ui]` items are the designer's, already done). Failure branches in the sequence diagrams are
   implemented too.
 - Criteria no user action can reach are covered by unit tests now.
 - Unit tests, type check and lint pass.

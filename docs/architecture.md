@@ -122,7 +122,11 @@ drops it from the default `roles`, and with it the `design-approved` gate): a ne
 at `planning` (`states.initial`), and no move may enter a status whose role the project lacks
 (`flow.no_role`; `blocked-spec` then goes back to `planning`).
 
-Bug chain: fix-plan → coder-impl → tester, no review gates. General mode: no subagents,
+Bug chain: fix-plan → coder-impl → tester, no review gates. When part of the fix is in the UI
+directory, fix-plan tags those items `[ui]` and reports `designing`: the designer fixes the
+components (`designer-bugfix`: no design, no preview, no required output), then goes to
+`developing`, or straight to `testing` when `handoff.md` exists and nothing else is left. A UI
+failure found later goes through `blocked-spec` and the human, as on features (v0.29). General mode: no subagents,
 non-code changes only, on a throwaway lane (see General mode below).
 
 Failure routing is decided by the orchestrator from the tester's `failureType`
@@ -202,7 +206,7 @@ The loop: `mark next <id>` returns one of dispatch · wait · record · stop · 
 
 Scenario (template) selection, from status plus artifacts: `designing` → `designer-initial`, or
 `designer-review-rework` (pending rounds in `review-design.md`), or `designer-rework` (after a
-verdict or design QA) · `planning` → `coder-plan` / `coder-plan-rework`, bugs `fix-plan-initial` /
+verdict or design QA), bugs `designer-bugfix` · `planning` → `coder-plan` / `coder-plan-rework`, bugs `fix-plan-initial` /
 `fix-plan-rework` · `developing` → `coder-impl` · `design-qa` → `designer-integration-qa` · `testing`
 → `tester-initial` / `tester-reverify` · `failed-impl` → `coder-impl-fix` / `coder-impl-merge-rework`.
 Templates are built in (`defaults/<locale>/prompts/<scenario>.md`; a project overrides one in

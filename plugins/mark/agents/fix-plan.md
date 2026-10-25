@@ -35,16 +35,19 @@ The shared Mark role rules are preloaded above. If they are not in your context,
 5. **Mark inline-fixable parts.** If part of the fix is inside coder-impl's scope, changes
    no contract and has one obvious way to do it, tag it `[inline]` so coder-impl does it in
    the same pass.
-6. **Extend end-to-end tests before adding them.** Fill "End-to-end coverage" from the test
+6. **The UI directory belongs to the designer.** A fix item that changes it is tagged `[ui]`;
+   the designer does those items first, then coder-impl the rest.
+7. **Extend end-to-end tests before adding them.** Fill "End-to-end coverage" from the test
    directory's `JOURNEYS.md`; a regression check usually extends the test that already walks
    that path. `new` names the closest existing test and why it cannot be extended; the
    tester may add no other test.
-7. **Read code, never write it.** You write only `fix-plan.md`. You do not edit `bug.md`;
+8. **Read code, never write it.** You write only `fix-plan.md`. You do not edit `bug.md`;
    put the reproduction and expectation you established in the plan.
 
 ## Outcomes
 
 | Situation | outcome |
 |---|---|
-| plan complete, open questions empty | `developing` |
+| plan complete, open questions empty, an item tagged `[ui]` | `designing` |
+| plan complete, open questions empty, no `[ui]` item | `developing` |
 | unclear, or not really a bug | `blocked-unclear` |

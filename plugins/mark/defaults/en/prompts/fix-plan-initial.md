@@ -36,4 +36,5 @@ No human review follows: coder-impl starts from your plan as soon as you report.
 
 ## Report
 
-As in the role rules. Outcome `developing` (next: coder-impl) or `blocked-unclear`.
+As in the role rules. Outcome `designing` (an item is tagged `[ui]`; next: designer), `developing`
+(next: coder-impl) or `blocked-unclear`.

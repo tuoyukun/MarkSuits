@@ -23,7 +23,7 @@ role: coder-impl
 - 单元测试、类型检查、lint 全部通过。
 - `handoff.md` 已更新：变化了的自检行，以及「修复记录」里每个编号一行。
 - 若根因在方案层，或某处修复会破坏另一条标准，不要自行取舍：写进「阻塞说明」，报
-  `blocked-plan`。只有改 UI 目录才能修好时（feature），改报 `blocked-spec`。
+  `blocked-plan`。只有改 UI 目录才能修好时，改报 `blocked-spec`。
 
 ## 要读
 
@@ -39,4 +39,4 @@ role: coder-impl
 ## 汇报
 
 按角色规则，`处理` 写触发源编号。outcome 为 `design-qa`（触发源是 `D-N`，或工单有 `design.md`
-且你改了 UI 代码）、`testing`、`blocked-plan`、`blocked-spec`（feature）或 `blocked-unclear`。
+且你改了 UI 代码）、`testing`、`blocked-plan`、`blocked-spec` 或 `blocked-unclear`。

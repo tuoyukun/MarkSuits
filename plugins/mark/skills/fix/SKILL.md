@@ -1,5 +1,5 @@
 ---
-description: Open or continue a Mark bug ticket and run its chain (fix-plan, coder-impl, tester) without review gates. Use when the human reports a bug to fix or asks to continue a bug ticket.
+description: Open or continue a Mark bug ticket and run its chain (fix-plan, designer when the fix is in the UI directory, coder-impl, tester) without review gates. Use when the human reports a bug to fix or asks to continue a bug ticket.
 argument-hint: <bug-id | bug description>
 allowed-tools: Bash(mark:*)
 ---
