@@ -368,6 +368,7 @@ def _dispatch(ctx: Ctx, status: str) -> Action:
 
 
 _STOP_KEYS = {
+    "drafting": "next.drafting", "review-requirement": "next.review_requirement",
     "review-design": "next.review", "review-plan": "next.review",
     "blocked-spec": "next.blocked_spec",
     "blocked-plan": "next.blocked_plan", "blocked-unclear": "next.blocked_unclear",
@@ -402,7 +403,7 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
             return Action("stop", "next.merge_failed", {**base, "reason": failed.get("reason", "")})
         return Action("merge", "next.merge", base)
     if status in _STOP_KEYS:
-        return Action("stop", _STOP_KEYS[status], {**base, "preview": preview_note(ctx)})
+        return Action("stop", _STOP_KEYS[status], {**base, "preview": preview_note(ctx), "dir": ctx.rel_dir})
 
     action = _dispatch(ctx, status)
     first = ("designer-initial", "fix-plan-initial", "coder-plan" if _unstaffed(ctx, "designing") else "")
@@ -558,14 +559,6 @@ def ensure_isolation(ctx: Ctx) -> list[tuple[str, dict]]:
 # Status moves
 # --------------------------------------------------------------------------
 
-def _owner(kind: str, status: str) -> str:
-    if status == states.MERGE:
-        return "orchestrator"
-    if status in states.AGENT:
-        return states.ROLE_FOR_STATUS[kind].get(status, "-")
-    return "human" if status in states.HUMAN else "-"
-
-
 def design_qa_needed(ctx: Ctx) -> bool:
     """Feature has a design and its branch touches the configured UI paths."""
     if ctx.kind != states.FEATURE or not ctx.cfg.design_qa_paths or ctx.find("design.md") is None:
@@ -586,7 +579,7 @@ def design_qa_needed(ctx: Ctx) -> bool:
 def _write_status(ctx: Ctx, new: str, note: str | None, extra: dict[str, str | None]) -> None:
     t = ctx.ticket
     fields = dict(t.fields)
-    fields.update({"status": new, "owner": _owner(ctx.kind, new), "updated": _today(),
+    fields.update({"status": new, "owner": states.owner(ctx.kind, new), "updated": _today(),
                    "updater": "orchestrator", **extra})
     fields = {k: v for k, v in fields.items() if v is not None}  # None in `extra` drops a field
     body = t.note if note is None else " ".join(note.split())
@@ -615,6 +608,36 @@ def _move(ctx: Ctx, new: str, note: str | None, extra: dict[str, str | None] | N
     return old
 
 
+AC_ANCHOR = "<!-- mark:ac -->"
+OPEN_QUESTIONS_ANCHOR = "<!-- mark:open-questions -->"
+
+
+def _section(text: str, anchor: str) -> str | None:
+    """Text after `anchor` up to the next heading; None without the anchor."""
+    at = text.find(anchor)
+    if at < 0:
+        return None
+    return re.split(r"^#{1,6} ", text[at + len(anchor):], maxsplit=1, flags=re.M)[0]
+
+
+def requirement_problems(path: Path | None) -> list[str]:
+    """What keeps a requirement.md from human review: the file, an acceptance criterion,
+    and an open-questions section that says only `none` (zh-CN: `无`)."""
+    if path is None:
+        return ["requirement.md"]
+    text = path.read_text(encoding="utf-8")
+    out = []
+    ac = _section(text, AC_ANCHOR)
+    if ac is None or not re.search(r"^\s*-\s*AC-\d+", ac, flags=re.M):
+        out.append("AC-N")
+    oq = _section(text, OPEN_QUESTIONS_ANCHOR)
+    items = [] if oq is None else [ln.strip(" -*\t").lower() for ln in oq.splitlines()
+                                   if ln.strip() and not ln.strip().startswith("<!--")]
+    if oq is not None and items not in ([], ["none"], ["无"]):
+        out.append("open-questions")
+    return out
+
+
 def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None = None,
                add_after: list[str] | None = None) -> str:
     """Orchestrator records an outcome. A status that waits on the human (review gates,
@@ -625,6 +648,10 @@ def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None
     old = ctx.ticket.status
     if old in states.HELD and new not in ("superseded", old) and not (old == states.MERGE and new == "passed"):
         raise FlowError("flow.human_gate", status=old, id=ctx.id)
+    if new == "review-requirement" and old != new:
+        missing = requirement_problems(ctx.find(REQUIRED_BRIEF[states.FEATURE]))
+        if missing:
+            raise FlowError("flow.requirement_incomplete", id=ctx.id, missing=", ".join(missing))
     if new == "testing" and old == "design-qa" and qa_result(ctx) != "passed":
         raise FlowError("flow.qa_not_passed", id=ctx.id)
     if new == "testing" and old in ("developing", "failed-impl") and design_qa_needed(ctx) \
@@ -679,6 +706,7 @@ def _write_gate(ctx: Ctx, gate: str) -> Path:
 
 APPROVE = {
     # status: (gate written, review settled, default next status; None: the human must name one)
+    "review-requirement": ("requirement-approved", "requirement", "designing"),
     "review-design": ("design-approved", "design", "planning"),
     "review-plan": ("plan-approved", "plan", "developing"),
     "blocked-spec": (None, None, "designing"),
@@ -757,7 +785,7 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
         raise FlowError("flow.approve_nothing", status=status, id=ctx.id)
     gate, review, new = APPROVE[status]
     if new and _unstaffed(ctx, new):
-        new = "planning"  # blocked-spec without a designer: the plan is redone instead
+        new = "planning"  # no designer: the plan comes next, or is redone instead
     if to:
         if gate or to not in approve_targets(ctx):
             allowed = ", ".join(approve_targets(ctx)) if not gate else "-"
@@ -794,6 +822,7 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
 
 REJECT = {
     # status: (review file, default next status)
+    "review-requirement": ("requirement", "drafting"),
     "review-design": ("design", "designing"),
     "review-plan": ("plan", "planning"),
     "pending-merge": ("merge", "failed-impl"),

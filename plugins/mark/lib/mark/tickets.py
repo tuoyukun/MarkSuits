@@ -55,6 +55,7 @@ _FIELD_RE = re.compile(r"^([a-z][a-z0-9_-]*):\s*(.*)$")
 _REF_RE = re.compile(rf"^{BUG_PREFIX}?\d{{4}}$")
 
 FIELD_ORDER = ("status", "owner", "updated", "updater", "desc", "merge-after", "leftover")
+REQUIREMENT_GATE_FIELD = "requirement-gate"
 
 
 # --------------------------------------------------------------------------
@@ -291,14 +292,17 @@ def claim(cfg: MarkConfig, kind: str, desc: str, slug: str | None = None,
             break
         else:
             raise ClaimError("claim.exhausted", n=MAX_PROBE, path=str(base))
-        initial = states.initial(kind, cfg.roles)
+        initial = states.INITIAL[kind]
         fields = {
             "status": initial,
-            "owner": states.ROLE_FOR_STATUS[kind][initial],
+            "owner": states.owner(kind, initial),
             "updated": today or _dt.date.today().isoformat(),
             "updater": "orchestrator",
             "desc": desc,
         }
+        if kind == states.FEATURE:
+            # Tickets opened before the requirement review lack this field and skip that gate.
+            fields[REQUIREMENT_GATE_FIELD] = "yes"
         path = base / ticket_id / STATUS_FILENAME
         path.write_text(format_status(fields), encoding="utf-8")
         return Ticket(kind, ticket_id, path, fields)

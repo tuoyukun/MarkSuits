@@ -39,6 +39,7 @@ already answers in it).
 
 | finished role (status) | its conclusion | `mark set <id> …` |
 |---|---|---|
+| you (`drafting`) | `requirement.md` written with the human, open questions `none` | `review-requirement` |
 | designer (`designing`) | design done | `review-design` |
 | | conflict in the requirement / contract | `blocked-spec` or `blocked-unclear` |
 | coder-plan (`planning`) | plan done | `review-plan` (plus `--merge-after <ids>` if it reports any) |

@@ -102,15 +102,25 @@ text, so templates can be localized freely.
 
 | status | action | role | gate required |
 |---|---|---|---|
-| designing | design | designer | — |
+| drafting | the orchestrator writes `requirement.md` with the human; `mark set … review-requirement` refuses it without an `AC-N` under `<!-- mark:ac -->` or with open questions other than `none` | — | — |
+| review-requirement | stop, wait for human; approve → `designing` (`planning` without a designer), reject → `drafting` | — | — |
+| designing | design | designer | requirement-approved |
 | review-design | stop, wait for human | — | — |
-| planning | tech plan | coder-plan | design-approved |
+| planning | tech plan | coder-plan | requirement-approved, design-approved |
 | review-plan | stop, wait for human | — | — |
 | developing | implement | coder-impl | plan-approved |
 | design-qa | integration design check (UI changes only); after 2 blocked rounds `mark set` refuses `failed-impl`, the human decides via `blocked-spec` (`/mark:approve <id>` back to design, or `… developing`) | designer | — |
 | testing | verify | tester | plan-approved |
 | pending-merge | automated merge (regression → ff-only → push); owner `orchestrator`, a failed merge stops for the human | — | — |
 | passed | done | — | — |
+
+The requirement review (v0.33) checks the input as the other two check outputs. Before the claim the
+orchestrator sizes the request: a large one (or `/mark:feature --discuss`) is discussed one topic
+per round — scope, technical choices, architecture — and every agreement lands in the requirement
+as a `DEC-N` under `<!-- mark:decisions -->`, which designer and coder-plan must follow (changing one
+is `blocked-unclear`). `mark claim` marks new features `requirement-gate: yes`; the dispatch gate
+guard requires `<id>.requirement-approved` for every role of such a ticket. Tickets opened before
+v0.33 lack the field and skip that gate, so no migration is needed.
 
 A failure only the UI directory can fix (the tester's `design-flaw`, or coder-impl finding one
 while `developing` / `failed-impl`) goes to `blocked-spec`, and the human sends it back to the
@@ -167,7 +177,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 | group | event / matcher | guards, in order |
 |---|---|---|
 | `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins; a path no rule assigns is the main thread's, except a role's working files in a ticket dir — v0.19; CLI-only files are nobody's, see below) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **budget** (`[[doc_budget]]`, see Doc budget) · **e2e** / **journey** (tester writes, v0.22–0.23) |
-| `pre-dispatch` | PreToolUse `Agent\|Task` | **staffed** (a built-in role the project lacks, e.g. the designer in `service`, is refused, v0.30) · **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **status** (the role is the one the ticket's status names; gates are never revoked, so a gate alone would start coder-impl while a reworked plan waits for review, v0.30) · **gate** (feature roles need `[gates]`; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
+| `pre-dispatch` | PreToolUse `Agent\|Task` | **staffed** (a built-in role the project lacks, e.g. the designer in `service`, is refused, v0.30) · **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **status** (the role is the one the ticket's status names; gates are never revoked, so a gate alone would start coder-impl while a reworked plan waits for review, v0.30) · **gate** (feature roles need `[gates]`, plus `requirement-approved` when the ticket says `requirement-gate: yes`, v0.33; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
 | `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit on main or push to it (from any branch, e.g. `HEAD:main` in a worktree, v0.30); nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `touch`, `sed`/`perl`/`ruby -i`, `cp`, `mv`) follow the scope and worktree rules, and the tester writes test code under the tests directory with Edit/Write only, so the end-to-end rules see it; the main thread's never reach a CLI-only file or a role's artifact in a ticket dir (`verdict.md`, `design-qa.md`… carry anchors the engine trusts, v0.30) (commands split at `&&`, `||`, `;`, `|` and newlines outside quotes; `$VAR` and `cd` are followed through the command's own assignments and the environment; unclear or quoted targets pass) |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock; a foreground agent (`status: completed`) whose stop could not be matched is settled here instead, so no finished agent leaves a bound lock |
 | `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates that agent: restart) |
@@ -193,7 +203,7 @@ decision that can be computed is computed by the `mark` CLI and tested.
 
 | skill | does | continues until |
 |---|---|---|
-| `/mark:feature <id \| text>` | new: pre-start review with the human, `mark claim`, `requirement.md`; existing: one step | one step |
+| `/mark:feature <id \| [--discuss] text>` | new: size it, discuss with the human (large: scope, technical choices, architecture), `mark claim`, `requirement.md`, `mark set … review-requirement`; existing: one step | `review-requirement` / one step |
 | `/mark:fix <id \| text>` | same for bugs (`bug.md`) | `pending-merge` or a stop (no review gates) |
 | `/mark:approve <id>` | `mark approve`, then continues | next human gate or stop |
 | `/mark:reject <id> <text>` | splits comments into items, `mark reject`, dispatches the rework | next human gate or stop |
@@ -482,7 +492,8 @@ name is an error. Other files are copied verbatim, which keeps the prompts' `{{p
 
 | artifact | anchors | used by |
 |---|---|---|
-| `requirement.md`, `fix-plan.md` | `<!-- mark:ac -->` + `AC-N` | tester, coder-impl self-check |
+| `requirement.md`, `fix-plan.md` | `<!-- mark:ac -->` + `AC-N` | tester, coder-impl self-check; `mark set … review-requirement` |
+| `requirement.md` | `<!-- mark:open-questions -->` (only `none` / `无`), `<!-- mark:decisions -->` + `DEC-N` | `mark set … review-requirement`; designer, coder-plan |
 | `design.md` | `<!-- mark:states -->` + `S-N` | coder-impl, tester, design QA |
 | `preview.html` | none: the designer's preview built into one offline file (gitignored); `mark set`/`mark next` give its path at `review-design` | human design review |
 | `tech-plan.md` | `<!-- mark:tasks -->` + `T-N`, `SD-N` | coder-impl |

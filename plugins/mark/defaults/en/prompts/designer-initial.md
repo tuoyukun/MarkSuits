@@ -8,7 +8,7 @@ Scenario: **initial design**.
 
 ## Why you are here
 
-The human agreed the requirement and opened the ticket. Nothing has been designed or built
+The human approved the requirement. Nothing has been designed or built
 yet. Design it from scratch.
 
 ## Done when
@@ -20,6 +20,8 @@ yet. Design it from scratch.
 - `{{ticket_dir}}/preview.html` is built from the components and opens from disk, offline.
 - You looked at screenshots of every state (every screen size the product targets) and recorded the visual
   check in `design.md`.
+- The design follows every decision (`DEC-N`) in the requirement. If one cannot hold, report
+  `blocked-unclear` and say which.
 - Open questions are empty. If they are not, report `blocked-unclear` (or `blocked-spec`
   for a contradiction) instead of guessing.
 

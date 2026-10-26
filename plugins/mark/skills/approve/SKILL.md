@@ -1,5 +1,5 @@
 ---
-description: Human approval at a Mark gate (design review, plan review, opening a ticket, or sending a blocked ticket back). Only a human runs this.
+description: Human approval at a Mark gate (requirement review, design review, plan review, opening a ticket, or sending a blocked ticket back). Only a human runs this.
 argument-hint: <ticket-id>
 disable-model-invocation: true
 allowed-tools: Bash(mark:*)
@@ -21,6 +21,7 @@ Argument: `$ARGUMENTS`
    (`/mark:approve 0012 developing`). It writes the gate, marks open review rounds settled,
    moves the status and pushes. What it approves depends on the status:
    - opening not yet approved: approves opening the ticket;
+   - `review-requirement` → `designing` (`planning` without a designer);
    - `review-design` → `planning`; `review-plan` → `developing`;
    - `blocked-spec` → back to `designing`, or `developing` if the human typed it;
    - `blocked-plan` → back to `planning`, or `developing` if the human typed it;

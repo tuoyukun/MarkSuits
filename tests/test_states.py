@@ -51,7 +51,10 @@ class StateMachineTest(unittest.TestCase):
                 self.assertIn(s, states.ROLE_FOR_STATUS[kind], f"{kind}:{s}")
 
     def test_initial_roles(self):
-        self.assertEqual(states.ROLE_FOR_STATUS["feature"][states.INITIAL["feature"]], "designer")
+        self.assertEqual(states.INITIAL["feature"], "drafting")
+        self.assertEqual(states.owner("feature", "drafting"), "orchestrator")
+        self.assertEqual(states.side("drafting"), "agent")
+        self.assertEqual(states.side("review-requirement"), "human")
         self.assertEqual(states.ROLE_FOR_STATUS["bug"][states.INITIAL["bug"]], "fix-plan")
 
 

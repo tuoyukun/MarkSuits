@@ -2,8 +2,9 @@
 
 Two chains share one vocabulary:
 
-- feature: designer -> coder-plan -> coder-impl -> (design-qa) -> tester,
-  with two human review gates (review-design, review-plan).
+- feature: (drafting) -> designer -> coder-plan -> coder-impl -> (design-qa) -> tester,
+  with three human review gates (review-requirement, review-design, review-plan).
+  In `drafting` the orchestrator writes requirement.md with the human; no role runs.
 - bug: fix-plan -> (designer, when the fix is in the UI directory) -> coder-impl -> tester,
   no review gates.
 
@@ -22,28 +23,28 @@ KIND_DIRS = {FEATURE: "features", BUG: "bugs"}
 # Whose move it is in each status.
 TERMINAL = frozenset({"passed", "superseded"})
 HUMAN = frozenset({
-    "review-design", "review-plan",
+    "review-requirement", "review-design", "review-plan",
     "blocked-plan", "blocked-spec", "blocked-unclear",
 })
 AGENT = frozenset({"designing", "planning", "developing", "design-qa", "testing", "failed-impl"})
 # The orchestrator runs `mark merge`; a failed merge stops for the human (`mark next`).
 MERGE = "pending-merge"
+# The orchestrator writes the requirement with the human; no role is dispatched.
+DRAFTING = "drafting"
 # Statuses `mark set` cannot leave: only a human command (approve / reject) moves them on,
 # or `mark merge` (pending-merge -> passed).
 HELD = HUMAN | {MERGE}
 
-INITIAL = {FEATURE: "designing", BUG: "planning"}
-
-
-def initial(kind: str, roles: frozenset[str]) -> str:
-    """First status of a new ticket; a feature skips design when the project has no designer."""
-    return "planning" if kind == FEATURE and "designer" not in roles else INITIAL[kind]
+INITIAL = {FEATURE: DRAFTING, BUG: "planning"}
 
 _BLOCKED = ("blocked-plan", "blocked-spec", "blocked-unclear")
 
 # Allowed moves. Every non-terminal status may also move to "superseded"
 # (ticket folded into another one); that edge is added below.
 _FEATURE_EDGES: dict[str, tuple[str, ...]] = {
+    "drafting": ("review-requirement",),
+    # planning: the project has no designer
+    "review-requirement": ("designing", "planning", "drafting"),
     "designing": ("review-design", "blocked-spec", "blocked-unclear"),
     # design-qa / testing: a rework that changed only the UI keeps the approved plan (flow.ui_only_rework)
     "review-design": ("planning", "designing", "design-qa", "testing"),
@@ -126,12 +127,21 @@ def can_move(kind: str, old: str, new: str) -> bool:
     return new in TRANSITIONS.get(kind, {}).get(old, frozenset())
 
 
+def owner(kind: str, status: str) -> str:
+    """Who acts in `status`: a role, `orchestrator`, `human` or `-`."""
+    if status in (MERGE, DRAFTING):
+        return "orchestrator"
+    if status in AGENT:
+        return ROLE_FOR_STATUS[kind].get(status, "-")
+    return "human" if status in HUMAN else "-"
+
+
 def side(status: str) -> str:
     """'human' | 'agent' | 'terminal' | 'unknown'."""
     if status in TERMINAL:
         return "terminal"
     if status in HUMAN:
         return "human"
-    if status in AGENT or status == MERGE:
+    if status in AGENT or status in (MERGE, DRAFTING):
         return "agent"
     return "unknown"

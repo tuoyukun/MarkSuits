@@ -262,14 +262,13 @@ class NoDesignerTest(unittest.TestCase):
     def setUp(self):
         self.root = make_repo('mark_schema = 1\nlocale = "en"\nprofile = "service"\n[project]\nmain_branch = "main"\n')
 
-    def test_feature_starts_at_planning_and_needs_its_requirement(self):
+    def test_approved_requirement_goes_to_planning(self):
         t = tickets.claim(load_config(self.root), "feature", "add an endpoint")
-        self.assertEqual(t.status, "planning")
-        self.assertEqual(t.get("owner"), "coder-plan")
-        gate = self.root / ".mark/gates" / f"{t.id}.ticket-approved"
-        write(gate, "ok\n")
-        self.assertEqual(ctx_next(self.root, t.id).message, "next.no_brief")
-        write(t.path.parent / "requirement.md", "AC-1")
+        write(self.root / ".mark/gates" / f"{t.id}.ticket-approved", "ok\n")
+        write(t.path.parent / "requirement.md", REQUIREMENT)
+        flow.set_status(ctx_of(self.root, t.id), "review-requirement")
+        human_typed(self.root, f"/mark:approve {t.id[:4]}")
+        self.assertEqual(flow.approve(ctx_of(self.root, t.id)).new, "planning")
         a = ctx_next(self.root, t.id)
         self.assertEqual((a.kind, a.role, a.scenario), ("dispatch", "coder-plan", "coder-plan"))
 
@@ -807,6 +806,64 @@ class MergeOrderTest(unittest.TestCase):
         self.assertFalse((self.root / ".mark/locks/0002-b.merge.result.json").exists())
         self.ticket("0001-a", "passed")
         self.assertEqual(ctx_next(self.root, "0002").kind, "merge")
+
+
+REQUIREMENT = ("# 0001 · a\n\n## Acceptance criteria\n<!-- mark:ac -->\n- AC-1: works\n\n"
+               "## Open questions\n<!-- mark:open-questions -->\n- none\n")
+
+
+class RequirementReviewTest(unittest.TestCase):
+    def setUp(self):
+        self.root = make_repo()
+        self.d = add_ticket(self.root, "feature", "0001-a", "drafting", gates=["ticket-approved"])
+
+    def test_drafting_stops_for_the_orchestrator(self):
+        a = ctx_next(self.root, "0001")
+        self.assertEqual((a.kind, a.message), ("stop", "next.drafting"))
+        self.assertEqual(a.params["dir"], ".mark/features/0001-a")
+
+    def test_review_needs_criteria_and_settled_questions(self):
+        cases = [(None, "requirement.md"),
+                 (REQUIREMENT.replace("- AC-1: works", ""), "AC-N"),
+                 (REQUIREMENT.replace("- none", "- which DB?"), "open-questions")]
+        for text, missing in cases:
+            p = self.d / "requirement.md"
+            if text is None:
+                p.unlink(missing_ok=True)
+            else:
+                write(p, text)
+            with self.assertRaises(flow.FlowError) as e:
+                flow.set_status(ctx_of(self.root, "0001"), "review-requirement")
+            self.assertEqual(e.exception.key, "flow.requirement_incomplete")
+            self.assertIn(missing, e.exception.params["missing"])
+        write(self.d / "requirement.md", REQUIREMENT.replace("- none", "- 无"))
+        flow.set_status(ctx_of(self.root, "0001"), "review-requirement")
+        self.assertEqual(ctx_next(self.root, "0001").message, "next.review_requirement")
+
+    def test_orchestrator_cannot_skip_the_review(self):
+        write(self.d / "requirement.md", REQUIREMENT)
+        with self.assertRaises(flow.FlowError):
+            flow.set_status(ctx_of(self.root, "0001"), "designing")
+        flow.set_status(ctx_of(self.root, "0001"), "review-requirement")
+        with self.assertRaises(flow.FlowError) as e:
+            flow.set_status(ctx_of(self.root, "0001"), "designing")
+        self.assertEqual(e.exception.key, "flow.human_gate")
+
+    def test_approve_writes_gate_and_reject_sends_back(self):
+        add_ticket(self.root, "feature", "0001-a", "review-requirement", gates=["ticket-approved"])
+        human_typed(self.root, "/mark:reject 0001 split it")
+        code, out, err = run(self.root, "reject", "0001", "--item", "split it")
+        self.assertEqual(code, 0, err)
+        self.assertIn("`review-requirement` -> `drafting`", out)
+        self.assertTrue((self.d / "review-requirement.md").is_file())
+        write(self.d / "requirement.md", REQUIREMENT)
+        flow.set_status(ctx_of(self.root, "0001"), "review-requirement")
+        human_typed(self.root, "/mark:approve 0001")
+        code, out, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("`review-requirement` -> `designing`", out)
+        self.assertTrue((self.root / ".mark/gates/0001-a.requirement-approved").is_file())
+        self.assertEqual(reviews.pending(self.d / "review-requirement.md"), [])
 
 
 class HumanDecisionTest(unittest.TestCase):

@@ -19,6 +19,7 @@ role: coder-plan
 - 端到端覆盖：每条 `AC-N` 都有一行；只有 `JOURNEYS.md` 里没有可扩展的已有用例时才写 `new`，
   并写明最接近的用例和原因。
 - 架构决策都有 ADR。
+- 方案遵守需求里的每条决策（`DEC-N`）。某条行不通就报 `blocked-unclear` 并指明是哪条；不要绕开它出方案。
 - 待确认为空。不为空就报 `blocked-unclear`。
 
 ## 要读

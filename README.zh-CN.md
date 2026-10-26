@@ -16,7 +16,7 @@ Mark 是一个 [Claude Code](https://code.claude.com) 插件（来自 MarkSuits 
 
 ```mermaid
 flowchart LR
-    R["/mark:feature"] --> D[designer] --> G1{{你批准<br/>设计}} --> P[coder-plan] --> G2{{你批准<br/>方案}} --> I[coder-impl] --> T[tester] --> M["mark merge<br/>回归 → main"]
+    R["/mark:feature"] --> Q{{你批准<br/>需求}} --> D[designer] --> G1{{你批准<br/>设计}} --> P[coder-plan] --> G2{{你批准<br/>方案}} --> I[coder-impl] --> T[tester] --> M["mark merge<br/>回归 → main"]
 ```
 
 ## 快速开始
@@ -30,7 +30,7 @@ claude plugin install mark@marksuits --scope project
 
 ```text
 /mark:init                                        # 读仓库、给出配置草案，你确认后写入
-/mark:feature 加一个"清除已完成"按钮               # 设计 → 方案 → 代码 → 测试 → 合并
+/mark:feature 加一个"清除已完成"按钮               # 需求 → 设计 → 方案 → 代码 → 测试 → 合并
 ```
 
 不想动自己的代码，可以先在沙箱里跑示例：[examples/README.md](examples/README.md)。
@@ -78,7 +78,7 @@ Mark 给 agent 一套方法，**并拒绝违反它的工具调用**。
 
 | 你想要 | 输入 | 会发生什么 |
 |---|---|---|
-| 做一个功能 | `/mark:feature <内容>` | 设计 → 你审 → 方案 → 你审 → 代码 → 设计验收 → 测试 → 合并 |
+| 做一个功能 | `/mark:feature [--discuss] <内容>` | 讨论 → 需求 → 你审 → 设计 → 你审 → 方案 → 你审 → 代码 → 设计验收 → 测试 → 合并 |
 | 修一个 bug | `/mark:fix <内容>` | 修复方案 → 代码 → 测试 → 合并，没有评审闸门 |
 | 通过或打回评审 | `/mark:approve <id>`、`/mark:reject <id> <原因>` | 链继续往下走，或由对应角色返工 |
 | 改文档或配置 | `/mark:general <内容>` | 在一次性分支上修改，经同样的回归落地 |

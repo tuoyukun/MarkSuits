@@ -2,17 +2,17 @@
 
 One orchestrator (the main Claude Code session) moves tickets forward one step at a time.
 Each step is done by a fresh **role agent** that reads files, writes files, and ends. The
-human opens tickets and approves or rejects at two review gates; merging is automatic.
+human opens tickets and approves or rejects at three review gates; merging is automatic.
 
 ## Commands
 
 | You type | What happens |
 |---|---|
-| `/mark:feature <description>` | The orchestrator reviews the request with you, opens a ticket once you agree, and runs the first step |
+| `/mark:feature [--discuss] <description>` | The orchestrator discusses the request with you (scope, then technical choices, then architecture for a large one; `--discuss` forces that), opens a ticket once you agree, and writes the requirement for your review |
 | `/mark:feature <id>` | One more step of that feature |
 | `/mark:fix <description or id>` | Opens or continues a bug and runs it to `passed` (no review gates) |
-| `/mark:approve <id> [<status>]` | Approves the opening of a ticket, the design, the plan, or where a blocked ticket goes next; then continues |
-| `/mark:reject <id> <comments>` | Sends a design, plan or finished branch back with your comments; then continues |
+| `/mark:approve <id> [<status>]` | Approves the opening of a ticket, the requirement, the design, the plan, or where a blocked ticket goes next; then continues |
+| `/mark:reject <id> <comments>` | Sends a requirement, design, plan or finished branch back with your comments; then continues |
 | `/mark:status` | The board: what waits on you, what is in progress |
 | `/mark:general <change>` | A docs/config change that belongs to no ticket: the orchestrator edits it on a throwaway lane and lands it through the regression. Code never goes this way |
 
@@ -22,16 +22,18 @@ cannot approve anything. A `/mark:feature` or `/mark:fix` approves opening a tic
 ## The chains
 
 ```
-feature: designing → review-design → planning → review-plan → developing
+feature: drafting → review-requirement → designing → review-design → planning → review-plan → developing
          → (design-qa) → testing → pending-merge → passed
 bug:     planning → developing → testing → pending-merge → passed
 ```
 
-A project without a UI (`profile = "service"`) has no designer: its features start at
-`planning`, with no design review and no design QA.
+A project without a UI (`profile = "service"`) has no designer: an approved
+requirement goes straight to `planning`, with no design review and no design QA.
 
 | Status | Who acts | Artifact |
 |---|---|---|
+| `drafting` | orchestrator | `requirement.md`, written with you: acceptance criteria and decisions (`DEC-N`) |
+| `review-requirement` | **you** | read (or edit) `requirement.md`; approve, or reject with comments |
 | `designing` | designer | `design.md` + UI components + preview + `preview.html` (what the human reviews) |
 | `review-design` | **you** | approve, or reject with comments |
 | `planning` | coder-plan (feature) / fix-plan (bug) | `tech-plan.md` / `fix-plan.md` |
@@ -60,6 +62,7 @@ A project without a UI (`profile = "service"`) has no designer: its features sta
 | Id | Where | Meaning |
 |---|---|---|
 | `AC-N` | requirement / fix plan | acceptance criterion |
+| `DEC-N` | requirement | a decision agreed with you (scope, technical choice, architecture) |
 | `S-N` | design | a UI state |
 | `T-N`, `SD-N` | tech plan | task, sequence diagram |
 | `R-N` | review files | one of your review comments (numbered across rounds) |

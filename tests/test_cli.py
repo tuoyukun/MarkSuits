@@ -38,14 +38,14 @@ class CliTest(unittest.TestCase):
 
         data = json.loads(run(self.root, "status", "--json")[1])
         self.assertEqual({d["id"]: d["status"] for d in data},
-                         {"0001-add-login": "designing", "b0001-crash": "planning"})
+                         {"0001-add-login": "drafting", "b0001-crash": "planning"})
 
         self.assertEqual(run(self.root, "status", "--check")[0], 0)
 
     def test_active_hides_done(self):
         run(self.root, "claim", "feature", "done thing")
         p = self.root / ".mark" / "features" / "0001-done-thing" / "status.md"
-        p.write_text(p.read_text().replace("designing", "passed").replace("desc:", "leftover: 0\ndesc:"))
+        p.write_text(p.read_text().replace("drafting", "passed").replace("desc:", "leftover: 0\ndesc:"))
         self.assertIn("## 已结案 (1)", run(self.root, "status")[1])
         self.assertNotIn("## 已结案", run(self.root, "status", "--active")[1])
 

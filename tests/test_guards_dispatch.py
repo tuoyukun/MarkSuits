@@ -73,6 +73,21 @@ class TargetAndGateTest(unittest.TestCase):
         add_worktree(self.root, "feature", "0001-a")
         self.assertEqual(dispatch(self.root, "coder-plan", anchor("features", "0001-a"))[0], 0)
 
+    def test_requirement_gate_required_for_new_tickets(self):
+        add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"],
+                   **{"requirement-gate": "yes"})
+        add_worktree(self.root, "feature", "0001-a")
+        code, err = dispatch(self.root, "designer", anchor("features", "0001-a"))
+        self.assertEqual(code, 2)
+        self.assertIn("missing `.mark/gates/0001-a.requirement-approved`", err)
+        (self.root / ".mark/gates/0001-a.requirement-approved").write_text("ok\n")
+        self.assertEqual(dispatch(self.root, "designer", anchor("features", "0001-a"))[0], 0)
+
+    def test_older_tickets_skip_the_requirement_gate(self):
+        add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"])
+        add_worktree(self.root, "feature", "0001-a")
+        self.assertEqual(dispatch(self.root, "designer", anchor("features", "0001-a"))[0], 0)
+
     def test_bug_chain_has_no_gates(self):
         add_ticket(self.root, "bug", "b0001-crash", "developing", gates=["ticket-approved"])
         add_worktree(self.root, "bug", "b0001-crash")

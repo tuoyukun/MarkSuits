@@ -100,10 +100,10 @@ def status_text(status: str, **extra: str) -> str:
     return "---\n" + "".join(f"{k}: {v}\n" for k, v in fields.items()) + "---\n"
 
 
-def add_ticket(root: Path, kind: str, ticket_id: str, status: str, gates=(), commit=True) -> Path:
+def add_ticket(root: Path, kind: str, ticket_id: str, status: str, gates=(), commit=True, **extra: str) -> Path:
     d = root / ".mark" / ("features" if kind == "feature" else "bugs") / ticket_id
     d.mkdir(parents=True, exist_ok=True)
-    (d / "status.md").write_text(status_text(status), encoding="utf-8")
+    (d / "status.md").write_text(status_text(status, **extra), encoding="utf-8")
     for g in gates:
         gd = root / ".mark" / "gates"
         gd.mkdir(exist_ok=True)

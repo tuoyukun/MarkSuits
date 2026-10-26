@@ -1,17 +1,17 @@
 # Mark 项目如何协作开发
 
 一个 orchestrator（Claude Code 主会话）每次把工单往前推一步。每一步由一个全新的**角色 agent**
-完成：读文件、写文件、结束。人负责开单、在两道人审闸门上放行或打回；合并是自动的。
+完成：读文件、写文件、结束。人负责开单、在三道人审闸门上放行或打回；合并是自动的。
 
 ## 命令
 
 | 你输入 | 会发生什么 |
 |---|---|
-| `/mark:feature <描述>` | orchestrator 先和你评审需求，你同意后开单，并跑第一步 |
+| `/mark:feature [--discuss] <描述>` | orchestrator 先和你讨论需求（大单依次谈范围、技术选型、架构；`--discuss` 强制按大单），你同意后开单，并写好需求交你审 |
 | `/mark:feature <编号>` | 把该 feature 再推进一步 |
 | `/mark:fix <描述或编号>` | 开 bug 单或继续推进，一路跑到 `passed`（无人审闸门） |
-| `/mark:approve <编号> [<状态>]` | 放行开单、设计、方案，或决定阻塞的工单下一步去哪；随后继续推进 |
-| `/mark:reject <编号> <意见>` | 带着你的意见把设计、方案或已完成的分支打回；随后继续推进 |
+| `/mark:approve <编号> [<状态>]` | 放行开单、需求、设计、方案，或决定阻塞的工单下一步去哪；随后继续推进 |
+| `/mark:reject <编号> <意见>` | 带着你的意见把需求、设计、方案或已完成的分支打回；随后继续推进 |
 | `/mark:status` | 看板：哪些在等你、哪些在进行中 |
 | `/mark:general <改动>` | 不属于任何工单的文档/配置改动：orchestrator 在一次性车道上改完，经回归合入。代码永远不走这条路 |
 
@@ -21,16 +21,18 @@
 ## 两条链
 
 ```
-feature: designing → review-design → planning → review-plan → developing
+feature: drafting → review-requirement → designing → review-design → planning → review-plan → developing
          → (design-qa) → testing → pending-merge → passed
 bug:     planning → developing → testing → pending-merge → passed
 ```
 
-没有 UI 的项目（`profile = "service"`）没有 designer：feature 从 `planning` 开始，没有设计评审，
+没有 UI 的项目（`profile = "service"`）没有 designer：需求审批通过后直接进入 `planning`，没有设计评审，
 也没有设计验收。
 
 | 状态 | 谁来做 | 制品 |
 |---|---|---|
+| `drafting` | orchestrator | `requirement.md`，和你一起写：验收标准和决策（`DEC-N`） |
+| `review-requirement` | **你** | 读（或直接改）`requirement.md`；放行，或带意见打回 |
 | `designing` | designer | `design.md` + UI 组件 + 预览 + `preview.html`（人审看它） |
 | `review-design` | **你** | 放行，或带意见打回 |
 | `planning` | coder-plan（feature）/ fix-plan（bug） | `tech-plan.md` / `fix-plan.md` |
@@ -57,6 +59,7 @@ bug:     planning → developing → testing → pending-merge → passed
 | 编号 | 出处 | 含义 |
 |---|---|---|
 | `AC-N` | 需求 / 修复方案 | 验收标准 |
+| `DEC-N` | 需求 | 和你谈定的决策（范围、技术选型、架构） |
 | `S-N` | 设计 | 一个 UI 状态 |
 | `T-N`、`SD-N` | 技术方案 | 任务、时序图 |
 | `R-N` | 审阅文件 | 你的一条审阅意见（跨轮连续编号） |

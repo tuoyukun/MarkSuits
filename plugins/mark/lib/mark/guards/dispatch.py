@@ -52,13 +52,21 @@ def status_guard(env: Env) -> str | None:
                  want=want or env.t("guard.dispatch.nobody"))
 
 
+REQUIREMENT_GATE = "requirement-approved"
+
+
 def gate_guard(env: Env) -> str | None:
-    """Feature roles need their human review gate; the bug chain has none."""
+    """Feature roles need the approved requirement and their own human review gate; the bug
+    chain has none."""
     target = _pipeline_target(env)
     if not isinstance(target, Target) or target.kind == "bug":
         return None
-    gate = env.cfg.gates.get(env.dispatch_role)
-    if not gate or env.has_gate(target.id, gate):
+    ticket = tickets.load_ticket(env.cfg, target.kind, target.id)
+    gates = [env.cfg.gates.get(env.dispatch_role)]
+    if ticket.get(tickets.REQUIREMENT_GATE_FIELD):
+        gates.insert(0, REQUIREMENT_GATE)
+    gate = next((g for g in gates if g and not env.has_gate(target.id, g)), None)
+    if not gate:
         return None
     rel = env.gate_path(target.id, gate).relative_to(env.main).as_posix()
     return env.t("guard.gate", role=env.dispatch_role, id=target.id, gate=rel)

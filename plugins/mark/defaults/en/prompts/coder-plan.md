@@ -21,6 +21,8 @@ The human approved the design (if the feature has one). Now plan how to build it
 - End-to-end coverage: every `AC-N` has a row; `new` only where no existing test in
   `JOURNEYS.md` can be extended, with the closest one named and why.
 - Architecture decisions have an ADR.
+- The plan follows every decision (`DEC-N`) in the requirement. If one cannot hold, report
+  `blocked-unclear` and say which; never plan around it.
 - Open questions are empty. If they are not, report `blocked-unclear`.
 
 ## Read

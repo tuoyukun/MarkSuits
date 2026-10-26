@@ -488,6 +488,16 @@ MESSAGES["en"].update({
                                "`blocked-unclear`; otherwise `failed-impl`."),
     "next.record.wrapup": "\nBefore `pending-merge`: write the wrap-up table in the ticket's log.md and run `mark commit {id}`.",
     "next.wait": "{roles} is still working on {id}. Wait for its completion notice; never dispatch a second one.",
+    "next.drafting": (
+        "{id} is `drafting`: write `{dir}/requirement.md` with the human (the agreed scope,\n"
+        "acceptance criteria and decisions; open questions `none`). If review-requirement.md has open items,\n"
+        "address each one. Then `mark set {id} review-requirement` and stop."
+    ),
+    "next.review_requirement": (
+        "{id} is at `review-requirement`, a human review gate. Give the human the path of requirement.md,\n"
+        "list its decisions (DEC-N) in one line each, then stop. They may edit the file, then answer with\n"
+        "/mark:approve {id} or /mark:reject {id} <comments>."
+    ),
     "next.review": (
         "{id} is at `{status}`, a human review gate. Report what the last step produced in plain words, then stop.\n"
         "The human answers with /mark:approve {id} or /mark:reject {id} <comments>.{preview}"
@@ -632,6 +642,11 @@ MESSAGES["en"].update({
         "{id} is at `{status}`, which waits on the human. Only /mark:approve or /mark:reject (typed by the\n"
         "human) move it on; `mark merge` lands a `pending-merge` ticket. Report and stop."
     ),
+    "flow.requirement_incomplete": (
+        "{id}: requirement.md is not ready for review (missing or not settled: {missing}). It needs at least\n"
+        "one AC-N under `<!-- mark:ac -->`, and every open question answered with the human (the section\n"
+        "says only `none`)."
+    ),
     "flow.qa_not_passed": (
         "{id}: design-qa.md does not say `<!-- mark:qa passed -->`, so it cannot go to testing. A blocked QA\n"
         "goes back to coder-impl (`mark set {id} failed-impl`), or to the human after the round limit."
@@ -722,6 +737,14 @@ MESSAGES["zh-CN"].update({
     "next.record.route": "\n结论为 FAILED 时：有任何 `design-flaw` -> `blocked-spec`；否则有 `unclear` -> `blocked-unclear`；否则 `failed-impl`。",
     "next.record.wrapup": "\n进入 `pending-merge` 之前：先在本单 log.md 写好收尾表，再运行 `mark commit {id}`。",
     "next.wait": "{roles} 还在处理 {id}。等它的完成通知，绝不派第二个。",
+    "next.drafting": (
+        "{id} 是 `drafting`：和 Human 一起写 `{dir}/requirement.md`（谈定的范围、验收标准和决策；\n"
+        "待确认写「无」）。review-requirement.md 里有未结意见的，逐条处理。然后 `mark set {id} review-requirement`，停下。"
+    ),
+    "next.review_requirement": (
+        "{id} 停在 `review-requirement`，这是人审闸门。把 requirement.md 的路径交给 Human，每条决策（DEC-N）用一行列出，\n"
+        "然后停下。Human 可以直接改文件，再用 /mark:approve {id} 或 /mark:reject {id} <意见> 答复。"
+    ),
     "next.review": (
         "{id} 停在 `{status}`，这是人审闸门。用人话报告上一步的产出，然后停下。\n"
         "由 Human 用 /mark:approve {id} 或 /mark:reject {id} <意见> 答复。{preview}"
@@ -860,6 +883,10 @@ MESSAGES["zh-CN"].update({
     "flow.human_gate": (
         "{id} 停在 `{status}`，这一步等人决定。只有 Human 输入的 /mark:approve 或 /mark:reject 能推动它；\n"
         "`pending-merge` 由 `mark merge` 合入。报告后停下。"
+    ),
+    "flow.requirement_incomplete": (
+        "{id}：requirement.md 还不能送审（缺少或未落定：{missing}）。`<!-- mark:ac -->` 下至少要有一条 AC-N，\n"
+        "待确认的问题都要和 Human 谈定（该段只剩「无」）。"
     ),
     "flow.qa_not_passed": (
         "{id}：design-qa.md 里没有 `<!-- mark:qa passed -->`，不能进入测试。验收未通过就退回 coder-impl\n"

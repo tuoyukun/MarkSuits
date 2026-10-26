@@ -104,8 +104,8 @@ class ClaimTest(unittest.TestCase):
         self.assertEqual(f.id, "0001-add-login-page")
         self.assertEqual(b.id, "b0001-crash-on-save")
         fields, _ = tickets.parse_status(f.path.read_text(encoding="utf-8"))
-        self.assertEqual(fields, {"status": "designing", "owner": "designer", "updated": "2026-03-01",
-                                  "updater": "orchestrator", "desc": "Add Login page!"})
+        self.assertEqual(fields, {"status": "drafting", "owner": "orchestrator", "updated": "2026-03-01",
+                                  "updater": "orchestrator", "desc": "Add Login page!", "requirement-gate": "yes"})
         self.assertEqual(tickets.load_ticket(self.cfg, "bug", b.id).get("owner"), "fix-plan")
 
     def test_numbers_continue_after_existing_dirs_and_markers(self):

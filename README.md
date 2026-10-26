@@ -17,7 +17,7 @@ breaks the process, so the rules hold even when the agent would rather skip them
 
 ```mermaid
 flowchart LR
-    R["/mark:feature"] --> D[designer] --> G1{{you approve<br/>the design}} --> P[coder-plan] --> G2{{you approve<br/>the plan}} --> I[coder-impl] --> T[tester] --> M["mark merge<br/>regression → main"]
+    R["/mark:feature"] --> Q{{you approve<br/>the requirement}} --> D[designer] --> G1{{you approve<br/>the design}} --> P[coder-plan] --> G2{{you approve<br/>the plan}} --> I[coder-impl] --> T[tester] --> M["mark merge<br/>regression → main"]
 ```
 
 ## Quickstart
@@ -31,7 +31,7 @@ Then, in Claude Code inside your repository:
 
 ```text
 /mark:init                                        # read the repo, propose a setup, write it on your OK
-/mark:feature Add a "Clear completed" button      # design → plan → code → test → merge
+/mark:feature Add a "Clear completed" button      # requirement → design → plan → code → test → merge
 ```
 
 To try it without touching your own code, run an example in a sandbox:
@@ -86,7 +86,7 @@ that break it*.
 
 | You want to | Type | What happens |
 |---|---|---|
-| Build a feature | `/mark:feature <what>` | design → your review → plan → your review → code → design check → test → merge |
+| Build a feature | `/mark:feature [--discuss] <what>` | discussion → requirement → your review → design → your review → plan → your review → code → design check → test → merge |
 | Fix a bug | `/mark:fix <what>` | fix plan → code → test → merge, no review gates |
 | Accept or send back a review | `/mark:approve <id>`, `/mark:reject <id> <why>` | the chain continues, or the role reworks it |
 | Change docs or config | `/mark:general <what>` | edited on a throwaway branch, landed through the same regression |
