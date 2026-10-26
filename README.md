@@ -1,78 +1,175 @@
-# MarkSuits
+<div align="center">
+  <h1>Mark</h1>
+  <h3><em>A dev team of Claude Code agents, with rules they can't skip.</em></h3>
+  <p>
+    <a href="https://github.com/tuoyukun/MarkSuits/tags"><img src="https://img.shields.io/github/v/tag/tuoyukun/MarkSuits?label=version" alt="Version"/></a>
+    <a href="https://github.com/tuoyukun/MarkSuits/actions/workflows/ci.yml"><img src="https://github.com/tuoyukun/MarkSuits/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"/></a>
+  </p>
+  <p><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
+</div>
 
-**Mark** is a multi-agent development workflow for [Claude Code](https://code.claude.com),
-packaged as one plugin that also writes the project files — a "starter" for teams that want several
-specialized agents to build software together without stepping on each other.
+Mark is a [Claude Code](https://code.claude.com) plugin (from the MarkSuits marketplace) that
+turns one coding agent into a small team: a designer, a planner, an implementer, a tester and a
+bug planner. Each works in its own git worktree, writes only the files its role owns, and hands
+off through files on disk. You approve the design and the plan. Hooks block every step that
+breaks the process, so the rules hold even when the agent would rather skip them.
 
-> Status: v0.13.0. The engine, the project template (`en` and `zh-CN`) and an example
-> project are complete, and both chains (bug and feature) have run end to end on the
-> example: see [examples/](examples/). Tickets now merge automatically (`mark merge`), docs/config changes outside any ticket go through `/mark:general`, the docs every role loads stay within byte budgets (`[[doc_budget]]`), and each new worktree is provisioned by the project's `[worktree] setup` before an agent works there. `/mark:init` sets Mark up in a new or existing repository. Not ready for production use yet.
-
-[中文说明](README.zh-CN.md)
-
-## What you get
-
-- **One orchestrator, stateless role agents.** The main thread dispatches one step at a time;
-  designer / coder-plan / coder-impl / tester / fix-plan run fresh and talk only through files.
-- **Tickets as directories.** Each feature or bug has its own folder of artifacts
-  (requirement → design → tech plan → handoff → verdict) and a `status.md`.
-- **Human review gates.** `/mark:approve` writes a gate file; agents cannot be dispatched past
-  a gate that does not exist.
-- **Enforced, not suggested.** Hooks block (exit 2) writes outside a role's scope, skipped gates,
-  duplicate dispatch, work on the wrong branch, and docs that outgrow their budget.
-- **Isolation.** One branch + git worktree per ticket; code reaches main through a single merge path.
-
-## Layout
-
-```
-.claude-plugin/marketplace.json   marketplace catalog (this repo)
-plugins/mark/                     the engine plugin (upgradable)
-plugins/mark/agents/, defaults/   built-in role agents, prompts, formats (en, zh-CN)
-plugins/mark/template/            the few project files `mark init` writes
-examples/todo/, examples/sandbox.py   example project and a script to run it in a sandbox
-docs/architecture.md              design
+```mermaid
+flowchart LR
+    R["/mark:feature"] --> D[designer] --> G1{{you approve<br/>the design}} --> P[coder-plan] --> G2{{you approve<br/>the plan}} --> I[coder-impl] --> T[tester] --> M["mark merge<br/>regression → main"]
 ```
 
-A generated project gets:
-
-```
-CLAUDE.md                         stack, module boundaries, commands (fill in the TODOs)
-.mark/config.toml                 paths, commands, write scopes
-```
-
-Role agents (designer, coder-plan, coder-impl, tester, fix-plan), dispatch prompts and artifact
-formats ship with the plugin, so they update with it. To change one for a project, add a file
-of the same name (`.claude/agents/<role>.md`, `.mark/prompts/<scenario>.md`,
-`.mark/formats/<name>.md`); the project's file wins.
-
-## Install
+## Quickstart
 
 ```bash
 claude plugin marketplace add tuoyukun/MarkSuits --scope project
 claude plugin install mark@marksuits --scope project
 ```
 
-Then, inside Claude Code in your repository, run `/mark:init`. It reads the project (new or
-existing), checks it is a web full-stack app (the only role pack so far), proposes the
-answers (language, directories, test and install commands) and, once you confirm, writes
-the project files in one commit on main. An existing `CLAUDE.md` is kept and extended; an
-existing `.gitignore` only gains the lines Mark needs. The same step without the agent:
-`mark init --dry-run`, then `mark init --<answer> <value>...`.
+Then, in Claude Code inside your repository:
 
-Claude Code does not update plugins from this marketplace on its own. Turn that on once in
-`/plugin` > Marketplaces > marksuits > Enable auto-update, or update by hand with
-`claude plugin update mark@marksuits` and restart. `mark status` and `mark next` look up the
-published version once a day and say when a newer one is out (`MARK_NO_UPDATE_CHECK=1` turns
-that off). They also say when the project files are older than the plugin; `/mark:upgrade` merges the new template into them
-(3-way, keeping your edits) on a general lane, and lands it only when you say so.
+```text
+/mark:init                                        # read the repo, propose a setup, write it on your OK
+/mark:feature Add a "Clear completed" button      # design → plan → code → test → merge
+```
+
+To try it without touching your own code, run an example in a sandbox:
+[examples/README.md](examples/README.md).
+
+## Why Mark
+
+Coding agents are good at writing code, but over a long session they lose track of decisions,
+mark their own homework, and treat the rules in `CLAUDE.md` as suggestions. Mark keeps that
+from happening:
+
+- **Fresh context every step.** Each step runs a new subagent that reads only the artifacts it
+  needs (requirement, approved design, plan), not a long chat history.
+- **Separation of duties.** The tester writes end-to-end tests and a verdict, never production
+  code. The implementer never edits the plan, the design or those tests. A failure goes back to
+  the role that owns it.
+- **You review at two points.** The design (with a working UI preview) and the technical plan.
+  After that the chain runs to the merge on its own. Bug fixes run with no gates.
+- **Rules enforced by code.** Hooks exit 2 on writes outside a role's scope, skipped gates,
+  duplicate dispatches, commits on the wrong branch, and an agent approving its own work.
+- **Parallel work that doesn't collide.** One branch, worktree and set of ports per ticket.
+  Code reaches main only through `mark merge`: full regression, then fast-forward. If anything
+  fails, main is untouched.
+- **A process that stays lean.** Byte budgets on the docs every agent loads, and new end-to-end
+  tests only where the plan says an existing user journey can't be extended.
+
+## How Mark compares
+
+[Superpowers](https://github.com/obra/superpowers), [Spec Kit](https://github.com/github/spec-kit)
+and [BMad Method](https://github.com/bmad-code-org/BMAD-METHOD) are excellent and much more
+widely used. They give the agent a method. Mark gives it a method *and refuses the tool calls
+that break it*.
+
+| | Mark | Superpowers | Spec Kit | BMad Method |
+|---|---|---|---|---|
+| What it is | Ticket workflow with role agents and a merge pipeline | Library of composable skills | Spec-driven toolkit: commands and templates | Agile method with specialized agents and workflows |
+| How the process holds | Hooks block violating tool calls (exit 2) | The agent follows the skills | The agent follows the commands | The agent follows the workflows |
+| Coding agents | Claude Code only | Many | Many | Many |
+| Who lands the code | `mark merge`, after a full regression | You choose: merge, PR, keep or discard | You | You |
+
+**When not to use Mark**
+
+- You use a coding agent other than Claude Code.
+- Your changes are small and quick. A ticket with design and plan reviews is overhead for a
+  one-line fix (Mark's `/mark:general` lane handles docs and config, not code).
+- You can't give it a git remote and worktrees, or you don't want agents to push branches.
+- You want it stable. Mark is pre-1.0 and changes often.
+- Token cost matters more than process. Several fresh agents per ticket cost more than one long
+  session.
+
+## What you type
+
+| You want to | Type | What happens |
+|---|---|---|
+| Build a feature | `/mark:feature <what>` | design → your review → plan → your review → code → design check → test → merge |
+| Fix a bug | `/mark:fix <what>` | fix plan → code → test → merge, no review gates |
+| Accept or send back a review | `/mark:approve <id>`, `/mark:reject <id> <why>` | the chain continues, or the role reworks it |
+| Change docs or config | `/mark:general <what>` | edited on a throwaway branch, landed through the same regression |
+| See where things stand | `/mark:status` | every ticket, and what waits on you |
+| Upgrade the project files | `/mark:upgrade` | 3-way merge of the new template, landed when you say so |
+
+On [`examples/todo`](examples/README.md#walkthrough), one bug and one feature went from request
+to main in about 25 minutes of agent time and roughly $6 of tokens. The human typed two requests,
+answered a few questions, and approved one design and one plan.
+
+## How it works
+
+```mermaid
+flowchart TB
+    Human(["You"]) -->|"/mark:* commands"| O["Orchestrator<br/>(main thread + mark CLI)"]
+    O -->|"dispatch one step"| R["Role subagent<br/>in the ticket's worktree"]
+    R <-->|"read / write"| F[".mark/features/&lt;id&gt;/<br/>requirement · design · plan · handoff · verdict"]
+    O -->|"mark merge"| G[("main")]
+    H{{"Hooks · exit 2"}} -.->|"guard every write,<br/>dispatch and shell command"| R
+    H -.-> O
+```
+
+- **The orchestrator never guesses.** It asks `mark next <id>`, which answers dispatch, wait,
+  record, stop or merge. `mark dispatch` prepares the branch, worktree and ports, and prints the
+  exact agent and prompt. [More](docs/architecture.md#orchestration-v04)
+- **Tickets are folders.** Each feature or bug has a folder of artifacts and a `status.md`.
+  There is no shared board file to conflict on, and only the `mark` CLI moves a ticket's
+  status. [More](docs/architecture.md#tickets-and-the-mark-cli)
+- **Gates are files only a human can create.** No tool call can write a gate or a status, the
+  orchestrator's included. `mark approve` checks that you typed `/mark:approve`.
+  [More](docs/architecture.md#4-ticket-lifecycle-feature-chain)
+- **Guards are small, tested functions.** Every hook goes through one entry point, and each guard
+  returns a message or nothing. Outside a Mark project they stay silent.
+  [More](docs/architecture.md#guards-v03)
+- **One way into main.** `mark merge` merges main into the ticket, runs your regression command,
+  then fast-forwards and pushes. [More](docs/architecture.md#merge-v07)
+
+Role agents, prompts and artifact formats ship with the plugin and update with it. Your project
+keeps only `CLAUDE.md` and `.mark/config.toml`, plus any built-in it overrides with a file of the
+same name. [More](docs/architecture.md#built-ins-and-overrides-v017)
+
+## Profiles
+
+`/mark:init` picks one from your repository. The profile sets the modules, the roles and the
+end-to-end test runner.
+
+| Profile | For | Example |
+|---|---|---|
+| `web-fullstack` | web frontend + backend, Playwright | [`todo`](examples/todo/) |
+| `web-frontend` | web app without its own backend | [`expenses`](examples/expenses/) |
+| `service` | API or service, no UI and no designer | [`notes`](examples/notes/) |
+| `mobile-fullstack` | mobile app + backend, Maestro | [`habits`](examples/habits/) |
+| `mobile` | mobile app with data on the device | [`tally`](examples/tally/) |
+
+## Principles
+
+- **Enforced, not suggested.** A rule counts only if a hook blocks it with exit 2.
+- **Files are the only channel.** Agents never talk to each other; artifacts on disk carry
+  everything.
+- **Information flows downstream.** Requirement → design → plan → code → test.
+- **Humans make the decisions.** Opening a ticket, approving a design and approving a plan are
+  never an agent's call.
+
+## Status
+
+v0.31. Feature and bug chains have run end to end on all five examples. Versions stay below 1.0
+until real users have run Mark. Claude Code does not auto-update plugins from this marketplace
+unless you turn it on (`/plugin` > Marketplaces > marksuits > Enable auto-update); `mark status`
+tells you when a newer version is out.
+
+## Documentation
+
+- [Architecture](docs/architecture.md): every guard, state and decision, with the reasons
+- [Examples and walkthroughs](examples/README.md)
+- [Contributor rules](CLAUDE.md)
 
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests -t .
+python3 -m unittest discover -s tests -t .  # engine and template tests (stdlib only)
 python3 tools/sync_example.py               # after a template change
 claude plugin validate .
-claude --plugin-dir ./plugins/mark
+claude --plugin-dir ./plugins/mark          # load the local plugin for one session
 git config core.hooksPath tools/git-hooks   # sensitive-data pre-commit check
 ```
 
