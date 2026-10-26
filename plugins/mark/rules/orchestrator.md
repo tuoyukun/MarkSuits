@@ -61,7 +61,8 @@ designer (`service`) never moves to `designing`; `blocked-spec` goes back to pla
 
 `blocked-*` and `pending-merge` wait on the human: `mark set` cannot move them on (only
 `superseded`). The human answers with `/mark:approve <id> [<status>]` or `/mark:reject`;
-report and stop.
+report and stop. `mark set <id> superseded` deletes the ticket's worktree and branches: run it
+only when the human says the ticket is dropped or folded into another.
 
 ## Wrap-up before `pending-merge`
 

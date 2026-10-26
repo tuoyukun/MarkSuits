@@ -517,6 +517,24 @@ class MergeTest(unittest.TestCase):
         self.assertNotIn("bug/b0001-x", sh(self.root, "git", "ls-remote", "--heads", "origin"))
         self.assertEqual(ctx_next(self.root, "b0001").kind, "done")
 
+    def test_regression_output_does_not_keep_the_worktree(self):
+        self.regression("touch report.html")  # untracked, not ignored
+        code, out, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 0, err + out)
+        self.assertNotIn("Could not", out)
+        self.assertFalse(self.wt.exists())
+        self.assertEqual(sh(self.root, "git", "branch", "--list", "bug/*"), "")
+
+    def test_superseded_removes_worktree_and_branches(self):
+        tip = sh(self.root, "git", "rev-parse", "--short", "bug/b0001-x")
+        write(self.wt / "scratch.txt", "unsaved")
+        code, out, err = run(self.root, "set", "b0001", "superseded")
+        self.assertEqual(code, 0, err + out)
+        self.assertIn(f"git branch bug/b0001-x {tip}", out)
+        self.assertFalse(self.wt.exists())
+        self.assertEqual(sh(self.root, "git", "branch", "--list", "bug/*"), "")
+        self.assertNotIn("bug/b0001-x", sh(self.root, "git", "ls-remote", "--heads", "origin"))
+
     def test_merge_settles_reject_rounds(self):
         review = self.dir / "review-merge.md"
         write(review, "## Round 1 · 2026-10-25T07:30Z · pending <!-- mark:round 1 pending -->\n- R-1: x\n")

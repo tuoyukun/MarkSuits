@@ -541,6 +541,7 @@ MESSAGES["en"].update({
     "merge.kept_worktree": "Could not remove worktree {wt} (untracked files?). Remove it by hand.",
     "merge.kept_branch": "Could not delete branch {branch}. Delete it by hand.",
     "merge.kept_remote": "Could not delete origin/{branch}. Delete it by hand.",
+    "merge.discarded": "Removed {branch} and its worktree (tip {sha}; recover with `git branch {branch} {sha}`).",
     "merge.done": "{id} merged: `pending-merge` -> `passed`.",
     "general.new": (
         "Lane ready: branch `{branch}`, worktree {wt}\n"
@@ -772,6 +773,7 @@ MESSAGES["zh-CN"].update({
     "merge.kept_worktree": "无法删除 worktree {wt}（有未跟踪文件？）。请手工删除。",
     "merge.kept_branch": "无法删除分支 {branch}。请手工删除。",
     "merge.kept_remote": "无法删除 origin/{branch}。请手工删除。",
+    "merge.discarded": "已删除 {branch} 及其 worktree（末端提交 {sha}；恢复：`git branch {branch} {sha}`）。",
     "merge.done": "{id} 已合并：`pending-merge` -> `passed`。",
     "general.new": (
         "车道已就绪：分支 `{branch}`，worktree {wt}\n"

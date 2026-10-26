@@ -73,7 +73,7 @@ def merge_lane(cfg: MarkConfig, branch: str) -> Notes:
         raise FlowError("general.markers", wt=str(wt), files="\n".join(f"  - {f}" for f in marked))
     conflict = FlowError("general.conflict", branch=branch, wt=str(wt))
     notes = merge.land(cfg, wt, branch, branch.removeprefix("chore/"), conflict)
-    return notes + merge.cleanup(cfg, wt, branch)
+    return notes + merge.cleanup(cfg, wt, branch, force=True)  # landed: regression output is disposable
 
 
 def _control_files(cfg: MarkConfig, branch: str) -> list[str]:

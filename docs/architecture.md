@@ -256,7 +256,11 @@ run the **regression contract**: `[merge] regression`,
 one shell command, exit 0 = green, empty = skipped (log in `locks/<id>.merge.log`). Main moves
 only by `--ff-only` and is pushed (a failed push undoes the local fast-forward), so every
 failure before that lands nothing. Then `passed` is committed and pushed, and the remote
-branch, worktree and local branch are removed (cleanup problems are notes, not failures).
+branch, worktree and local branch are removed (cleanup problems are notes, not failures). Once
+main has moved, cleanup forces the worktree out (files the regression left behind would otherwise
+keep it) and runs even if recording `passed` fails (v0.32). `mark set <id> superseded` removes
+the ticket's worktree, local and remote branch the same way (`merge.discard`, v0.32) and prints
+the branch tip with the `git branch` command that brings it back.
 A failure is recorded as `locks/<id>.merge.result.json`; while it is newer than `status.md`,
 `mark next` stops for the human. Concurrent merges serialize on the fast-forward: the loser
 fails with `merge.ff_failed` and is run again.
@@ -337,7 +341,7 @@ A change that belongs to no ticket (docs, prompts, role files, config) runs thro
 `/mark:general` (`lib/mark/general.py`). `mark general new` cuts `chore/general-<stamp>` from
 the latest main with a worktree at `<worktree dir>/general-<stamp>`; the main thread edits and
 commits there; `mark general merge <branch>` reuses the ticket merge steps (`merge.land`:
-merge main in, `[merge] regression`, `--ff-only`, push; then `merge.cleanup`). It refuses a
+merge main in, `[merge] regression`, `--ff-only`, push; then `merge.cleanup`, forced as for a ticket). It refuses a
 branch without the prefix, a lane without a worktree, uncommitted work, and a lane with no
 commits. There is no ticket, status or result file; a failed merge keeps the lane and says why.
 `mark general drop <branch>` (v0.12) removes a lane that will not land (worktree, local and
@@ -399,8 +403,8 @@ stay) and refuses the dispatch with the exit code or timeout and the last log li
 worktree that exists was provisioned, an agent never starts in a half-provisioned one, and the
 next dispatch simply starts over; `mark general new` also deletes the just-cut branch. A
 reused worktree is not set up again: refreshing a long-lived worktree (e.g. a `.env` changed on
-main) is left to the project. Merge cleanup needs nothing new: `git worktree remove` ignores
-ignored files and removes symlinks without following them. The CLI runs setup, not a tool call,
+main) is left to the project. Merge cleanup needs nothing new: it forces `git worktree remove`
+(v0.32), which removes symlinks without following them. The CLI runs setup, not a tool call,
 so no write guard sees it; the orchestrator rules ask for a Bash timeout above `setup_timeout`.
 
 **Ports (v0.20).** A worktree is a separate checkout, not a separate network: two tickets that

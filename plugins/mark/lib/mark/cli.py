@@ -235,7 +235,11 @@ def cmd_set(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     note = flow.preview_note(flow.load(cfg, ctx.id))
     if note:
         out.write(note.lstrip("\n") + "\n")
-    return _commit(cfg, ctx, f"{ctx.id}: {old} -> {pos[1]}", opts, out)
+    code = _commit(cfg, ctx, f"{ctx.id}: {old} -> {pos[1]}", opts, out)
+    if pos[1] == "superseded":
+        for key, params in merge.discard(ctx):
+            _say(cfg, out, key, **params)
+    return code
 
 
 def cmd_approve(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:

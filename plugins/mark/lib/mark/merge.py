@@ -178,7 +178,20 @@ def _merge(ctx: Ctx) -> Notes:
     plan = next((p.read_text(encoding="utf-8", errors="replace")
                  for p in map(ctx.find, e2e.PLAN_FILES) if p is not None), "")
     notes = land(ctx.cfg, ctx.worktree, ctx.branch, ctx.id, conflict, plan)
-    flow.set_status(ctx, "passed")
-    reviews.settle(ctx.review_path("merge"), ctx.cfg.locale)  # the merge answered every reject round
-    notes += [(key, {}) for key in flow.commit(ctx, f"{ctx.id}: merged, pending-merge -> passed")]
-    return notes + cleanup(ctx.cfg, ctx.worktree, ctx.branch)
+    # The work is on main now: force past regression output, and clean up even if bookkeeping fails.
+    try:
+        flow.set_status(ctx, "passed")
+        reviews.settle(ctx.review_path("merge"), ctx.cfg.locale)  # the merge answered every reject round
+        notes += [(key, {}) for key in flow.commit(ctx, f"{ctx.id}: merged, pending-merge -> passed")]
+    finally:
+        notes += cleanup(ctx.cfg, ctx.worktree, ctx.branch, force=True)
+    return notes
+
+
+def discard(ctx: Ctx) -> Notes:
+    """Remove a superseded ticket's worktree and branches, naming the tip so it can be recovered."""
+    if not flow._is_git(ctx) or not ref_exists(ctx.main, f"refs/heads/{ctx.branch}"):
+        return []
+    sha = git(["rev-parse", "--short", ctx.branch], ctx.main)[1]
+    wt = next((p for p, b in worktrees(ctx.main) if b == ctx.branch), None)
+    return [("merge.discarded", {"branch": ctx.branch, "sha": sha})] + cleanup(ctx.cfg, wt, ctx.branch, force=True)
