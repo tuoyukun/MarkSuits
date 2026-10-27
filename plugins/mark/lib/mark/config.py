@@ -117,7 +117,13 @@ class MarkConfig:
         no design to approve."""
         default = {k: v for k, v in DEFAULT_GATES.items() if v != "design-approved" or "designer" in self.roles}
         merged = {**default, **self._section("gates")}
-        return {k: str(v) for k, v in merged.items() if v}
+        return {k: str(v) for k, v in merged.items() if v and k != "rework_review"}
+
+    @property
+    def rework_review(self) -> bool:
+        """`[gates] rework_review`: false (default) passes a design or plan the human already
+        reviewed once (approved, or rejected with comments) without stopping at review again."""
+        return self._section("gates").get("rework_review", False) is True
 
     @property
     def outputs(self) -> dict[str, list[str]]:

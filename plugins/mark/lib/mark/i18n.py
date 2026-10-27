@@ -706,6 +706,8 @@ MESSAGES["en"].update({
     "flow.reject_empty": "No comments given. Pass each one as --item \"<text>\".",
     "flow.reject_to": "`--to {to}` is not valid from `{status}`; only pending-merge may go back to planning.",
     "set.done": "{id}: `{old}` -> `{new}`.",
+    "set.rework_pass": ("{id}: the human already reviewed this once, so the rework passes without "
+                        "another review (`[gates] rework_review = true` to review it): `{old}` -> `{new}`."),
     "approve.ticket": "Opening {id} approved (wrote {gate}).",
     "approve.done": "Approved {id}: `{old}` -> `{new}`.",
     "approve.ui_only": ("The rework changed only the UI and kept the props and integration contracts, "
@@ -964,6 +966,7 @@ MESSAGES["zh-CN"].update({
     "flow.reject_empty": "没有意见。每条意见用 --item \"<文本>\" 传入。",
     "flow.reject_to": "从 `{status}` 不能 `--to {to}`；只有 pending-merge 可以退回 planning。",
     "set.done": "{id}：`{old}` -> `{new}`。",
+    "set.rework_pass": "{id}：Human 已审过一次，返工直接放行，不再停下审查（要审查就设 `[gates] rework_review = true`）：`{old}` -> `{new}`。",
     "approve.ticket": "已批准建单 {id}（写入 {gate}）。",
     "approve.done": "已放行 {id}：`{old}` -> `{new}`。",
     "approve.ui_only": "这轮返工只改了 UI，props 契约和集成契约没变，已批准的方案仍然成立：跳过方案和实现。",

@@ -314,10 +314,10 @@ class UiOnlyReworkTest(unittest.TestCase):
         sh(self.wt, "git", "commit", "-qm", "work")
 
     def approve_design(self):
-        self.assertEqual(run(self.root, "set", "0001", "review-design")[0], 0)
-        human_typed(self.root, "/mark:approve 0001")
-        code, out, err = run(self.root, "approve", "0001")
+        # design-approved is on file, so the rework passes at `mark set` (rework_review off)
+        code, out, err = run(self.root, "set", "0001", "review-design")
         self.assertEqual(code, 0, err)
+        self.assertIn("rework passes without another review", out)
         status = (self.dir / "status.md").read_text()
         self.assertNotIn("rework-base", status)
         return status, out
@@ -895,6 +895,56 @@ class RequirementReviewTest(unittest.TestCase):
         self.assertIn("`review-requirement` -> `designing`", out)
         self.assertTrue((self.root / ".mark/gates/0001-a.requirement-approved").is_file())
         self.assertEqual(reviews.pending(self.d / "review-requirement.md"), [])
+
+
+class ReworkPassTest(unittest.TestCase):
+    """A design or plan the human already reviewed once passes its rework without another stop."""
+
+    def setUp(self):
+        self.root = make_repo()
+        self.d = self.root / ".mark/features/0001-a"
+
+    def reject_then_rework(self, review, back):
+        add_ticket(self.root, "feature", "0001-a", review, gates=["ticket-approved"])
+        human_typed(self.root, "/mark:reject 0001 tweak it")
+        self.assertEqual(run(self.root, "reject", "0001", "--item", "tweak it")[0], 0)
+        self.assertIn(f"status: {back}", (self.d / "status.md").read_text())
+        return run(self.root, "set", "0001", review)
+
+    def test_rejected_design_passes_after_rework(self):
+        code, out, err = self.reject_then_rework("review-design", "designing")
+        self.assertEqual(code, 0, err)
+        self.assertIn("`review-design` -> `planning`", out)
+        self.assertIn("approved_by: rework", (self.root / ".mark/gates/0001-a.design-approved").read_text())
+        self.assertEqual(reviews.pending(self.d / "review-design.md"), [])
+        self.assertIn("status: planning", (self.d / "status.md").read_text())
+
+    def test_rejected_plan_passes_after_rework(self):
+        code, out, err = self.reject_then_rework("review-plan", "planning")
+        self.assertEqual(code, 0, err)
+        self.assertIn("status: developing", (self.d / "status.md").read_text())
+        self.assertTrue((self.root / ".mark/gates/0001-a.plan-approved").is_file())
+
+    def test_approved_plan_redone_passes(self):
+        add_ticket(self.root, "feature", "0001-a", "planning", gates=ALL_GATES)
+        code, _, err = run(self.root, "set", "0001", "review-plan")
+        self.assertEqual(code, 0, err)
+        self.assertIn("status: developing", (self.d / "status.md").read_text())
+
+    def test_first_review_stops(self):
+        add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"])
+        code, out, err = run(self.root, "set", "0001", "review-design")
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("rework passes", out)
+        self.assertIn("status: review-design", (self.d / "status.md").read_text())
+
+    def test_rework_review_on_stops(self):
+        cfg = self.root / ".mark/config.toml"
+        cfg.write_text(cfg.read_text().replace("[gates]\n", "[gates]\nrework_review = true\n", 1))
+        self.assertEqual(load_config(self.root).gates.get("rework_review"), None)
+        code, _, err = self.reject_then_rework("review-design", "designing")
+        self.assertEqual(code, 0, err)
+        self.assertIn("status: review-design", (self.d / "status.md").read_text())
 
 
 class HumanDecisionTest(unittest.TestCase):

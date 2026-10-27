@@ -134,6 +134,13 @@ the design review keeps the approved plan: the ticket goes to `design-qa` (or `t
 the ticket to design and drops it at the review (`flow.ui_only_rework`; v0.31). A design without
 the anchors, or anything outside the UI, redoes the plan as before.
 
+A rework does not stop at a review the human has already been through (v0.36). When the
+orchestrator moves a feature to `review-design` or `review-plan` and that gate was approved before,
+or its review file holds a round (the human rejected it), `mark set` passes it at once
+(`flow.rework_pass`): it settles the rounds, writes the gate with `approved_by: rework` and moves on
+the way `mark approve` would (the UI-only shortcut above included). A first review still stops.
+`[gates] rework_review = true` stops at every review again.
+
 A plan may `extend` only end-to-end tests main already has; one an earlier round of the same
 ticket added is `new` (`guards.write.plan_extend_guard`, v0.31), so `mark merge` no longer finds
 it unplanned after the whole chain has run.

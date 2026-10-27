@@ -697,11 +697,11 @@ def _require_human(ctx: Ctx, verb: str, word: str | None = None) -> None:
         raise FlowError("flow.no_human", verb=verb, id=ctx.id)
 
 
-def _write_gate(ctx: Ctx, gate: str) -> Path:
+def _write_gate(ctx: Ctx, gate: str, by: str = "human") -> Path:
     path = ctx.gate_path(gate)
     path.parent.mkdir(parents=True, exist_ok=True)
     stamp = _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
-    path.write_text(f"approved_at: {stamp}\napproved_by: human\ngate: {gate}\n", encoding="utf-8")
+    path.write_text(f"approved_at: {stamp}\napproved_by: {by}\ngate: {gate}\n", encoding="utf-8")
     return path
 
 
@@ -838,6 +838,13 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
             and ctx.has_gate("plan-approved") and _is_git(ctx):
         code, head = git(["rev-parse", f"refs/heads/{ctx.branch}"], ctx.main)
         extra[REWORK_BASE] = head.strip() if code == 0 else None
+    return _pass(ctx, status, new, extra, answer)
+
+
+def _pass(ctx: Ctx, status: str, new: str, extra: dict[str, str | None], answer: str = "",
+          by: str = "human") -> Outcome:
+    """Move an approved ticket on: settle its review rounds, write its gate."""
+    gate, review, _ = APPROVE[status]
     ui_only = False
     if status == "review-design" and ctx.ticket.get(REWORK_BASE):
         ui_only = ui_only_rework(ctx)
@@ -849,11 +856,26 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
     if review:
         out.rounds = reviews.settle(ctx.review_path(review), ctx.cfg.locale)
     if gate:
-        _write_gate(ctx, gate)
+        _write_gate(ctx, gate, by)
     _move(ctx, new, None, extra)
     if answer:
         _record_answer(ctx, status, note, answer)
     return out
+
+
+REWORK_PASS = "rework"
+
+
+def rework_pass(ctx: Ctx) -> Outcome | None:
+    """A design or plan back at review after the human already reviewed it once (its gate
+    approved, or a reject round on file) passes without them, unless `[gates] rework_review`."""
+    status = ctx.ticket.status
+    if ctx.cfg.rework_review or ctx.kind != states.FEATURE or status not in ("review-design", "review-plan"):
+        return None
+    gate, review, new = APPROVE[status]
+    if not (ctx.has_gate(gate) or ctx.review_path(review).is_file()):
+        return None
+    return _pass(ctx, status, new, {}, by=REWORK_PASS)
 
 
 REJECT = {

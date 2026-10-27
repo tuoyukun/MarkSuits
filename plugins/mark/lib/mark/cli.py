@@ -237,10 +237,16 @@ def cmd_set(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     old = flow.set_status(ctx, pos[1], note=opts.get("--note"), leftover=opts.get("--leftover"),
                           add_after=after)
     _say(cfg, out, "set.done", id=ctx.id, old=old, new=pos[1])
+    msg = f"{ctx.id}: {old} -> {pos[1]}"
+    res = flow.rework_pass(flow.load(cfg, ctx.id))
+    if res:
+        _say(cfg, out, "set.rework_pass", id=ctx.id, old=res.old, new=res.new)
+        _approved(cfg, ctx, res, out)
+        msg += f" -> {res.new} (rework passed)"
     note = flow.preview_note(flow.load(cfg, ctx.id))
     if note:
         out.write(note.lstrip("\n") + "\n")
-    code = _commit(cfg, ctx, f"{ctx.id}: {old} -> {pos[1]}", opts, out)
+    code = _commit(cfg, ctx, msg, opts, out)
     if pos[1] == "superseded":
         for key, params in merge.discard(ctx):
             _say(cfg, out, key, **params)
@@ -258,6 +264,11 @@ def cmd_approve(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> i
         _say(cfg, out, "approve.ticket", id=ctx.id, gate=f"{cfg.state_rel}/gates/{ctx.id}.{res.gate}")
         return _commit(cfg, ctx, f"{ctx.id}: opening approved", opts, out)
     _say(cfg, out, "approve.done", id=ctx.id, old=res.old, new=res.new)
+    _approved(cfg, ctx, res, out)
+    return _commit(cfg, ctx, f"{ctx.id}: approved {res.old} -> {res.new}", opts, out)
+
+
+def _approved(cfg: MarkConfig, ctx: flow.Ctx, res: flow.Outcome, out: TextIO) -> None:
     if res.ui_only:
         _say(cfg, out, "approve.ui_only")
     if res.gate:
@@ -266,7 +277,6 @@ def cmd_approve(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> i
         _say(cfg, out, "approve.rounds", rounds=", ".join(map(str, res.rounds)))
     if res.answer:
         _say(cfg, out, "approve.answer", answer=res.answer)
-    return _commit(cfg, ctx, f"{ctx.id}: approved {res.old} -> {res.new}", opts, out)
 
 
 def cmd_reject(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:

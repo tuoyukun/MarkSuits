@@ -23,3 +23,5 @@ Arguments: `$ARGUMENTS` (ticket id, then the human's comments)
 4. If it refuses, tell the human why and stop.
 5. Then dispatch the rework (`mark next`, `mark dispatch`) and keep looping (dispatch, record,
    merge) until the next human gate or a stop. The brief tells the agent which round is open.
+   Unless `[gates] rework_review = true`, the reworked design or plan does not come back for
+   review: `mark set` passes it and the loop goes on; tell the human so.
