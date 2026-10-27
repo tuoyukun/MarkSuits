@@ -479,7 +479,12 @@ _USAGE_ZH = (
 MESSAGES["en"].update({
     "cli.usage": _USAGE_EN,
     # next
-    "next.dispatch": "Next for {id}: dispatch `{role}` (template `{scenario}`).\n  mark dispatch {id} --prev \"<the previous step's conclusion, verbatim>\"",
+    "next.dispatch": "Next for {id}: dispatch `{role}` (template `{scenario}`).\n  mark dispatch {id}\n"
+        "(it hands over the previous agent's final report; add --prev \"<text>\" only to pass something else, verbatim)",
+    "dispatch.no_prev": (
+        "{id}: the last agent finished, but its final report was not recorded, so the next brief would have no "
+        "previous step. Pass it yourself: mark dispatch {id} --prev \"<that agent's final report, verbatim>\""
+    ),
     "next.record": (
         "`{role}` finished {id} ({reason}). Record its outcome next (dispatch nothing else first); pick from its conclusion:\n"
         "  mark set {id} <{options}> --note \"<one line>\"{route}{wrapup}"
@@ -729,7 +734,12 @@ MESSAGES["en"].update({
 
 MESSAGES["zh-CN"].update({
     "cli.usage": _USAGE_ZH,
-    "next.dispatch": "{id} 下一步：派 `{role}`（模板 `{scenario}`）。\n  mark dispatch {id} --prev \"<上一环交回的结论原话>\"",
+    "next.dispatch": "{id} 下一步：派 `{role}`（模板 `{scenario}`）。\n  mark dispatch {id}\n"
+        "（会自动带上上一个 agent 交回的结论；只有要传别的内容时才加 --prev \"<原话>\"）",
+    "dispatch.no_prev": (
+        "{id}：上一个 agent 已结束，但它交回的结论没记下来，派出去的简报会缺上一环。请自己传："
+        "mark dispatch {id} --prev \"<那个 agent 交回的结论原话>\""
+    ),
     "next.record": (
         "`{role}` 已交回 {id}（{reason}）。接下来记录结果（在此之前不要派其他活）；按它的结论选一个：\n"
         "  mark set {id} <{options}> --note \"<一句话>\"{route}{wrapup}"

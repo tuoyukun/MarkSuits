@@ -242,7 +242,7 @@ class NextActionTest(unittest.TestCase):
     def test_previous_conclusion_is_the_newest_result(self):
         add_ticket(self.root, "feature", "0001-a", "planning", gates=ALL_GATES)
         ctx = ctx_of(self.root, "0001")
-        self.assertEqual(flow.previous_conclusion(ctx), "")
+        self.assertIsNone(flow.previous_conclusion(ctx))
         locks = self.root / ".mark/locks"
         write(locks / "0001-a.designer.result.json", json.dumps({"at": 10, "conclusion": "design done"}))
         write(locks / "0001-a.coder-plan.result.json", json.dumps({"at": 20, "conclusion": "plan done"}))
@@ -1019,6 +1019,22 @@ class DispatchTest(unittest.TestCase):
         self.assertEqual(code, 0, err)
         # Idempotent: a second dispatch reuses everything (the lock now says wait).
         self.assertIn("still working", run(self.root, "dispatch", "0001")[2])
+
+    def test_dispatch_hands_over_the_recorded_report(self):
+        write(self.root / ".mark/locks/0001-a.designer.result.json",
+              json.dumps({"result": "PASSED", "at": time.time() + 5, "conclusion": "design: 3 states"}))
+        code, out, err = run(self.root, "dispatch", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("Previous step reported: design: 3 states", out)
+
+    def test_dispatch_refuses_when_the_report_was_lost(self):
+        write(self.root / ".mark/locks/0001-a.designer.result.json",
+              json.dumps({"result": "PASSED", "at": time.time() + 5, "conclusion": ""}))
+        code, out, err = run(self.root, "dispatch", "0001")
+        self.assertEqual(code, 1)
+        self.assertIn("--prev", err)
+        self.assertEqual(out, "")
+        self.assertEqual(run(self.root, "dispatch", "0001", "--prev", "design done")[0], 0)
 
     def test_uncommitted_worktree_blocks_next_dispatch(self):
         self.assertEqual(run(self.root, "dispatch", "0001")[0], 0)

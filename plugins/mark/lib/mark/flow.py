@@ -221,9 +221,10 @@ def last_result(ctx: Ctx, role: str) -> dict | None:
     return data
 
 
-def previous_conclusion(ctx: Ctx) -> str:
-    """Final report of the ticket's most recently finished agent, any role ("" if none)."""
-    best: tuple[float, str] = (0.0, "")
+def previous_conclusion(ctx: Ctx) -> str | None:
+    """Final report of the ticket's most recently finished agent, any role: None if no agent
+    has finished yet, "" if the newest one left no report."""
+    best: tuple[float, str | None] = (0.0, None)
     for path in _locks(ctx).glob(f"{ctx.id}.*.result.json"):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))

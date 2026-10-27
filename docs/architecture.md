@@ -183,7 +183,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 | `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates that agent: restart) |
 | `post-write` | PostToolUse writes | reminds to commit ticket state on main (feedback only) |
 | `user-prompt` | UserPromptSubmit | records a token when a human types `/mark:approve`, `/mark:reject`, `/mark:feature` or `/mark:fix` (never blocks) |
-| `subagent-stop` | SubagentStop | finds the lock by agent id, else by the `mark:ticket` anchor in the agent's own transcript (`agent_transcript_path`), else the only unbound lock of the role. Required outputs (`[outputs]`, or `mark:outputs` in the prompt) must exist in the ticket dir of some checkout and at least one must have changed since the dispatch (a rework round finds last round's files); otherwise the subagent keeps running. Result goes to `.mark/locks/<id>.<role>.result.json`, with the agent's final report (`conclusion`, the default `--prev` of the next dispatch) |
+| `subagent-stop` | SubagentStop | finds the lock by agent id, else by the `mark:ticket` anchor in the agent's own transcript (`agent_transcript_path`), else the only unbound lock of the role. Required outputs (`[outputs]`, or `mark:outputs` in the prompt) must exist in the ticket dir of some checkout and at least one must have changed since the dispatch (a rework round finds last round's files); otherwise the subagent keeps running. Result goes to `.mark/locks/<id>.<role>.result.json`, with the agent's final report (`conclusion`, the default `--prev` of the next dispatch): the message of the agent's last `SubagentHandback` call in `agent_transcript_path` (how background agents report back in an interactive session, leaving `last_assistant_message` without the report), else `last_assistant_message`, else its last text reply |
 
 Engine-fixed rules (no config can loosen them): `.claude/**`, `.mark/config.toml` and locks are
 main-thread only. Gates, ticket `status.md`, `review-*.md`, `locks/human/**` and `.mark/.base/**`
@@ -220,6 +220,8 @@ The loop: `mark next <id>` returns one of dispatch · wait · record · stop · 
   a prompt: the `mark:ticket` anchor, `mark:outputs` when the template overrides outputs, and the
   project's template for the scenario filled with verified facts (worktree, branch, artifacts in the
   worktree and on main, required outputs, trigger, previous conclusion, open review rounds).
+  Without `--prev` it hands over the newest recorded `conclusion`; if an agent has finished but left
+  none, it refuses rather than brief the next role blind.
 - **wait**: a dispatch lock exists for the ticket (an unbound lock older than 90 s is a dispatch
   that never started and does not count).
 - **record**: a SubagentStop result newer than `status.md` exists; the orchestrator runs

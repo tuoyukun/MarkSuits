@@ -141,6 +141,34 @@ def transcript_target(env: Env) -> Target | None:
     return found if isinstance(found, Target) else None
 
 
+def transcript_report(env: Env) -> tuple[str, str]:
+    """(message of the agent's last `SubagentHandback` call, its last text reply), read from its own
+    transcript. In an interactive session a background agent reports back through that tool, so
+    `last_assistant_message` misses the report (or holds a remark made before it)."""
+    path = str(env.ctx.payload.get("agent_transcript_path") or "")
+    handback = text = ""
+    try:
+        with open(os.path.expanduser(path), encoding="utf-8") as fh:
+            for line in fh:
+                if '"assistant"' not in line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                content = (entry.get("message") or {}).get("content") if isinstance(entry, dict) else None
+                if entry.get("type") != "assistant" or not isinstance(content, list):
+                    continue
+                for block in (b for b in content if isinstance(b, dict)):
+                    if block.get("type") == "tool_use" and block.get("name") == "SubagentHandback":
+                        handback = str((block.get("input") or {}).get("message") or "").strip() or handback
+                    elif block.get("type") == "text" and str(block.get("text", "")).strip():
+                        text = str(block["text"]).strip()
+    except (OSError, UnicodeDecodeError):
+        return "", ""
+    return handback, text
+
+
 def find_for_stop(env: Env, agent_id: str, role: str | None) -> tuple[Path, dict] | None:
     """The lock bound to `agent_id`, else the unbound lock its transcript names, else the only
     unbound lock of `role`."""
@@ -220,7 +248,8 @@ def verify(env: Env) -> str | None:
     if found is None:
         return None
     path, meta = found
-    conclusion = str(env.ctx.payload.get("last_assistant_message") or "").strip()
+    handback, text = transcript_report(env)
+    conclusion = handback or str(env.ctx.payload.get("last_assistant_message") or "").strip() or text
     required = [f for f in meta.get("required", []) if f]
     dirs = candidate_dirs(env, meta)
     if not required or outputs_done(dirs, required, float(meta.get("created", 0))) \

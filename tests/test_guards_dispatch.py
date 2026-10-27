@@ -221,6 +221,11 @@ class LifecycleTest(unittest.TestCase):
             payload["last_assistant_message"] = message
         return hook("subagent-stop", payload)
 
+    def stop_with(self, transcript):
+        return hook("subagent-stop", {"hook_event_name": "SubagentStop", "cwd": str(self.root),
+                                      "agent_id": "agent-1", "agent_type": "coder-impl",
+                                      "agent_transcript_path": str(transcript)})
+
     def failed(self, error):
         prompt = anchor("features", "0001-a")
         return hook("dispatch-failed", {"hook_event_name": "PostToolUseFailure", "tool_name": "Agent",
@@ -270,6 +275,34 @@ class LifecycleTest(unittest.TestCase):
         self.start()
         (self.wt / ".mark/features/0001-a/handoff.md").write_text("done")
         self.assertEqual(self.stop(message="0001-a · coder-impl · outcome: testing\n")[0], 0)
+        result = json.loads((self.root / ".mark/locks/0001-a.coder-impl.result.json").read_text())
+        self.assertEqual(result["conclusion"], "0001-a · coder-impl · outcome: testing")
+
+    def test_background_stop_reads_the_report_from_the_transcript(self):
+        # Background agents stop without last_assistant_message; the transcript has the report.
+        self.start()
+        (self.wt / ".mark/features/0001-a/handoff.md").write_text("done")
+        transcript = self.root.parent / "agent-1.jsonl"
+        rows = [{"type": "user", "message": {"content": anchor("features", "0001-a")}},
+                {"type": "assistant", "message": {"content": [{"type": "text", "text": "working"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "text", "text": "0001-a · coder-impl · outcome: testing"}]}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {}}]}}]
+        transcript.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+        self.assertEqual(self.stop_with(transcript)[0], 0)
+        result = json.loads((self.root / ".mark/locks/0001-a.coder-impl.result.json").read_text())
+        self.assertEqual(result["conclusion"], "0001-a · coder-impl · outcome: testing")
+
+    def test_handback_call_is_the_report(self):
+        # How background agents report back in practice: a SubagentHandback tool call.
+        self.start()
+        (self.wt / ".mark/features/0001-a/handoff.md").write_text("done")
+        transcript = self.root.parent / "agent-1.jsonl"
+        rows = [{"type": "assistant", "message": {"content": [{"type": "text", "text": "Selftest passes."}]}},
+                {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "SubagentHandback",
+                                                               "input": {"message": "0001-a · coder-impl · outcome: testing"}}]}},
+                {"type": "user", "message": {"content": [{"type": "tool_result", "content": ""}]}}]
+        transcript.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+        self.assertEqual(self.stop_with(transcript)[0], 0)
         result = json.loads((self.root / ".mark/locks/0001-a.coder-impl.result.json").read_text())
         self.assertEqual(result["conclusion"], "0001-a · coder-impl · outcome: testing")
 

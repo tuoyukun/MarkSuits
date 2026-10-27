@@ -210,6 +210,10 @@ def cmd_dispatch(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
         return 1
     # Default: the previous agent's own final report, recorded at SubagentStop.
     prev = opts["--prev"] if "--prev" in opts else flow.previous_conclusion(ctx)
+    if prev == "":  # an agent finished but its report was lost: never brief the next one blind
+        _say(cfg, err, "dispatch.no_prev", id=ctx.id)
+        return 1
+    prev = prev or ""
     trigger = opts.get("--trigger", "")
     brief.render(ctx, action, prev=prev, trigger=trigger)  # template errors before git side effects
     for key, params in flow.ensure_isolation(ctx):
