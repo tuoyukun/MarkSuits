@@ -16,7 +16,8 @@ The shared Mark role rules are preloaded above. If they are not in your context,
 ## Input and output
 
 - **What to verify:** the `AC-N` of `requirement.md` (feature) or of `fix-plan.md` (bug),
-  plus the `S-N` states of `design.md` when there is one.
+  plus the `S-N` states of `design.md` when there is one, except those marked `qa-only`
+  (design QA checks them).
 - **Read selectively:** `handoff.md` (self-check, how to verify), the failure branches in
   the plan's sequence diagrams, `design.md` states. Read production code only to find
   selectors or contracts.
@@ -98,6 +99,11 @@ not verdicts; something you could not verify is `FAILED` with `failureType: uncl
 | `needs-unit-test` | coder-impl | the criterion cannot be driven by a user action |
 | `design-flaw` | designer (via human) | only a change in the UI directory fixes it: the design contradicts itself or the requirement, or its components misbehave on the device (layout, keyboard covering controls, touch targets, rendering) while the code around them is right |
 | `unclear` | human | requirement, fixtures or environment are unclear |
+
+`impl-bug` names the code at fault (file and function, or the `handoff.md` claim it
+contradicts). If you cannot point at code and the behaviour may come from the test environment
+itself (simulator, OS version, fixtures), it is `unclear`: say what you saw and what would
+settle it.
 
 Before you type a `design-flaw` seen on a device, or a fix that "did not work", make sure the
 device runs the branch's current code: the dev server serves the latest files and the app has

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -46,7 +47,8 @@ def _record(ctx: Ctx, reason: str) -> None:
     path = ctx.cfg.state_dir / "locks" / f"{ctx.id}.merge.result.json"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"at": time.time(), "result": "FAILED", "reason": reason},
+        # `conclusion`: the next dispatch hands the failure to the role that fixes it.
+        path.write_text(json.dumps({"at": time.time(), "result": "FAILED", "reason": reason, "conclusion": reason},
                                    ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass  # the refusal itself still reaches the caller
@@ -155,6 +157,38 @@ def land(cfg, worktree: Path, branch: str, log_name: str, conflict: FlowError,
     return notes
 
 
+REMOVE_TRIES = 3
+REMOVE_WAIT = 5.0
+
+
+def _remove_worktree(main: Path, worktree: Path, force: bool) -> str:
+    """Remove a worktree; "" on success, else the last error. Retries: right after the regression,
+    a dev server or bundler it started may still write into the tree while git deletes it. A
+    failed `--force` can leave git's record gone and the directory half deleted; then (only when
+    forcing) the directory itself goes."""
+    error = ""
+    for attempt in range(REMOVE_TRIES):
+        if attempt:
+            time.sleep(REMOVE_WAIT)
+        if not worktree.exists():
+            break
+        if any(p.resolve() == worktree.resolve() for p, _ in worktrees(main)):
+            p = subprocess.run(["git", "-C", str(main), "worktree", "remove", *(["--force"] if force else []),
+                                str(worktree)], capture_output=True, text=True)
+            if p.returncode == 0:
+                return ""
+            error = ((p.stderr or p.stdout or "").strip().splitlines() or [f"exit {p.returncode}"])[-1]
+        elif force:
+            try:
+                shutil.rmtree(worktree)
+            except OSError as exc:
+                error = str(exc)
+        else:
+            return error or "not a registered worktree"
+    git(["worktree", "prune"], main)
+    return "" if not worktree.exists() else error
+
+
 def cleanup(cfg, worktree: Path | None, branch: str, force: bool = False) -> Notes:
     """Remove the remote branch, worktree and local branch. Never fails: the work is on main
     (or, with `force`, the caller has decided to discard it)."""
@@ -164,9 +198,9 @@ def cleanup(cfg, worktree: Path | None, branch: str, force: bool = False) -> Not
     if ref_exists(main, f"refs/remotes/origin/{branch}") and \
             git(["push", "-q", "origin", "--delete", branch], main)[0] != 0:
         notes.append(("merge.kept_remote", {"branch": branch}))
-    if worktree is not None and \
-            git(["worktree", "remove", *(["--force"] if force else []), str(worktree)], main)[0] != 0:
-        notes.append(("merge.kept_worktree", {"wt": str(worktree)}))
+    error = _remove_worktree(main, worktree, force) if worktree is not None else ""
+    if error:
+        notes.append(("merge.kept_worktree", {"wt": str(worktree), "error": error}))
     elif git(["branch", "-q", "-D" if force else "-d", branch], main)[0] != 0:
         notes.append(("merge.kept_branch", {"branch": branch}))
     return notes

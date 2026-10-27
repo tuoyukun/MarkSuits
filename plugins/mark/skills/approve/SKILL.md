@@ -1,6 +1,6 @@
 ---
 description: Human approval at a Mark gate (requirement review, design review, plan review, opening a ticket, or sending a blocked ticket back). Only a human runs this.
-argument-hint: <ticket-id>
+argument-hint: <ticket-id> [<status>] [your answer]
 disable-model-invocation: true
 allowed-tools: Bash(mark:*)
 ---
@@ -25,9 +25,16 @@ Argument: `$ARGUMENTS`
    - `review-design` → `planning`; `review-plan` → `developing`;
    - `blocked-spec` → back to `designing`, or `developing` if the human typed it;
    - `blocked-plan` → back to `planning`, or `developing` if the human typed it;
-   - `blocked-unclear` → only where the human typed (`designing`, `planning` or `developing`).
+   - `blocked-unclear` → only where the human typed (`designing`, `planning`, `developing`, or
+     `testing` when the answer only changes how a criterion is accepted and the work is built).
    Never add a status the human did not type.
+
+   Whatever the human typed after the id (and the status) is their answer. `mark approve` records
+   it, and the next `mark dispatch` hands it to the role. `blocked-unclear` refuses without one:
+   then ask them to type `/mark:approve <id> <status> <answer>` in one line.
 3. If it refuses, tell the human why in plain words and stop. Do not retry another way.
-4. Then keep looping (`mark next`, dispatch, record, merge) until the next human gate or a stop,
+4. If the answer changes a criterion or a decision, update the `AC-N` or add the `DEC-N` in
+   `requirement.md` on main and `mark commit <id> -m "<what changed>"` before dispatching.
+5. Then keep looping (`mark next`, dispatch, record, merge) until the next human gate or a stop,
    reporting after each step. `pending-merge` is not a human gate: run `mark merge` without
    asking again.

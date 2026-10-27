@@ -4,13 +4,14 @@ import json
 import os
 import time
 import socket
+import subprocess
 import unittest
 import zlib
 
 from tests._support import (FULL_CONFIG, PLUGIN_ROOT, add_origin, add_templates, add_ticket, add_worktree, hook,
                             human_typed, make_project, make_repo, sh, status_text)
 
-from mark import brief, cli, flow, human, reviews, states, tickets
+from mark import brief, cli, flow, human, merge, reviews, states, tickets
 from mark.config import load_config
 
 ALL_GATES = ["ticket-approved", "design-approved", "plan-approved"]
@@ -524,6 +525,36 @@ class MergeTest(unittest.TestCase):
         self.assertFalse(self.wt.exists())
         self.assertEqual(sh(self.root, "git", "branch", "--list", "bug/*"), "")
 
+    def test_busy_worktree_is_retried_then_reported(self):
+        # A process the regression left behind still writes there: git cannot delete the tree.
+        self.regression("mkdir -p out/d && touch out/d/f && chmod 555 out/d")
+        waits = []
+        original = (merge.REMOVE_WAIT, merge.time.sleep)
+        merge.REMOVE_WAIT = 0
+        merge.time.sleep = waits.append
+        try:
+            code, out, err = run(self.root, "merge", "b0001")
+        finally:
+            merge.REMOVE_WAIT, merge.time.sleep = original
+            subprocess.run(["chmod", "-R", "u+w", str(self.wt)])
+        self.assertEqual(code, 0, err + out)
+        self.assertEqual(len(waits), merge.REMOVE_TRIES - 1)
+        self.assertIn("Could not remove worktree", out)
+        self.assertIn("Permission denied", out)
+        self.assertIn("status: passed", (self.dir / "status.md").read_text())
+
+    def test_worktree_freed_on_retry_is_removed(self):
+        self.regression("mkdir -p out/d && touch out/d/f && chmod 555 out/d")
+        original = merge.time.sleep
+        merge.time.sleep = lambda _: subprocess.run(["chmod", "-R", "u+w", str(self.wt)])
+        try:
+            code, out, err = run(self.root, "merge", "b0001")
+        finally:
+            merge.time.sleep = original
+        self.assertEqual(code, 0, err + out)
+        self.assertNotIn("Could not", out)
+        self.assertFalse(self.wt.exists())
+
     def test_superseded_removes_worktree_and_branches(self):
         tip = sh(self.root, "git", "rev-parse", "--short", "bug/b0001-x")
         write(self.wt / "scratch.txt", "unsaved")
@@ -936,10 +967,47 @@ class HumanDecisionTest(unittest.TestCase):
         code, _, err = run(self.root, "approve", "0001")
         self.assertEqual(code, 1)
         self.assertIn("designing, developing, planning", err)
-        human_typed(self.root, "/mark:approve 0001 testing")
-        self.assertIn("not possible", run(self.root, "approve", "0001", "--to", "testing")[2])
-        human_typed(self.root, "/mark:approve 0001 planning")
+        human_typed(self.root, "/mark:approve 0001 testing go with A")
+        self.assertIn("no handoff.md", run(self.root, "approve", "0001", "--to", "testing")[2])
+        human_typed(self.root, "/mark:approve 0001 planning go with A")
         self.assertIn("`blocked-unclear` -> `planning`", run(self.root, "approve", "0001", "--to", "planning")[1])
+
+    def test_blocked_unclear_needs_the_answer(self):
+        d = add_ticket(self.root, "feature", "0001-a", "blocked-unclear", gates=ALL_GATES)
+        human_typed(self.root, "/mark:approve 0001 developing")
+        code, _, err = run(self.root, "approve", "0001", "--to", "developing")
+        self.assertEqual(code, 1)
+        self.assertIn("/mark:approve 0001-a developing <their answer>", err)
+        self.assertIn("status: blocked-unclear", (d / "status.md").read_text())
+
+    def test_answer_is_handed_to_the_next_dispatch(self):
+        d = add_ticket(self.root, "feature", "0001-a", "blocked-unclear", gates=ALL_GATES)
+        p = d / "status.md"
+        p.write_text(p.read_text() + "\nQ-1: which simulator?\n")
+        write(self.root / ".mark/locks/0001-a.coder-plan.result.json",
+              json.dumps({"at": time.time() - 60, "conclusion": "plan: Q-1 open"}))
+        human_typed(self.root, "/mark:approve 0001 planning Q-1: use the iPhone 18 Pro\nand drop the Duo")
+        code, out, err = run(self.root, "approve", "0001", "--to", "planning")
+        self.assertEqual(code, 0, err)
+        self.assertIn("Q-1: use the iPhone 18 Pro\nand drop the Duo", out)
+        prev = flow.previous_conclusion(ctx_of(self.root, "0001"))
+        self.assertIn("`blocked-unclear`", prev)
+        self.assertIn("which simulator?", prev)
+        self.assertTrue(prev.endswith("Q-1: use the iPhone 18 Pro\nand drop the Duo"))
+
+    def test_review_gate_comment_is_handed_over_too(self):
+        add_ticket(self.root, "feature", "0001-a", "review-plan", gates=["ticket-approved", "design-approved"])
+        human_typed(self.root, "/mark:approve 0001 keep T-3 small")
+        self.assertEqual(run(self.root, "approve", "0001")[0], 0)
+        self.assertTrue(flow.previous_conclusion(ctx_of(self.root, "0001")).endswith("keep T-3 small"))
+
+    def test_acceptance_only_answer_goes_straight_to_testing(self):
+        d = add_ticket(self.root, "feature", "0001-a", "blocked-unclear", gates=ALL_GATES)
+        write(d / "handoff.md", "done")
+        human_typed(self.root, "/mark:approve 0001 testing AC-3: opening Settings is enough")
+        code, out, err = run(self.root, "approve", "0001", "--to", "testing")
+        self.assertEqual(code, 0, err)
+        self.assertIn("`blocked-unclear` -> `testing`", out)
 
     def test_review_gates_take_no_target(self):
         add_ticket(self.root, "feature", "0001-a", "review-plan", gates=["ticket-approved", "design-approved"])
@@ -1026,6 +1094,26 @@ class DispatchTest(unittest.TestCase):
         code, out, err = run(self.root, "dispatch", "0001")
         self.assertEqual(code, 0, err)
         self.assertIn("Previous step reported: design: 3 states", out)
+
+    def test_edited_prompt_never_starts_an_agent(self):
+        code, out, err = run(self.root, "dispatch", "0001", "--prev", "design approved")
+        self.assertEqual(code, 0, err)
+        prompt = out.split("--- prompt ---\n")[1]
+        edited = prompt.replace(".claude/worktrees/feature-0001-a", ".claude/worktrees/elsewhere", 1)
+        self.assertNotEqual(edited, prompt)
+        payload = {"hook_event_name": "PreToolUse", "tool_name": "Agent", "cwd": str(self.root)}
+        code, err = hook("pre-dispatch", {**payload, "tool_input": {"subagent_type": "coder-plan", "prompt": edited}})
+        self.assertEqual(code, 2)
+        self.assertIn("unchanged", err)
+        self.assertFalse((self.root / ".mark/locks/0001-a.coder-plan.lock").exists())
+        code, err = hook("pre-dispatch", {**payload, "tool_input": {"subagent_type": "coder-plan",
+                                                                    "prompt": prompt.strip() + "\n\n"}})
+        self.assertEqual(code, 0, err)
+
+    def test_merge_failure_reason_is_the_previous_step(self):
+        write(self.root / ".mark/locks/0001-a.merge.result.json",
+              json.dumps({"result": "FAILED", "at": time.time() + 5, "reason": "regression red"}))
+        self.assertEqual(flow.previous_conclusion(ctx_of(self.root, "0001")), "regression red")
 
     def test_dispatch_refuses_when_the_report_was_lost(self):
         write(self.root / ".mark/locks/0001-a.designer.result.json",

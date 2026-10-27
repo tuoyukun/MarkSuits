@@ -51,7 +51,9 @@ never enough to start: what you guess wrong here, every later role builds on.
    `TICKET-ID: <id>`; the ticket starts at `drafting`.
 6. **Write the requirement.** `.mark/features/<id>/requirement.md` (`mark format requirement.md`)
    with what you agreed: numbered acceptance criteria, and every decision from step 4 as a
-   `DEC-N` (choice, why, options rejected). Open questions must be `none`: anything still open
+   `DEC-N` (choice, why, options rejected). Check each criterion can be reached in the
+   project's test environment (the format's rules); settle the ones that cannot with the human
+   now, not at testing. Open questions must be `none`: anything still open
    goes back to the human first. Then `mark set <id> review-requirement` (it refuses a
    requirement without criteria or with open questions).
 7. **Stop for review.** Give the human the path of `requirement.md` and list the `DEC-N` in one

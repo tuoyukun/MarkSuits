@@ -33,6 +33,9 @@ def token_dir(cfg: MarkConfig) -> Path:
     return cfg.state_dir / "locks" / "human"
 
 
+TEXT_MAX = 4000
+
+
 def parse_prompt(prompt: str) -> tuple[str, str, list[str]] | None:
     """`/mark:approve 0012 planning` -> ('approve', '0012', ['planning']). None if not a Mark command."""
     m = _PROMPT_RE.match(prompt or "")
@@ -40,6 +43,12 @@ def parse_prompt(prompt: str) -> tuple[str, str, list[str]] | None:
         return None
     rest = [w.strip(".,;:!?。，；：！？`'\"") for w in m.group(3).split()][:20]
     return m.group(1), m.group(2), [w for w in rest if w]
+
+
+def rest_text(prompt: str) -> str:
+    """Everything the person typed after the ticket, every line, as typed."""
+    m = _PROMPT_RE.match(prompt or "")
+    return (prompt or "")[m.start(3):].strip()[:TEXT_MAX] if m else ""
 
 
 def record(cfg: MarkConfig, prompt: str, now: float | None = None) -> Path | None:
@@ -53,7 +62,8 @@ def record(cfg: MarkConfig, prompt: str, now: float | None = None) -> Path | Non
     d = token_dir(cfg)
     d.mkdir(parents=True, exist_ok=True)
     path = d / f"{verb}-{int(now * 1000)}-{os.getpid()}.json"
-    path.write_text(json.dumps({"verb": verb, "arg": arg, "rest": rest, "at": now}) + "\n", encoding="utf-8")
+    path.write_text(json.dumps({"verb": verb, "arg": arg, "rest": rest, "text": rest_text(prompt), "at": now},
+                               ensure_ascii=False) + "\n", encoding="utf-8")
     return path
 
 
@@ -64,13 +74,12 @@ def _matches(arg: str, ticket_id: str | None) -> bool:
     return bool(arg) and (ticket_id == arg or ticket_id.startswith(arg + "-"))
 
 
-def words(cfg: MarkConfig, verb: str, ticket_id: str, now: float | None = None) -> list[str]:
-    """The words after the ticket in the newest live `verb` token for it; nothing is used up."""
+def _newest(cfg: MarkConfig, verb: str, ticket_id: str, now: float | None) -> dict:
     now = time.time() if now is None else now
     try:
         names = sorted(os.listdir(token_dir(cfg)), reverse=True)
     except OSError:
-        return []
+        return {}
     for name in names:
         try:
             data = json.loads((token_dir(cfg) / name).read_text(encoding="utf-8"))
@@ -78,8 +87,18 @@ def words(cfg: MarkConfig, verb: str, ticket_id: str, now: float | None = None) 
             continue
         if data.get("verb") == verb and now - float(data.get("at", 0)) <= TOKEN_TTL[verb] \
                 and _matches(str(data.get("arg", "")), ticket_id):
-            return [str(w) for w in data.get("rest", [])]
-    return []
+            return data
+    return {}
+
+
+def words(cfg: MarkConfig, verb: str, ticket_id: str, now: float | None = None) -> list[str]:
+    """The words after the ticket in the newest live `verb` token for it; nothing is used up."""
+    return [str(w) for w in _newest(cfg, verb, ticket_id, now).get("rest", [])]
+
+
+def text(cfg: MarkConfig, verb: str, ticket_id: str, now: float | None = None) -> str:
+    """What the person typed after the ticket in that token, as typed."""
+    return str(_newest(cfg, verb, ticket_id, now).get("text") or "")
 
 
 def consume(cfg: MarkConfig, verbs: tuple[str, ...], ticket_id: str | None = None,

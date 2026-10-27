@@ -21,6 +21,11 @@ The human approved the design (if the feature has one). Now plan how to build it
 - End-to-end coverage: every `AC-N` has a row; `new` only where no existing test in
   `JOURNEYS.md` can be extended, with the closest one named and why.
 - Architecture decisions have an ADR.
+- A platform capability the plan rests on and nobody has seen work in the project's test
+  environment (a media pipeline, a system screen or deep link, a permission state, a device
+  feature) was tried there first with a throwaway program outside the repository; the plan's
+  risks say what you ran and what happened. If it fails there and that changes a criterion,
+  report `blocked-unclear`.
 - The plan follows every decision (`DEC-N`) in the requirement. If one cannot hold, report
   `blocked-unclear` and say which; never plan around it.
 - Open questions are empty. If they are not, report `blocked-unclear`.
@@ -36,7 +41,7 @@ The human approved the design (if the feature has one). Now plan how to build it
 
 ## You may write
 
-`{{ticket_dir}}/tech-plan.md`, ADRs, module docs. No code.
+`{{ticket_dir}}/tech-plan.md`, ADRs, module docs. No code in the repository.
 
 ## Report
 

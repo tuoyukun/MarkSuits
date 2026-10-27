@@ -231,7 +231,7 @@ def previous_conclusion(ctx: Ctx) -> str | None:
         except (OSError, ValueError):
             continue
         if isinstance(data, dict) and float(data.get("at", 0)) > best[0]:
-            best = (float(data.get("at", 0)), str(data.get("conclusion") or ""))
+            best = (float(data.get("at", 0)), str(data.get("conclusion") or data.get("reason") or ""))
     return best[1]
 
 
@@ -725,6 +725,29 @@ class Outcome:
     refs: list[str] = field(default_factory=list)
     review: str | None = None
     ui_only: bool = False
+    answer: str = ""
+
+
+HUMAN_RESULT = "human"
+
+
+def _answer(ctx: Ctx, to: str | None) -> str:
+    """What the human typed after the ticket (and after the status, if they named one)."""
+    text = human.text(ctx.cfg, "approve", ctx.id).strip()
+    parts = text.split(maxsplit=1)
+    if to and parts and parts[0].strip(".,;:!?。，；：！？`'\"") == to:
+        text = parts[1] if len(parts) > 1 else ""
+    return text.strip()
+
+
+def _record_answer(ctx: Ctx, status: str, note: str, answer: str) -> None:
+    """The human's answer becomes the newest result, so the next dispatch hands it over."""
+    path = _locks(ctx) / f"{ctx.id}.{HUMAN_RESULT}.result.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    prev = _msg(ctx.cfg.locale, "approve.prev", status=status, note=note or "-", answer=answer)
+    path.write_text(json.dumps({"agent_id": HUMAN_RESULT, "result": "ANSWERED", "reason": "human answer",
+                                "conclusion": prev, "at": time.time()}, ensure_ascii=False) + "\n",
+                    encoding="utf-8")
 
 
 REWORK_BASE = "rework-base"
@@ -795,6 +818,15 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
     if new is None:
         raise FlowError("flow.approve_need_to", id=ctx.id, status=status,
                         allowed=", ".join(approve_targets(ctx)))
+    if to == "testing" and status == "blocked-unclear":
+        # Only the acceptance changed: test again without another implementation round.
+        if ctx.find("handoff.md") is None:
+            raise FlowError("flow.approve_testing_early", id=ctx.id)
+        if design_qa_needed(ctx) and qa_result(ctx) != "passed":
+            raise FlowError("flow.approve_testing_early", id=ctx.id)
+    answer = _answer(ctx, to)
+    if status == "blocked-unclear" and not answer:
+        raise FlowError("flow.approve_need_answer", id=ctx.id, to=to or "<status>")
     if not to and not gate:
         # The human named a status (`/mark:approve 0012 developing`): never take the default instead.
         named = [w for w in human.words(ctx.cfg, "approve", ctx.id) if w in approve_targets(ctx) and w != new]
@@ -812,12 +844,15 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
         if ui_only:
             new = "design-qa" if design_qa_needed(ctx) else "testing"
         extra[REWORK_BASE] = None
-    out = Outcome(status, new, gate=gate, ui_only=ui_only)
+    out = Outcome(status, new, gate=gate, ui_only=ui_only, answer=answer)
+    note = ctx.ticket.note
     if review:
         out.rounds = reviews.settle(ctx.review_path(review), ctx.cfg.locale)
     if gate:
         _write_gate(ctx, gate)
     _move(ctx, new, None, extra)
+    if answer:
+        _record_answer(ctx, status, note, answer)
     return out
 
 

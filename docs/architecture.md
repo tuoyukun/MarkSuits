@@ -177,7 +177,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 | group | event / matcher | guards, in order |
 |---|---|---|
 | `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins; a path no rule assigns is the main thread's, except a role's working files in a ticket dir — v0.19; CLI-only files are nobody's, see below) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **budget** (`[[doc_budget]]`, see Doc budget) · **e2e** / **journey** (tester writes, v0.22–0.23) |
-| `pre-dispatch` | PreToolUse `Agent\|Task` | **staffed** (a built-in role the project lacks, e.g. the designer in `service`, is refused, v0.30) · **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **status** (the role is the one the ticket's status names; gates are never revoked, so a gate alone would start coder-impl while a reworked plan waits for review, v0.30) · **gate** (feature roles need `[gates]`, plus `requirement-approved` when the ticket says `requirement-gate: yes`, v0.33; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **dedup** (one live agent per ticket+role; creates the lock) |
+| `pre-dispatch` | PreToolUse `Agent\|Task` | **staffed** (a built-in role the project lacks, e.g. the designer in `service`, is refused, v0.30) · **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **status** (the role is the one the ticket's status names; gates are never revoked, so a gate alone would start coder-impl while a reworked plan waits for review, v0.30) · **gate** (feature roles need `[gates]`, plus `requirement-approved` when the ticket says `requirement-gate: yes`, v0.33; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **brief** (the prompt is the one `mark dispatch` last printed for that ticket and role, by digest in `locks/<id>.<role>.brief.json`; an edited copy starts no agent, v0.35) · **dedup** (one live agent per ticket+role; creates the lock) |
 | `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit on main or push to it (from any branch, e.g. `HEAD:main` in a worktree, v0.30); nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `touch`, `sed`/`perl`/`ruby -i`, `cp`, `mv`) follow the scope and worktree rules, and the tester writes test code under the tests directory with Edit/Write only, so the end-to-end rules see it; the main thread's never reach a CLI-only file or a role's artifact in a ticket dir (`verdict.md`, `design-qa.md`… carry anchors the engine trusts, v0.30) (commands split at `&&`, `||`, `;`, `|` and newlines outside quotes; `$VAR` and `cd` are followed through the command's own assignments and the environment; unclear or quoted targets pass) |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock; a foreground agent (`status: completed`) whose stop could not be matched is settled here instead, so no finished agent leaves a bound lock |
 | `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates that agent: restart) |
@@ -245,12 +245,15 @@ whose branch touches `[design_qa] paths`, until it does · `passed` while the ti
 not on main · `pending-merge` from `testing` without a tester run that finished since (a PASSED verdict from an earlier round is on disk after a merge rework, v0.30). A blocked ticket moves on only through `mark approve`: the default way back
 (`blocked-spec` → `designing`, `blocked-plan` → `planning`), or `--to <status>` among its legal moves
 when the human typed that status (`/mark:approve 0012 developing`); `blocked-unclear` always needs
-one. If the human named a status, `mark approve` without `--to` refuses instead of taking the default (v0.30). So gates are never revoked yet never reused unseen: every way back to work passes the human.
+one, plus the human's answer (v0.35), and may also go to `testing` when the answer only changes the
+acceptance: refused without `handoff.md`, or while required design QA has not passed. If the human named a status, `mark approve` without `--to` refuses instead of taking the default (v0.30). So gates are never revoked yet never reused unseen: every way back to work passes the human.
 
 **Human tokens.** `mark approve`, `mark reject` and the opening approval in `mark claim` consume a token
 written by the `user-prompt` hook when a person typed the matching command. An approve or reject token
 must name the ticket (12 h TTL); it also records the words after the id, which `approve --to` must
-match. `mark claim` takes any `/mark:feature` / `/mark:fix` token, since the number does not exist yet,
+match, and the text after them as typed. `mark approve` records that text as the human's answer
+(`locks/<id>.human.result.json`), the newest result, so the next `mark dispatch` hands it over
+(v0.35). `mark claim` takes any `/mark:feature` / `/mark:fix` token, since the number does not exist yet,
 so those live 2 h. Models cannot fire UserPromptSubmit, and the gates the tokens lead to are CLI-only,
 so an orchestrator cannot approve on its own. `mark claim` without a token creates the ticket
 unapproved; `/mark:approve <id>` approves the opening.
@@ -270,7 +273,10 @@ only by `--ff-only` and is pushed (a failed push undoes the local fast-forward),
 failure before that lands nothing. Then `passed` is committed and pushed, and the remote
 branch, worktree and local branch are removed (cleanup problems are notes, not failures). Once
 main has moved, cleanup forces the worktree out (files the regression left behind would otherwise
-keep it) and runs even if recording `passed` fails (v0.32). `mark set <id> superseded` removes
+keep it) and runs even if recording `passed` fails (v0.32). A process the regression started can
+still write there while git deletes it, so removal is retried (3 tries, 5 s apart); when a failed
+`--force` has already dropped git's record, the half-deleted directory itself is removed. A last
+failure is reported with git's own error (v0.35). `mark set <id> superseded` removes
 the ticket's worktree, local and remote branch the same way (`merge.discard`, v0.32) and prints
 the branch tip with the `git branch` command that brings it back.
 A failure is recorded as `locks/<id>.merge.result.json`; while it is newer than `status.md`,

@@ -22,11 +22,15 @@ dispatch time instead of reaching a subagent. The engine always prepends the
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 from . import defaults, ports, states
+from .config import MarkConfig
 from .flow import Action, Ctx, FlowError
 from .i18n import t
 
@@ -142,3 +146,27 @@ def render(ctx: Ctx, action: Action, prev: str = "", trigger: str = "") -> str:
         head.append(f"<!-- mark:outputs {','.join(outputs) or '-'} -->")
     return "\n".join(head) + "\n\n" + body.rstrip() + "\n"
 
+
+def _record_path(cfg: MarkConfig, ticket_id: str, role: str) -> Path:
+    return cfg.state_dir / "locks" / f"{ticket_id}.{role}.brief.json"
+
+
+def _digest(prompt: str) -> str:
+    text = " ".join(prompt.split())  # whitespace may shift in a copy; words may not
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def remember(cfg: MarkConfig, ticket_id: str, role: str, prompt: str) -> None:
+    """Keep the digest of the printed prompt, so the dispatch guard can tell an edited copy."""
+    path = _record_path(cfg, ticket_id, role)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"sha256": _digest(prompt)}) + "\n", encoding="utf-8")
+
+
+def matches(cfg: MarkConfig, ticket_id: str, role: str, prompt: str) -> bool | None:
+    """Whether `prompt` is the one `mark dispatch` printed last for this role; None if none was."""
+    try:
+        data = json.loads(_record_path(cfg, ticket_id, role).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return isinstance(data, dict) and data.get("sha256") == _digest(prompt)

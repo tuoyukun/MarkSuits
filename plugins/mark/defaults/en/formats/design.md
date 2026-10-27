@@ -7,11 +7,11 @@ Written by the designer; read by coder-plan, coder-impl and the tester.
 
 ## States
 <!-- mark:states -->
-| id | component | state | how it looks | entered when (container decides) |
-|---|---|---|---|---|
-| S-1 | ProjectCard | default | … | project loaded |
-| S-2 | ProjectCard | empty | … | project has no tasks |
-| S-3 | ProjectCard | error | … | load failed |
+| id | component | state | how it looks | entered when (container decides) | reach |
+|---|---|---|---|---|---|
+| S-1 | ProjectCard | default | … | project loaded | e2e |
+| S-2 | ProjectCard | empty | … | project has no tasks | e2e |
+| S-3 | ProjectCard | error | … | load failed | qa-only |
 
 ## Design intent
 <why it looks and behaves this way; alternatives rejected and why>
@@ -54,5 +54,8 @@ Rules:
 
 - `S-N` ids are never reused; the preview renders exactly the states listed here.
 - Error, empty, loading and edge states are listed, not just the happy path.
+- `reach`: `e2e` when a user action in the project's test environment gets there and it stays
+  long enough to assert; `qa-only` when it does not (a flash, a state that environment cannot
+  produce). The tester does not fail `qa-only` states; design QA checks them.
 - The three integration-contract items are always present; "none" is an answer, a missing
   item is not.

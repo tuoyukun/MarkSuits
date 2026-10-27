@@ -1,7 +1,7 @@
 """Guards for subagent dispatch (PreToolUse: Agent | Task) and its lifecycle."""
 from __future__ import annotations
 
-from .. import states, tickets
+from .. import brief, states, tickets
 from ..config import DEFAULT_ROLES
 from ..gitutil import (ahead_of, current_branch, dirty_paths, git, has_remote, is_ancestor,
                        patch_unique, ref_exists, worktrees)
@@ -132,6 +132,17 @@ def status_commit_guard(env: Env) -> str | None:
     return None
 
 
+def brief_guard(env: Env) -> str | None:
+    """The prompt is the one `mark dispatch` printed: an edited copy never starts an agent."""
+    target = _pipeline_target(env)
+    if not isinstance(target, Target):
+        return None
+    prompt = str(env.tool_input.get("prompt", ""))
+    if brief.matches(env.cfg, target.id, env.dispatch_role, prompt) is False:
+        return env.t("dispatch.brief_changed", id=target.id, role=env.dispatch_role)
+    return None
+
+
 def dedup_guard(env: Env) -> str | None:
     """One live subagent per (ticket, role). Runs last: it creates the lock."""
     target = _pipeline_target(env)
@@ -140,7 +151,8 @@ def dedup_guard(env: Env) -> str | None:
     return locks.acquire(env, target, env.dispatch_role)
 
 
-PRE_DISPATCH = [staffed_guard, target_guard, status_guard, gate_guard,branch_guard, status_commit_guard, dedup_guard]
+PRE_DISPATCH = [staffed_guard, target_guard, status_guard, gate_guard,branch_guard, status_commit_guard, brief_guard,
+                dedup_guard]
 
 
 def status_reminder(env: Env) -> str | None:

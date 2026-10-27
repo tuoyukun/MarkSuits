@@ -40,6 +40,10 @@ Rules:
 - Criteria are verified end to end by default. Tag one `[unit]` when no user action can reach
   it (a pure function, an algorithm, a backend contract or error code): coder-impl covers it
   with a unit test, and the tester accepts that test.
+- "Reachable" means in the project's test environment (simulator, emulator, test browser),
+  not on a real device. When the platform there cannot produce the state or behave as written
+  (a permission state, a system screen, hardware), settle it before review: tag `[unit]`, or
+  word the criterion as what the environment shows, and record it as a `DEC-N`.
 - `DEC-N` records each scope, technical or architecture decision agreed with the human (write
   `none` if there were none). Later roles follow them; changing one goes back to the human
   through `blocked-unclear`.

@@ -219,6 +219,7 @@ def cmd_dispatch(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
     for key, params in flow.ensure_isolation(ctx):
         _say(cfg, err, key, **params)
     prompt = brief.render(ctx, action, prev=prev, trigger=trigger)
+    brief.remember(cfg, ctx.id, action.role, prompt)
     out.write(f"subagent_type: {defaults.agent_type(cfg, action.role)}\n")
     out.write(f"description: {ctx.id} {action.scenario}\n")
     out.write("--- prompt ---\n")
@@ -263,6 +264,8 @@ def cmd_approve(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> i
         _say(cfg, out, "approve.gate", gate=f"{cfg.state_rel}/gates/{ctx.id}.{res.gate}")
     if res.rounds:
         _say(cfg, out, "approve.rounds", rounds=", ".join(map(str, res.rounds)))
+    if res.answer:
+        _say(cfg, out, "approve.answer", answer=res.answer)
     return _commit(cfg, ctx, f"{ctx.id}: approved {res.old} -> {res.new}", opts, out)
 
 
@@ -384,6 +387,8 @@ def cmd_upgrade(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> i
 
 
 _PLUGIN = Path(__file__).resolve().parents[2]
+LANGUAGES = {"en": "English", "zh-CN": "简体中文"}
+
 RULES = {
     "orchestrator": _PLUGIN / "rules" / "orchestrator.md",
     "role": _PLUGIN / "skills" / "role-rules" / "SKILL.md",
@@ -410,6 +415,14 @@ def cmd_rules(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
         if end != -1:
             text = text[end + 4:].lstrip("\n")
     out.write(text)
+    if name == "orchestrator":
+        try:
+            root = find_project_root(cwd)
+            locale = load_config(root).locale if root else ""
+        except ConfigError:
+            locale = ""
+        if locale:  # the rules are English; say which language the human gets
+            out.write("\n" + t(locale, "rules.locale", loc=locale, language=LANGUAGES.get(locale, locale)) + "\n")
     return 0
 
 def cmd_format(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:

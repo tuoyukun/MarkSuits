@@ -553,7 +553,7 @@ MESSAGES["en"].update({
     "merge.no_regression": "No `[merge] regression` command is configured; merging on the tester's verdict alone.",
     "merge.green": "Regression passed: `{cmd}`.",
     "merge.landed": "`{branch}` fast-forwarded into {main} and pushed.",
-    "merge.kept_worktree": "Could not remove worktree {wt} (untracked files?). Remove it by hand.",
+    "merge.kept_worktree": "Could not remove worktree {wt}: {error}\nThe work is on main. Stop what still runs there (dev server, bundler), then: git worktree prune && rm -rf {wt}",
     "merge.kept_branch": "Could not delete branch {branch}. Delete it by hand.",
     "merge.kept_remote": "Could not delete origin/{branch}. Delete it by hand.",
     "merge.discarded": "Removed {branch} and its worktree (tip {sha}; recover with `git branch {branch} {sha}`).",
@@ -661,6 +661,21 @@ MESSAGES["en"].update({
         "Ask the human to type it. Never pick the status for them."
     ),
     "flow.approve_to": "{id} is at `{status}`; `--to {to}` is not possible here. Possible: {allowed}.",
+    "flow.approve_need_answer": (
+        "{id} is blocked on a question, so the approval must carry the human's answer. Ask them to type\n"
+        "/mark:approve {id} {to} <their answer>, in one line. Never write the answer for them."
+    ),
+    "flow.approve_testing_early": (
+        "{id} cannot skip to `testing`: nothing has been built yet (no handoff.md), or design QA has not passed.\n"
+        "Approve to `developing` instead."
+    ),
+    "approve.answer": "Recorded the human's answer; the next dispatch hands it over: {answer}",
+    "approve.prev": "The human, approving the ticket at `{status}` ({note}), said: {answer}",
+    "dispatch.brief_changed": (
+        "This prompt is not what `mark dispatch {id}` printed for `{role}`. Pass everything after\n"
+        "`--- prompt ---` unchanged; to change the brief, run `mark dispatch` again (with --prev)."
+    ),
+    "rules.locale": "This project's locale is `{loc}`: talk to the human in {language}, whatever language these rules are in.",
     "flow.approve_need_to": (
         "{id} is at `{status}`: the human must say where it goes. Ask them to type\n"
         "/mark:approve {id} <status>, one of: {allowed}."
@@ -803,7 +818,7 @@ MESSAGES["zh-CN"].update({
     "merge.no_regression": "没有配置 `[merge] regression` 命令；仅凭 tester 结论合并。",
     "merge.green": "回归通过：`{cmd}`。",
     "merge.landed": "`{branch}` 已快进合入 {main} 并推送。",
-    "merge.kept_worktree": "无法删除 worktree {wt}（有未跟踪文件？）。请手工删除。",
+    "merge.kept_worktree": "无法删除 worktree {wt}：{error}\n改动已在 main 上。先停掉还在那里运行的进程（开发服务、打包器），再执行：git worktree prune && rm -rf {wt}",
     "merge.kept_branch": "无法删除分支 {branch}。请手工删除。",
     "merge.kept_remote": "无法删除 origin/{branch}。请手工删除。",
     "merge.discarded": "已删除 {branch} 及其 worktree（末端提交 {sha}；恢复：`git branch {branch} {sha}`）。",
@@ -907,6 +922,21 @@ MESSAGES["zh-CN"].update({
         "请 Human 亲自输入。绝不能替人选去向。"
     ),
     "flow.approve_to": "{id} 停在 `{status}`，这里不能用 `--to {to}`。可选：{allowed}。",
+    "flow.approve_need_answer": (
+        "{id} 卡在一个问题上，放行时必须带上 Human 的答复。请 Human 在一行里输入\n"
+        "/mark:approve {id} {to} <答复>。绝不能替人写答复。"
+    ),
+    "flow.approve_testing_early": (
+        "{id} 不能直接进 `testing`：还没有实现（没有 handoff.md），或集成态设计验收没通过。\n"
+        "请改为放行到 `developing`。"
+    ),
+    "approve.answer": "已记下 Human 的答复，下一次派发会带上：{answer}",
+    "approve.prev": "Human 在 `{status}` 放行时（{note}）说：{answer}",
+    "dispatch.brief_changed": (
+        "这个 prompt 和 `mark dispatch {id}` 给 `{role}` 打印的不一致。请把 `--- prompt ---` 之后的内容\n"
+        "原样传入；要改简报，就重新运行 `mark dispatch`（可加 --prev）。"
+    ),
+    "rules.locale": "本项目 locale 是 `{loc}`：不管这份规则用什么语言写，都用{language}和 Human 说话。",
     "flow.approve_need_to": (
         "{id} 停在 `{status}`：去向要由 Human 指定。请 Human 输入\n"
         "/mark:approve {id} <状态>，可选：{allowed}。"

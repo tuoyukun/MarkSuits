@@ -66,6 +66,9 @@ class CliTest(unittest.TestCase):
         self.assertEqual(run(self.root, "format", "nope")[0], 1)
         self.assertEqual(run(self.root, "format", "../config.toml")[0], 2)
 
+    def test_orchestrator_rules_name_the_language(self):
+        self.assertIn("都用简体中文和 Human 说话", run(self.root, "rules")[1])
+
     def test_rules_collaboration_follows_the_project_locale(self):
         self.assertIn("协作", run(self.root, "rules", "collaboration")[1])
         self.assertIn("How a Mark project is built", run(make_project(None), "rules", "collaboration")[1])

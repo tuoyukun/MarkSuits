@@ -57,7 +57,7 @@ _FEATURE_EDGES: dict[str, tuple[str, ...]] = {
     "pending-merge": ("passed", "failed-impl", "planning"),
     "blocked-plan": ("planning", "developing"),
     "blocked-spec": ("designing", "planning", "developing"),
-    "blocked-unclear": ("designing", "planning", "developing"),
+    "blocked-unclear": ("designing", "planning", "developing", "testing"),
     "passed": (),
     "superseded": (),
 }
@@ -71,7 +71,7 @@ _BUG_EDGES: dict[str, tuple[str, ...]] = {
     "pending-merge": ("passed", "failed-impl", "planning"),
     "blocked-plan": ("planning", "developing"),
     "blocked-spec": ("designing", "planning", "developing"),
-    "blocked-unclear": ("designing", "planning", "developing"),
+    "blocked-unclear": ("designing", "planning", "developing", "testing"),
     "passed": (),
     "superseded": (),
 }
