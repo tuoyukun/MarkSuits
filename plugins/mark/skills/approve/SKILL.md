@@ -29,8 +29,9 @@ Argument: `$ARGUMENTS`
      `testing` when the answer only changes how a criterion is accepted and the work is built).
    Never add a status the human did not type.
 
-   Whatever the human typed after the id (and the status) is their answer. `mark approve` records
-   it, and the next `mark dispatch` hands it to the role. `blocked-unclear` refuses without one:
+   Whatever the human typed after the id (and the status) is their answer. `mark approve` reads it
+   from what they typed (never pass it as an argument), records it, and the next `mark dispatch`
+   hands it to the role. `blocked-unclear` refuses without one:
    then ask them to type `/mark:approve <id> <status> <answer>` in one line.
 3. If it refuses, tell the human why in plain words and stop. Do not retry another way.
 4. If the answer changes a criterion or a decision, update the `AC-N` or add the `DEC-N` in
