@@ -589,6 +589,49 @@ class MergeTest(unittest.TestCase):
         self.assertEqual((action.kind, action.message), ("stop", "next.merge_failed"))
         self.assertIn("boom", action.params["reason"])
 
+    def tested_green(self):
+        """The tester's PASSED round: main merged in, `mark regress` with a new test not yet
+        committed, then the test and the verdict committed. Returns the run counter."""
+        runs = self.root.parent / f"{self.root.name}-runs.log"
+        self.regression(f"echo run >> {runs}")
+        sh(self.wt, "git", "merge", "-q", "main")
+        write(self.wt / "e2e.txt", "new test")
+        code, out, err = run(self.wt, "regress", "b0001")
+        self.assertEqual(code, 0, err + out)
+        self.assertIn("Regression passed", out)
+        self.commit_wt("e2e.txt", "new test", verdict="PASSED")
+        return runs
+
+    def test_merge_reuses_the_testers_green_when_only_ticket_docs_moved(self):
+        runs = self.tested_green()
+        write(self.dir / "notes.md", "main moved with ticket bookkeeping only")
+        sh(self.root, "git", "add", str(self.dir / "notes.md"))
+        sh(self.root, "git", "commit", "-qm", "status")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        code, out, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 0, err + out)
+        self.assertIn("Regression skipped", out)
+        self.assertEqual(runs.read_text().count("run"), 1)
+        self.assertIn("status: passed", (self.dir / "status.md").read_text())
+
+    def test_merge_reruns_when_code_changed_after_the_green(self):
+        runs = self.tested_green()
+        write(self.root / "other.txt", "o")
+        sh(self.root, "git", "add", "other.txt")
+        sh(self.root, "git", "commit", "-qm", "main moved")
+        sh(self.root, "git", "push", "-q", "origin", "main")
+        code, out, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 0, err + out)
+        self.assertIn("Regression passed", out)
+        self.assertEqual(runs.read_text().count("run"), 2)
+
+    def test_red_regress_leaves_no_green(self):
+        self.regression("echo boom && exit 5")
+        code, _, err = run(self.wt, "regress", "b0001")
+        self.assertEqual(code, 1)
+        self.assertIn("boom", err)
+        self.assertFalse((self.root / ".mark/locks/b0001.regress.json").exists())
+
     def test_conflict_aborts(self):
         write(self.root / "fix.txt", "main side")
         sh(self.root, "git", "add", "fix.txt")

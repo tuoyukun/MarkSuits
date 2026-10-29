@@ -76,6 +76,8 @@ Ids are never reused, so a comment like "R-4 withdraws R-1" stays unambiguous.
 At `pending-merge` the orchestrator runs `mark merge <id>`: it merges the latest main into the
 ticket branch, runs the `[merge] regression` command from `.mark/config.toml` in the worktree,
 fast-forwards main, pushes, marks the ticket `passed` and removes its worktree and branch.
+It skips the regression when the tester's `mark regress` passed on the same code: merging main
+changed nothing outside ticket docs.
 If anything fails (conflict, red regression, push), main is left untouched and the
 orchestrator stops for you: fix the cause and ask it to merge again, or
 `/mark:reject <id> <comments>`.

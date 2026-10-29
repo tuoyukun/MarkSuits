@@ -82,8 +82,9 @@ open a failure with `failureType: needs-unit-test`, `routeTo: coder-impl`.
 - While iterating, run only the specs that touch this ticket. Never weaken a test to make it
   faster or greener.
 - **Only in a round you will report PASSED:** merge the main branch into the ticket branch
-  (`git merge origin/<main branch>`), then run the full regression (command in `CLAUDE.md`).
-  A non-zero exit means it is not PASSED. Record the main commit and the result line in the
+  (`git merge origin/<main branch>`), then run the full regression with `mark regress <id>`
+  (it runs the command in `CLAUDE.md` and records the green, so `mark merge` need not run it
+  again while the code is unchanged). A non-zero exit means it is not PASSED. Record the main commit and the result line in the
   verdict.
 - Keep evidence for failures (screenshot, trace or video, as the project's test setup
   provides) and reference it in the failure.

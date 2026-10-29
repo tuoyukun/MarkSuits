@@ -72,7 +72,8 @@ bug:     planning → developing → testing → pending-merge → passed
 
 到 `pending-merge` 时，orchestrator 执行 `mark merge <id>`：把最新 main 合入工单分支，在 worktree 里
 跑 `.mark/config.toml` 中 `[merge] regression` 配置的命令，快进 main、推送，把工单标为 `passed`，
-并删除它的 worktree 和分支。任何一步失败（冲突、回归变红、推送失败），main 都不会被改动，
+并删除它的 worktree 和分支。如果 tester 的 `mark regress` 已在同一份代码上通过（合入 main 后除工单文档外
+没有变化），就不再跑回归。任何一步失败（冲突、回归变红、推送失败），main 都不会被改动，
 orchestrator 会停下等你：处理好原因后让它重新合并，或用 `/mark:reject <id> <意见>` 打回。
 
 每个角色都会加载的文档（CLAUDE.md、本文件、角色文件、派活模板、制品格式、修复方案）在

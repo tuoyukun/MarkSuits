@@ -314,6 +314,16 @@ def cmd_merge(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
     return 1 if any(key == "flow.push_failed" for key, _ in notes) else 0
 
 
+def cmd_regress(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    opts, pos = _parse(args, set())
+    if opts is None or len(pos) != 1:
+        _say(cfg, err, "cli.usage")
+        return 2
+    for key, params in merge.regress(flow.load(cfg, pos[0])):
+        _say(cfg, out, key, **params)
+    return 0
+
+
 def cmd_general(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     """`mark general new` | `merge <branch>` | `drop <branch> [--force]`: the no-ticket lane."""
     if args == ["new"]:
@@ -469,7 +479,7 @@ def cmd_journeys(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
 
 COMMANDS = {"format": cmd_format, "next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
             "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim, "merge": cmd_merge,
-            "general": cmd_general, "upgrade": cmd_upgrade, "journeys": cmd_journeys}
+            "regress": cmd_regress, "general": cmd_general, "upgrade": cmd_upgrade, "journeys": cmd_journeys}
 
 
 def main(argv: list[str] | None = None, cwd: Path | None = None,

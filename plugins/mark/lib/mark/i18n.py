@@ -448,6 +448,7 @@ _USAGE_EN = (
     "  mark reject <id> --item \"<text>\"... [--to planning] [--no-commit]   human only (/mark:reject)\n"
     "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
     "  mark commit <id> [-m \"<message>\"]             commit + push the ticket's state on main\n"
+    "  mark regress <id>                              run the merge regression in the ticket's worktree (tester)\n"
     "  mark merge <id>                                pending-merge -> passed: merge main in, regression, ff-only, push\n"
     "  mark general new | merge <branch> | drop <branch> [--force]\n"
     "                                                 no-ticket lane for docs/config (/mark:general)\n"
@@ -552,6 +553,12 @@ MESSAGES["en"].update({
     ),
     "merge.no_regression": "No `[merge] regression` command is configured; merging on the tester's verdict alone.",
     "merge.green": "Regression passed: `{cmd}`.",
+    "merge.reused": "Regression skipped: `{cmd}` already passed on this code (`mark regress`), and merging main changed nothing outside ticket docs.",
+    "regress.green": "Regression passed: `{cmd}`. `mark merge` reuses it while the code stays the same.",
+    "regress.red": (
+        "Regression `{cmd}` failed (exit {code}).\n"
+        "Full log: {log}\n--- last lines ---\n{tail}"
+    ),
     "merge.landed": "`{branch}` fast-forwarded into {main} and pushed.",
     "merge.kept_worktree": "Could not remove worktree {wt}: {error}\nThe work is on main. Stop what still runs there (dev server, bundler), then: git worktree prune && rm -rf {wt}",
     "merge.kept_branch": "Could not delete branch {branch}. Delete it by hand.",
@@ -819,6 +826,12 @@ MESSAGES["zh-CN"].update({
     ),
     "merge.no_regression": "没有配置 `[merge] regression` 命令；仅凭 tester 结论合并。",
     "merge.green": "回归通过：`{cmd}`。",
+    "merge.reused": "跳过回归：`{cmd}` 已在同一份代码上通过（`mark regress`），合入 main 后除工单文档外没有变化。",
+    "regress.green": "回归通过：`{cmd}`。代码不变时，`mark merge` 直接沿用这次结果。",
+    "regress.red": (
+        "回归 `{cmd}` 失败（退出码 {code}）。\n"
+        "完整日志：{log}\n--- 最后几行 ---\n{tail}"
+    ),
     "merge.landed": "`{branch}` 已快进合入 {main} 并推送。",
     "merge.kept_worktree": "无法删除 worktree {wt}：{error}\n改动已在 main 上。先停掉还在那里运行的进程（开发服务、打包器），再执行：git worktree prune && rm -rf {wt}",
     "merge.kept_branch": "无法删除分支 {branch}。请手工删除。",

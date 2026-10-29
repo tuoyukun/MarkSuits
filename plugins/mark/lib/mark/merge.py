@@ -5,7 +5,9 @@
 2. In the worktree: merge the latest main into the ticket branch (conflict: abort),
    then refuse docs the branch grew past `[[doc_budget]]`, end-to-end tests its plan does
    not name as new, and a `JOURNEYS.md` that does not list exactly the tests there are.
-3. In the worktree: run `[merge] regression` (exit 0 = green; empty = skipped).
+3. In the worktree: run `[merge] regression` (exit 0 = green; empty = skipped). Skipped too
+   when `mark regress` recorded it green on the same code: nothing but ticket docs changed
+   since, main included.
 4. In the main checkout: fast-forward main to the branch and push it.
 5. `passed`, committed and pushed; then the worktree and branch are removed.
 
@@ -16,13 +18,15 @@ stops for the human instead of retrying.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
-from . import budget, e2e, flow, reviews
+from . import budget, e2e, flow, reviews, states
 from .flow import Ctx, FlowError
 from .gitutil import dirty_paths, git, has_remote, ref_exists, worktrees
 from .i18n import t
@@ -75,20 +79,74 @@ def _precheck(ctx: Ctx) -> None:
                         files="\n".join(f"  - {p}" for p in dirty[:10]))
 
 
+def _run_regression(cfg, worktree: Path, log: Path) -> tuple[int, dict]:
+    """Run `[merge] regression` in `worktree`, output to `log`; (exit code, params for a red message)."""
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("w", encoding="utf-8") as fh:
+        code = subprocess.run(cfg.merge_regression, shell=True, cwd=worktree, stdout=fh,
+                              stderr=subprocess.STDOUT).returncode
+    tail = "\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-LOG_TAIL:])
+    return code, {"cmd": cfg.merge_regression, "code": code, "log": log.relative_to(cfg.root).as_posix(),
+                  "tail": tail}
+
+
 def _regression(cfg, worktree: Path, log_name: str, notes: Notes) -> None:
     cmd = cfg.merge_regression
     if not cmd:
         notes.append(("merge.no_regression", {}))
         return
-    log = cfg.state_dir / "locks" / f"{log_name}.merge.log"
-    log.parent.mkdir(parents=True, exist_ok=True)
-    with log.open("w", encoding="utf-8") as fh:
-        code = subprocess.run(cmd, shell=True, cwd=worktree, stdout=fh,
-                              stderr=subprocess.STDOUT).returncode
+    code, params = _run_regression(cfg, worktree, cfg.state_dir / "locks" / f"{log_name}.merge.log")
     if code != 0:
-        tail = "\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-LOG_TAIL:])
-        raise FlowError("merge.red", cmd=cmd, code=code, log=log.relative_to(cfg.root).as_posix(), tail=tail)
+        raise FlowError("merge.red", **params)
     notes.append(("merge.green", {"cmd": cmd}))
+
+
+def _green_path(cfg, ticket_id: str) -> Path:
+    return cfg.state_dir / "locks" / f"{ticket_id}.regress.json"
+
+
+def _snapshot(worktree: Path) -> str | None:
+    """Tree id of the worktree's files as they are now, committed or not (ignored files aside)."""
+    with tempfile.TemporaryDirectory() as d:
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(d) / "index")}
+        for args in (["add", "-A"], ["write-tree"]):
+            p = subprocess.run(["git", "-C", str(worktree), *args], env=env, capture_output=True, text=True)
+            if p.returncode != 0:
+                return None
+    return p.stdout.strip() or None
+
+
+def _same_code(cfg, worktree: Path, tree: str) -> bool:
+    """HEAD matches `tree` outside the ticket dirs (verdicts, status: main moves with them)."""
+    skip = [f":(exclude){cfg.state_rel}/{d}" for d in states.KIND_DIRS.values()]
+    return bool(tree) and git(["diff", "--quiet", tree, "HEAD", "--", ".", *skip], worktree)[0] == 0
+
+
+def regress(ctx: Ctx) -> Notes:
+    """`mark regress <id>`: run the merge regression in the ticket's worktree as it is now. Green
+    records the code it ran on, and `mark merge` skips its own run while the code is the same."""
+    cfg = ctx.cfg
+    if not cfg.merge_regression:
+        return [("merge.no_regression", {})]
+    if not ctx.worktree.is_dir():
+        raise FlowError("merge.no_worktree", id=ctx.id, branch=ctx.branch)
+    green = _green_path(cfg, ctx.id)
+    green.unlink(missing_ok=True)
+    tree = _snapshot(ctx.worktree)  # before the run: what it tested, whatever the run writes
+    code, params = _run_regression(cfg, ctx.worktree, cfg.state_dir / "locks" / f"{ctx.id}.regress.log")
+    if code != 0:
+        raise FlowError("regress.red", **params)
+    if tree:
+        green.write_text(json.dumps({"tree": tree, "cmd": cfg.merge_regression, "at": time.time()}),
+                         encoding="utf-8")
+    return [("regress.green", {"cmd": cfg.merge_regression})]
+
+
+def _tested(ctx: Ctx) -> dict | None:
+    try:
+        return json.loads(_green_path(ctx.cfg, ctx.id).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 def _suite_at(cfg, worktree: Path, ref: str, tests_dir: str) -> set[str]:
@@ -125,10 +183,11 @@ def _journeys(cfg, worktree: Path, base: str, plan: str | None) -> None:
 
 
 def land(cfg, worktree: Path, branch: str, log_name: str, conflict: FlowError,
-         plan: str | None = None) -> Notes:
+         plan: str | None = None, tested: dict | None = None) -> Notes:
     """Merge the latest main into `branch` (in its worktree), run the regression there,
     fast-forward main and push it. Main is untouched unless every step passes. `plan`: the
-    ticket's plan text, which names the end-to-end tests the branch may add."""
+    ticket's plan text, which names the end-to-end tests the branch may add. `tested`: the
+    `mark regress` record; its green stands while the code it ran on is unchanged."""
     notes: Notes = []
     main, main_branch = cfg.root, cfg.main_branch
     base = main_branch
@@ -145,7 +204,11 @@ def land(cfg, worktree: Path, branch: str, log_name: str, conflict: FlowError,
     if over:
         raise FlowError("merge.budget", files="\n".join(f"  - {f}" for f in over))
     _journeys(cfg, worktree, base, plan)
-    _regression(cfg, worktree, log_name, notes)
+    if tested and cfg.merge_regression and tested.get("cmd") == cfg.merge_regression \
+            and _same_code(cfg, worktree, str(tested.get("tree", ""))):
+        notes.append(("merge.reused", {"cmd": cfg.merge_regression}))
+    else:
+        _regression(cfg, worktree, log_name, notes)
 
     before = git(["rev-parse", "HEAD"], main)[1]
     if git(["merge", "-q", "--ff-only", branch], main)[0] != 0:
@@ -211,7 +274,7 @@ def _merge(ctx: Ctx) -> Notes:
     conflict = FlowError("merge.conflict", id=ctx.id, branch=ctx.branch)
     plan = next((p.read_text(encoding="utf-8", errors="replace")
                  for p in map(ctx.find, e2e.PLAN_FILES) if p is not None), "")
-    notes = land(ctx.cfg, ctx.worktree, ctx.branch, ctx.id, conflict, plan)
+    notes = land(ctx.cfg, ctx.worktree, ctx.branch, ctx.id, conflict, plan, _tested(ctx))
     # The work is on main now: force past regression output, and clean up even if bookkeeping fails.
     try:
         flow.set_status(ctx, "passed")

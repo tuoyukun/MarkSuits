@@ -286,6 +286,13 @@ still write there while git deletes it, so removal is retried (3 tries, 5 s apar
 failure is reported with git's own error (v0.35). `mark set <id> superseded` removes
 the ticket's worktree, local and remote branch the same way (`merge.discard`, v0.32) and prints
 the branch tip with the `git branch` command that brings it back.
+**Reused regression (v0.37).** The tester runs the full regression through `mark regress <id>`
+(same command, log in `locks/<id>.regress.log`). Before the run it snapshots the worktree's
+files as a tree (a throwaway index, so uncommitted tests count); a green run records that tree
+and the command in `locks/<id>.regress.json`, a red one removes it. `mark merge`, after merging
+main in, skips its own run when the command is unchanged and `git diff <tree> HEAD` is empty
+outside `<state_dir>/features` and `<state_dir>/bugs` (verdicts and status commits move main
+without changing code). Anything else runs the regression as before; general lanes always do.
 A failure is recorded as `locks/<id>.merge.result.json`; while it is newer than `status.md`,
 `mark next` stops for the human. Concurrent merges serialize on the fast-forward: the loser
 fails with `merge.ff_failed` and is run again.
