@@ -496,8 +496,10 @@ MESSAGES["en"].update({
     "next.wait": "{roles} is still working on {id}. Wait for its completion notice; never dispatch a second one.",
     "next.drafting": (
         "{id} is `drafting`: write `{dir}/requirement.md` with the human (the agreed scope,\n"
-        "acceptance criteria and decisions; open questions `none`). If review-requirement.md has open items,\n"
-        "address each one. Then `mark set {id} review-requirement` and stop."
+        "acceptance criteria and decisions; open questions `none`). Read it first if it exists and\n"
+        "continue from what it records; never ask again what is already written there. If\n"
+        "review-requirement.md has open items, address each one. Then `mark set {id} review-requirement`\n"
+        "and stop."
     ),
     "next.review_requirement": (
         "{id} is at `review-requirement`, a human review gate. Give the human the path of requirement.md,\n"
@@ -773,7 +775,8 @@ MESSAGES["zh-CN"].update({
     "next.wait": "{roles} 还在处理 {id}。等它的完成通知，绝不派第二个。",
     "next.drafting": (
         "{id} 是 `drafting`：和 Human 一起写 `{dir}/requirement.md`（谈定的范围、验收标准和决策；\n"
-        "待确认写「无」）。review-requirement.md 里有未结意见的，逐条处理。然后 `mark set {id} review-requirement`，停下。"
+        "待确认写「无」）。文件已存在就先读，接着已写下的内容继续，不要重问已经写在那里的事；\n"
+        "review-requirement.md 里有未结意见的，逐条处理。然后 `mark set {id} review-requirement`，停下。"
     ),
     "next.review_requirement": (
         "{id} 停在 `review-requirement`，这是人审闸门。把 requirement.md 的路径交给 Human，每条决策（DEC-N）用一行列出，\n"

@@ -8,7 +8,7 @@ human opens tickets and approves or rejects at three review gates; merging is au
 
 | You type | What happens |
 |---|---|
-| `/mark:feature [--discuss] <description>` | The orchestrator discusses the request with you (scope, then technical choices, then architecture for a large one; `--discuss` forces that), opens a ticket once you agree, and writes the requirement for your review |
+| `/mark:feature [--discuss] <description>` | The orchestrator opens the ticket (your command is the approval), discusses the request with you (scope, then technical choices, then architecture for a large one; `--discuss` forces that), records each agreement in the requirement as you make it, and hands it to you for review |
 | `/mark:feature <id>` | One more step of that feature |
 | `/mark:fix <description or id>` | Opens or continues a bug and runs it to `passed` (no review gates) |
 | `/mark:approve <id> [<status>]` | Approves the opening of a ticket, the requirement, the design, the plan, or where a blocked ticket goes next; then continues |

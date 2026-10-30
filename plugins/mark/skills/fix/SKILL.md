@@ -29,10 +29,14 @@ Run `mark next <id>` and keep looping as above.
 2. **Challenge it.** Is it really a bug, or a change request or new feature? Is the fix
    contained, or architectural? If it should be a feature, say so and stop; suggest
    `/mark:feature`.
-3. **List what is missing** (reproduction steps, expected behaviour, impact), one line each.
-4. **Discuss and wait** for the human's confirmation.
-5. **Open the ticket.** `mark claim bug "<one-line description>" --slug <2-4-word-kebab-slug>` prints
-   `TICKET-ID: <id>`.
-   Write `.mark/bugs/<id>/bug.md`: the human's report verbatim, plus what you agreed on
-   reproduction, expectation and impact. Then `mark commit <id>`.
-6. **Run the chain** from `mark next <id>`.
+3. **Open the ticket first.** `mark claim bug "<one-line description>" --slug <2-4-word-kebab-slug>`
+   prints `TICKET-ID: <id>`. Open it before the discussion: the human's `/mark:fix` is the
+   approval to open (valid for 2 hours), and `bug.md` is the only place the discussion can be
+   written down, so a session end or `/clear` loses nothing. If `mark claim` says the opening is
+   not approved, ask the human to run `/mark:approve <id>` and continue here once it succeeds.
+4. **List what is missing** (reproduction steps, expected behaviour, impact), one line each, and
+   **discuss and wait** for the human's confirmation. Before the first question, read `bug.md`
+   if it exists (a resumed ticket) and do not re-ask what it records. Write
+   `.mark/bugs/<id>/bug.md` as items are settled: the human's report verbatim, plus what you
+   agreed on reproduction, expectation and impact.
+5. **Run the chain** from `mark next <id>` after `mark commit <id>`.

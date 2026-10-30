@@ -114,13 +114,15 @@ text, so templates can be localized freely.
 | pending-merge | automated merge (regression → ff-only → push); owner `orchestrator`, a failed merge stops for the human | — | — |
 | passed | done | — | — |
 
-The requirement review (v0.33) checks the input as the other two check outputs. Before the claim the
-orchestrator sizes the request: a large one (or `/mark:feature --discuss`) is discussed one topic
-per round — scope, technical choices, architecture — and every agreement lands in the requirement
-as a `DEC-N` under `<!-- mark:decisions -->`, which designer and coder-plan must follow (changing one
-is `blocked-unclear`). `mark claim` marks new features `requirement-gate: yes`; the dispatch gate
-guard requires `<id>.requirement-approved` for every role of such a ticket. Tickets opened before
-v0.33 lack the field and skip that gate, so no migration is needed.
+The requirement review (v0.33) checks the input as the other two check outputs. The orchestrator
+sizes the request and claims the ticket while the human's `/mark:feature` token is fresh, so the
+opening gate is written before the discussion starts and the ticket dir is where the discussion is
+recorded. A large one (or `/mark:feature --discuss`) is discussed one topic per round — scope,
+technical choices, architecture — and every agreement is written into the requirement as it is
+made, as a `DEC-N` under `<!-- mark:decisions -->`, which designer and coder-plan must follow
+(changing one is `blocked-unclear`). `mark claim` marks new features `requirement-gate: yes`; the
+dispatch gate guard requires `<id>.requirement-approved` for every role of such a ticket. Tickets
+opened before v0.33 lack the field and skip that gate, so no migration is needed.
 
 A failure only the UI directory can fix (the tester's `design-flaw`, or coder-impl finding one
 while `developing` / `failed-impl`) goes to `blocked-spec`, and the human sends it back to the
@@ -210,7 +212,7 @@ decision that can be computed is computed by the `mark` CLI and tested.
 
 | skill | does | continues until |
 |---|---|---|
-| `/mark:feature <id \| [--discuss] text>` | new: size it, discuss with the human (large: scope, technical choices, architecture), `mark claim`, `requirement.md`, `mark set … review-requirement`; existing: one step | `review-requirement` / one step |
+| `/mark:feature <id \| [--discuss] text>` | new: size it, `mark claim`, discuss with the human (large: scope, technical choices, architecture) writing agreements into `requirement.md`, `mark set … review-requirement`; existing: one step | `review-requirement` / one step |
 | `/mark:fix <id \| text>` | same for bugs (`bug.md`) | `pending-merge` or a stop (no review gates) |
 | `/mark:approve <id>` | `mark approve`, then continues | next human gate or stop |
 | `/mark:reject <id> <text>` | splits comments into items, `mark reject`, dispatches the rework | next human gate or stop |
