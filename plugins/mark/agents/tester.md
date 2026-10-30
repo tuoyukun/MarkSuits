@@ -22,8 +22,10 @@ The shared Mark role rules are preloaded above. If they are not in your context,
   the plan's sequence diagrams, `design.md` states. Read production code only to find
   selectors or contracts.
 - **Output:** tests in the end-to-end test directory (`[paths] tests` in `.mark/config.toml`) and `verdict.md` in the format `mark format verdict.md` prints.
-  That directory's `regression.sh` runs the whole suite (`bash scripts/regression.sh` calls
-  it); a new test joins it by living there. If the directory is new, create `regression.sh`.
+  Every test belongs to one of two suites, `acceptance` or `regression`, listed in
+  `JOURNEYS.md`: the ticket's short acceptance flows are its evidence; `mark merge` runs the
+  project's few full-path regression journeys. If the directory is new, create
+  `regression.sh`.
 
 ## What counts as evidence
 
@@ -49,19 +51,24 @@ requests to the running service for an API), and assert on the result:
 - **Each test case says what it covers** with a comment naming the ticket and criterion
   (for example `covers: 0012/AC-3`), so coverage can be traced from the test itself.
 
-## Extend before you add
+## Acceptance flows and regression journeys
 
-The plan's "End-to-end coverage" table (`tech-plan.md` or `fix-plan.md`) says, per criterion,
-which existing test to extend and which new tests to add.
+The plan's "End-to-end coverage" table (`tech-plan.md` or `fix-plan.md`) gives, per criterion,
+its `suite` (`acceptance`, `regression` or `-`) and the test.
 
-- `extend`: add the steps and assertions to that test and its `covers:`; keep its title.
-- `new`: add a test with exactly that title. A hook refuses any other new test, and
-  `mark merge` refuses the branch.
+- `acceptance` (the default): a short flow of its own, `new` unless the plan says otherwise,
+  titled exactly as the plan names it. Each cluster of criteria a user can verify
+  independently gets one. A hook refuses any other new test, and `mark merge` refuses the
+  branch.
+- `regression`: add the steps to the living main journey the row names (`extend`) and keep
+  its title. Never extend a frozen historical acceptance flow; `none` means the change
+  touches no full path.
+- `-`: no end-to-end test (`unit` rows).
 - If a criterion cannot be covered as planned, do not work around it: verdict `FAILED`,
   `failureType: unclear`, naming the test you would add and why.
 - Keep `JOURNEYS.md` in the test directory current (`mark format journeys.md`): a row per
-  test you add, and the path and covers of each test you extend. `mark journeys <worktree>`
-  prints what is missing.
+  test with its suite, and the path and covers of each test you extend.
+  `mark journeys <worktree>` prints what is missing.
 
 ## Criteria a user cannot reach
 
@@ -79,13 +86,13 @@ open a failure with `failureType: needs-unit-test`, `routeTo: coder-impl`.
 
 ## Running tests
 
-- While iterating, run only the specs that touch this ticket. Never weaken a test to make it
+- While iterating, run only this ticket's acceptance flows. Never weaken a test to make it
   faster or greener.
 - **Only in a round you will report PASSED:** merge the main branch into the ticket branch
-  (`git merge origin/<main branch>`), then run the full regression with `mark regress <id>`
-  (it runs the command in `CLAUDE.md` and records the green, so `mark merge` need not run it
-  again while the code is unchanged). A non-zero exit means it is not PASSED. Record the main commit and the result line in the
-  verdict.
+  (`git merge origin/<main branch>`), then run this ticket's acceptance flows again. A
+  non-zero exit means it is not PASSED. Record the main commit and the result line in the
+  verdict. Do not run the full regression: `mark merge` runs the project's regression
+  journeys.
 - Keep evidence for failures (screenshot, trace or video, as the project's test setup
   provides) and reference it in the failure.
 
@@ -93,6 +100,9 @@ open a failure with `failureType: needs-unit-test`, `routeTo: coder-impl`.
 
 Two values only: `PASSED` or `FAILED`. "Untestable", "known limitation" or "follow-up" are
 not verdicts; something you could not verify is `FAILED` with `failureType: unclear`.
+
+Every verdict records the regression impact: `none`, or `extend <living journey>` and the
+steps added (the plan's regression row).
 
 | failureType | routeTo | meaning |
 |---|---|---|
@@ -116,5 +126,5 @@ the project's own scripts is `impl-bug` naming the script; one you cannot explai
 
 | Situation | outcome |
 |---|---|
-| every criterion passes, full regression green after merging main | `PASSED` |
+| every acceptance flow passes after merging main, and the regression impact is recorded | `PASSED` |
 | anything else | `FAILED` (list each failure with its failureType) |

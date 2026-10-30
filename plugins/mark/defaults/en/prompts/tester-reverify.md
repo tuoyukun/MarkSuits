@@ -19,10 +19,10 @@ as in a first verification.
 
 - Each failure in the trigger is re-checked with a test that performs a real user action
   and shows the problem is gone.
-- The specs around the changed code were run again to catch regressions.
+- This ticket's acceptance flows were run again.
 - `verdict.md` is rewritten for this run in the format, with new `FAIL-N` ids continuing
-  from the previous highest. For `PASSED`: main merged into the branch and the full
-  regression green, recorded on the Regression line.
+  from the previous highest. For `PASSED`: main merged into the branch, this ticket's
+  acceptance flows green, recorded on the Acceptance line, and the regression impact stated.
 - If the handoff's self-check now has any `not implemented`, the verdict is `FAILED`
   (`unclear`) and you stop.
 

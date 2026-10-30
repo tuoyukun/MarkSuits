@@ -40,10 +40,10 @@ FORMAT_ANCHORS = {
     "design.md": ["<!-- mark:states -->", "S-1", "<!-- mark:open-questions -->"],
     "design-qa.md": ["<!-- mark:qa-round 1 -->", "<!-- mark:qa passed -->", "<!-- mark:qa blocked -->", "D-1"],
     "tech-plan.md": ["<!-- mark:tasks -->", "T-1", "SD-1", "sequenceDiagram", "<!-- mark:open-questions -->",
-                     "<!-- mark:e2e-plan -->", "| AC-1 | extend |", "| AC-2 | new |"],
+                     "<!-- mark:e2e-plan -->", "| AC-1 | new |", "| AC-2 | extend |"],
     "fix-plan.md": ["<!-- mark:ac -->", "AC-1", "[inline]", "<!-- mark:open-questions -->",
-                    "<!-- mark:e2e-plan -->", "| AC-1 | extend |", "| AC-2 | new |"],
-    "journeys.md": ["<!-- mark:journeys -->", "| test | file | path | covers |"],
+                    "<!-- mark:e2e-plan -->", "| AC-1 | new |", "| AC-2 | extend |"],
+    "journeys.md": ["<!-- mark:journeys -->", "| test | file | suite | path | covers |"],
     "handoff.md": ["<!-- mark:ac-table -->", "<!-- mark:blocked -->"],
     "verdict.md": ["<!-- mark:verdict FAILED -->", "FAIL-3", "failureType:", "routeTo:"],
 }

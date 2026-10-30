@@ -39,11 +39,11 @@ sequenceDiagram
 
 ## End-to-end coverage
 <!-- mark:e2e-plan -->
-| AC | action | test | steps to add / why no existing test fits |
-|---|---|---|---|
-| AC-1 | extend | <exact title from JOURNEYS.md> | <steps to add, and after which existing step> |
-| AC-2 | new | <title of the new test> | closest: <existing title>; <why adding steps to it cannot cover this> |
-| AC-3 | unit | - | <covered by a unit test (coder-impl)> |
+| AC | action | test | suite | steps to add / why no existing test fits |
+|---|---|---|---|---|
+| AC-1 | new | <title of this ticket's short test> | acceptance | <what it proves> |
+| AC-2 | extend | <exact title of a living regression journey> | regression | <steps to add, and after which existing step> |
+| AC-3 | unit | - | - | <covered by a unit test (coder-impl)> |
 
 ## Self-check
 - reused: <existing module/helper → used in T-N>
@@ -64,10 +64,18 @@ Rules:
   test delivers it; every `T-N` appears in some `SD-N`.
 - Every `T-N` is coder-impl's work: nothing in the UI directory (designer) or the end-to-end
   test directory (tester).
-- **End-to-end coverage:** read `<tests>/JOURNEYS.md` first. Every `AC-N` gets one row. The
-  default is `extend`: add steps to the existing test whose path already passes through this
-  state. Write `new` only when no existing test can reach it by adding steps, and name the
-  closest one and why. The human reviews new journeys here; the tester may add no others.
-  `extend`, `new` and `unit` are literal in every language.
+- **End-to-end coverage:** read `<tests>/JOURNEYS.md` first. Every `AC-N` gets at least one
+  row; a short test may cover a cluster of criteria, listed together in the AC cell. `suite`
+  is `acceptance`, `regression` or `-`.
+- `acceptance` is the default and is `new`: one short flow per cluster a user can verify
+  independently, with the exact title it will get. Do not default to `extend`: acceptance
+  tests from merged tickets are frozen.
+- A `regression` row records the effect on a full path: `extend` the living main journey
+  whose path already passes through the changed state, and say which steps to add. When the
+  change touches no full path, write `| AC-N | - | none | regression | none |`. Never extend
+  a frozen historical flow.
+- `-` with `unit` is a criterion no user action reaches; coder-impl covers it with a unit
+  test. `extend`, `new` and `unit` are literal in every language. The human reviews new
+  tests here; the tester may add no others.
 - Sequence diagrams are Mermaid `sequenceDiagram` and include failure branches.
 - No changelog section: rework history goes in commit messages, citing `R-N`.

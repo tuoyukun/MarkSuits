@@ -9,7 +9,8 @@ git 历史里）。
 
 结论：FAILED
 运行：<跑了哪些命令> · <结果摘要行>
-回归：main@<sha> · <全量回归命令> · exit 0     （仅 PASSED 轮）
+验收：main@<sha> · <本单 acceptance flow 命令> · exit 0     （仅 PASSED 轮）
+回归影响：none
 
 ## 失败项
 ### FAIL-3 · <简短标题>
@@ -31,4 +32,5 @@ git 历史里）。
 - `failureType` 取 `impl-bug`、`needs-unit-test`、`design-flaw`、`unclear` 之一。
 - `FAIL-N` 永不复用：从上一份报告的最大编号往后编。上次之后已修好的失败不再重复；orchestrator
   会把本文件里所有 `FAIL-N` 交给下一个角色。
-- `PASSED` 报告没有「失败项」段，且有「回归」行。
+- 每份报告都有「回归影响」行：`none`，或 `extend <living journey>` 及加的步骤（计划里的 regression 行）。
+- `PASSED` 报告没有「失败项」段，且有「验收」行。
