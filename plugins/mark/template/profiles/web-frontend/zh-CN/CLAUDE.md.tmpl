@@ -24,7 +24,7 @@ TODO：用一段话说明 {{ project_name }} 做什么、给谁用。
 | 路径 | 内容 | 谁写 |
 |---|---|---|
 | `{{ frontend_dir }}/` | 前端应用，自带依赖和配置 | coder-impl（`{{ ui_dir }}/`：designer） |
-| `{{ tests_dir }}/` | 端到端测试，自带依赖和配置；`JOURNEYS.md` 列出全部用例 | tester |
+| `{{ tests_dir }}/` | 端到端测试，自带依赖和配置；核心流程放 `regression/`，本单验收用例放 `tickets/<id>/`；`regression/JOURNEYS.md` 列出旅程 | tester |
 | `docs/adr/` | 架构决策记录 | coder-plan |
 | `CLAUDE.md` | 本文件 | 主线程、coder-plan、coder-impl |
 | `scripts/` | 下面这些入口；由 Mark 提供，工单不改 | 主线程 |
@@ -36,7 +36,7 @@ TODO：用一段话说明 {{ project_name }} 做什么、给谁用。
 | 入口 | 由谁提供 | 做什么 |
 |---|---|---|
 | `selftest.sh` | `{{ frontend_dir }}/`（建好后必须有） | 白盒自测：本模块的 lint、类型检查、单元测试、build |
-| `regression.sh` | `{{ tests_dir }}/`（建好后必须有） | 黑盒回归：整套端到端用例，像用户一样操作应用 |
+| `regression.sh` | `{{ tests_dir }}/`（建好后必须有） | 黑盒回归：`regression/` 的核心旅程，像用户一样操作应用 |
 | `start.sh`、`stop.sh` | `{{ frontend_dir }}/` | 用 `.env` 里的端口在后台提供应用（开发服务器或静态服务器），能响应后再返回；停止服务 |
 
 ## 4. 模块边界

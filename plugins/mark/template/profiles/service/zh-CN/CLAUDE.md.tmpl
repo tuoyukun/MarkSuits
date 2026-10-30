@@ -25,7 +25,7 @@ gRPC、消息队列……）。
 | 路径 | 内容 | 谁写 |
 |---|---|---|
 | `{{ service_dir }}/` | 服务本身，自带依赖、配置和单元测试 | coder-impl |
-| `{{ tests_dir }}/` | 端到端测试，自带依赖和配置 | tester |
+| `{{ tests_dir }}/` | 端到端测试，自带依赖和配置；核心流程放 `regression/`，本单验收用例放 `tickets/<id>/` | tester |
 | `docs/adr/` | 架构决策记录 | coder-plan |
 | `CLAUDE.md` | 本文件 | 主线程、coder-plan、coder-impl |
 | `scripts/` | 下面这些入口；由 Mark 提供，工单不改 | 主线程 |
@@ -37,7 +37,7 @@ gRPC、消息队列……）。
 | 入口 | 由谁提供 | 做什么 |
 |---|---|---|
 | `selftest.sh` | `{{ service_dir }}/`（建好后必须有） | 白盒自测：lint、类型检查、单元测试、build |
-| `regression.sh` | `{{ tests_dir }}/`（建好后必须有） | 黑盒回归：整套端到端用例，像客户端一样调用运行中的服务 |
+| `regression.sh` | `{{ tests_dir }}/`（建好后必须有） | 黑盒回归：`regression/` 的核心旅程，像客户端一样调用运行中的服务 |
 | `start.sh`、`stop.sh` | `{{ service_dir }}/` | 用 `.env` 里的端口在后台启动服务，能响应后再返回；停止服务 |
 
 ## 4. 模块边界与契约

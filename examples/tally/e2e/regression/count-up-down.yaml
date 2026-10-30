@@ -2,7 +2,7 @@ appId: host.exp.Exponent
 name: count up and down
 # covers: baseline/count, baseline/floor
 ---
-- runFlow: subflows/open-app.yaml
+- runFlow: ../subflows/open-app.yaml
 - tapOn:
     id: new-counter
 - inputText: Tea

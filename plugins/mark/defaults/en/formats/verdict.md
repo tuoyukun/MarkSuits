@@ -34,6 +34,7 @@ Rules:
 - `FAIL-N` ids are never reused: continue from the highest id of the previous verdict.
   Failures fixed since the previous run are not repeated; the orchestrator hands every
   `FAIL-N` in this file to the next role.
-- Every verdict has a Regression impact line: `none`, or `extend <living journey>` and the
-  steps added (the plan's regression row).
+- Every verdict has a Regression impact line: `none`, `added <journey>` when a core flow
+  gained a regression test, or `extend <journey>` with the steps added. Acceptance tests are
+  this ticket's evidence; they are not regression.
 - A `PASSED` verdict has no Failures section and has the Acceptance line.

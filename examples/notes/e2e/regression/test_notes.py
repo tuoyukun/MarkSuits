@@ -1,7 +1,7 @@
 """Notes API journeys, driven over HTTP like any client."""
 import unittest
 
-from e2e.client import call, clear
+from regression.client import call, clear
 
 
 class NotesTest(unittest.TestCase):

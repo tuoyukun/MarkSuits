@@ -14,7 +14,7 @@ TODO: one paragraph on what expenses does and for whom.
 |---|---|---|
 | Frontend (`frontend/`) | TODO | |
 | APIs the app calls (none, or third-party) | TODO | |
-| End-to-end tests (`tests/`) | TODO | |
+| End-to-end tests (`e2e/`) | TODO | |
 
 ## 3. Layout
 
@@ -26,7 +26,7 @@ written by the main thread only, so a new top-level path needs a row here and a 
 | Path | What | Written by |
 |---|---|---|
 | `frontend/` | frontend app, with its own dependencies and config | coder-impl (`frontend/src/ui/`: designer) |
-| `tests/` | end-to-end tests, with their own dependencies and config; `JOURNEYS.md` lists them | tester |
+| `e2e/` | end-to-end tests, with their own dependencies and config; core-flow journeys in `regression/`, this ticket's acceptance tests in `tickets/<id>/`; `regression/JOURNEYS.md` lists the journeys | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
 | `scripts/` | the entry points below; shipped by Mark, never edited by a ticket | main thread |
@@ -38,7 +38,7 @@ checkout's `.env` exported (each worktree's own ports among them):
 | Entry point | Who provides it | Does |
 |---|---|---|
 | `selftest.sh` | `frontend/` (required once it exists) | white-box self-test: the module's lint, type check, unit tests, build |
-| `regression.sh` | `tests/` (required once it exists) | black-box regression: the whole end-to-end suite, driving the app as a user |
+| `regression.sh` | `e2e/` (required once it exists) | black-box regression: the core-flow journeys in `regression/`, driving the app as a user |
 | `start.sh`, `stop.sh` | `frontend/` | serve the app (dev or static server) in the background on its port from `.env` and return once it answers; stop it |
 
 ## 4. Module boundaries
@@ -50,7 +50,7 @@ checkout's `.env` exported (each worktree's own ports among them):
 
 APIs the app calls are not ours to run. End-to-end tests never call a real third-party API
 and never stub the network in the browser: the app reads each API's base URL from `.env`,
-and the tests run a fake of that API from `tests/` (tester) and point the URL at it.
+and the tests run a fake of that API from `e2e/` (tester) and point the URL at it.
 
 ## 5. Commands
 

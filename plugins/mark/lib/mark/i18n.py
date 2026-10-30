@@ -121,23 +121,19 @@ MESSAGES["en"].update({
         "to no ticket, open a throwaway lane with `mark general new` (/mark:general)."
     ),
     "cli.journeys.off": "Journey checks are off: `[tests] profile` is \"none\".",
-    "cli.journeys.ok": "`{index}` lists exactly the end-to-end tests there are.",
+    "cli.journeys.ok": "`{index}` lists exactly the regression journeys there are.",
     "cli.journeys.drift": (
-        "`{index}` does not match the suite. Rows to add (write the path column):\n{add}\n"
+        "`{index}` does not match the regression journeys. Rows to add (write the path column):\n{add}\n"
         "Rows to remove (no such test):\n{drop}"
     ),
-    "guard.plan_extend": (
-        "`{rel}` extends end-to-end tests that are not on main:\n{tests}\n"
-        "`extend` is only for a test main already has (see main's `{index}`). A test this ticket's branch\n"
-        "added, in an earlier round included, is new: write `new` with `closest:` and why."
+    "guard.e2e_layout": (
+        "`{rel}` is outside the two directories end-to-end tests live in:\n{dirs}\n"
+        "Acceptance tests go in this ticket's own `tickets/<id>/` (one per AC); core-flow journeys\n"
+        "go in `regression/`. Config, helpers and the runner may sit at the suite root."
     ),
-    "guard.journey": (
-        "`{rel}` adds end-to-end tests the plan does not name as new:\n{tests}\n"
-        "New tests this ticket may add (plan, `<!-- mark:e2e-plan -->`): {planned}.\n"
-        "Extend the existing test the plan names for that criterion instead: add the steps and its\n"
-        "`covers:`. A test keeps its title when you change it. If no existing test can cover it, do not\n"
-        "add one anyway: report FAILED with `failureType: unclear` and say which test you would add and\n"
-        "why, so the plan can be changed. Existing tests are listed in `{index}`."
+    "guard.e2e_frozen": (
+        "`{rel}` is in ticket `{ticket}`'s acceptance directory. A merged ticket's acceptance tests\n"
+        "are frozen; this branch may write only `{own}` and the regression directory."
     ),
     "guard.e2e": (
         "`{rel}` breaks the black-box rules for end-to-end tests:\n{problems}\n"
@@ -152,6 +148,9 @@ MESSAGES["en"].update({
     "e2e.sleep": "fixed sleep over 200 ms; wait for a condition instead",
     "e2e.stub": "stubs the network or fires synthetic events (route, fulfill, dispatchEvent)",
     "e2e.poke": "sets page state from inside evaluate() instead of acting as a user",
+    "e2e.ac_not_one": "does not declare exactly one of this ticket's AC-N in `covers:` (one test per AC)",
+    "e2e.ac_uncovered": "has no acceptance test of its own",
+    "e2e.ac_shared": "has more than one acceptance test (one test per AC)",
     "guard.budget": (
         "`{rel}` would be {size} bytes; its doc budget is {limit} (`[[doc_budget]]` in .mark/config.toml).\n"
         "Cut at least {cut} bytes. Every role that loads this file pays for each line on every dispatch,\n"
@@ -302,22 +301,19 @@ MESSAGES["zh-CN"].update({
         "不属于任何工单的文档/配置改动，用 `mark general new`（/mark:general）开一条一次性车道。"
     ),
     "cli.journeys.off": "旅程检查未开启：`[tests] profile` 为 \"none\"。",
-    "cli.journeys.ok": "`{index}` 恰好列出了全部端到端用例。",
+    "cli.journeys.ok": "`{index}` 恰好列出了全部 regression 核心旅程。",
     "cli.journeys.drift": (
-        "`{index}` 与用例不一致。需要添加的行（请补上路径一栏）：\n{add}\n"
+        "`{index}` 与 regression 核心旅程不一致。需要添加的行（请补上路径一栏）：\n{add}\n"
         "需要删除的行（没有对应用例）：\n{drop}"
     ),
-    "guard.plan_extend": (
-        "`{rel}` 扩展了 main 上还没有的端到端用例：\n{tests}\n"
-        "`extend` 只用于 main 上已有的用例（见 main 的 `{index}`）。本单分支新建的用例（包括前几轮建的）算新建：\n"
-        "写 `new`，并写明 `closest:` 和原因。"
+    "guard.e2e_layout": (
+        "`{rel}` 不在端到端用例允许的两个目录里：\n{dirs}\n"
+        "验收用例放在本单自己的 `tickets/<id>/`（每个 AC 一个）；核心流程放 `regression/`。\n"
+        "配置、helper 和 runner 可以放在用例根目录。"
     ),
-    "guard.journey": (
-        "`{rel}` 新增了计划里没有申报为新建的端到端用例：\n{tests}\n"
-        "本单允许新建的用例（计划里的 `<!-- mark:e2e-plan -->`）：{planned}。\n"
-        "请改为扩展计划为这条验收点指定的已有用例：加上步骤和对应的 `covers:`。修改用例时保持标题不变。\n"
-        "如果确实没有已有用例能覆盖，也不要自行新建：判 FAILED，`failureType: unclear`，说明你要新建哪条、\n"
-        "为什么，交给人改计划。已有用例见 `{index}`。"
+    "guard.e2e_frozen": (
+        "`{rel}` 位于工单 `{ticket}` 的验收目录里。已合入工单的验收用例是冻结的；\n"
+        "本分支只能写 `{own}` 和 regression 目录。"
     ),
     "guard.e2e": (
         "`{rel}` 违反了端到端测试的黑盒规则：\n{problems}\n"
@@ -332,6 +328,9 @@ MESSAGES["zh-CN"].update({
     "e2e.sleep": "固定等待超过 200 ms；改成等待某个条件",
     "e2e.stub": "打桩网络或派发合成事件（route、fulfill、dispatchEvent）",
     "e2e.poke": "在 evaluate() 里直接改页面状态，而不是像用户一样操作",
+    "e2e.ac_not_one": "没有在 `covers:` 里恰好声明本单的一个 AC-N（一个 AC 一个用例）",
+    "e2e.ac_uncovered": "没有自己的验收用例",
+    "e2e.ac_shared": "有不止一个验收用例（一个 AC 一个用例）",
     "guard.budget": (
         "`{rel}` 写入后将有 {size} 字节，超出文档预算 {limit}（.mark/config.toml 的 `[[doc_budget]]`）。\n"
         "至少删掉 {cut} 字节。加载这份文件的每个角色每次派发都要为每一行付费，\n"
@@ -543,13 +542,22 @@ MESSAGES["en"].update({
     ),
     "merge.ff_failed": "`{main}` cannot fast-forward to `{branch}` (it has commits the branch lacks). Push or drop them, then retry.",
     "merge.push_failed": "Pushing {main} failed, so the local fast-forward was undone. Pull, then retry `mark merge`.",
-    "merge.journey_unplanned": (
-        "The branch adds end-to-end tests its plan does not name as new (`<!-- mark:e2e-plan -->`):\n{tests}\n"
-        "Fold them into the existing tests the plan names, or change the plan so a human sees the new\n"
-        "journeys at review; then merge again."
+    "merge.e2e_layout": (
+        "The branch leaves end-to-end tests outside the two allowed directories:\n{tests}\n"
+        "Acceptance tests live in `{dirs}`: one per AC under the ticket's own id. Move them, then merge again."
+    ),
+    "merge.e2e_frozen": (
+        "The branch changes end-to-end tests outside its own acceptance directory ({own}):\n{tests}\n"
+        "A merged ticket's acceptance tests are frozen; this branch may add only its own and the\n"
+        "regression journeys. Move the change, then merge again."
+    ),
+    "merge.e2e_coverage": (
+        "The ticket's acceptance tests do not cover its criteria one-to-one:\n{problems}\n"
+        "Write one acceptance test per non-unit AC, each declaring it as `covers: <ticket>/AC-N`;\n"
+        "then merge again."
     ),
     "merge.journey_index": (
-        "`{index}` must list exactly the end-to-end tests there are (one row per test title).\n"
+        "`{index}` must list exactly the regression journeys there are (one row per test title).\n"
         "Tests with no row:\n{missing}\nRows with no test:\n{stale}\n"
         "The tester keeps it current; fix it on the branch, then merge again."
     ),
@@ -818,12 +826,21 @@ MESSAGES["zh-CN"].update({
     ),
     "merge.ff_failed": "`{main}` 无法快进到 `{branch}`（main 上有分支没有的提交）。先推送或丢弃它们，再重试。",
     "merge.push_failed": "推送 {main} 失败，本地快进已撤销。先拉取，再重试 `mark merge`。",
-    "merge.journey_unplanned": (
-        "分支新增了计划没有申报为新建的端到端用例（`<!-- mark:e2e-plan -->`）：\n{tests}\n"
-        "把它们并进计划指定的已有用例，或者改计划，让人在评审时看到这些新旅程；然后再合并。"
+    "merge.e2e_layout": (
+        "分支上有端到端用例落在允许的两个目录之外：\n{tests}\n"
+        "验收用例放在 `{dirs}`：每个 AC 一个，放在本单自己的 id 目录下。移好后重新合并。"
+    ),
+    "merge.e2e_frozen": (
+        "分支改动了本单验收目录（{own}）之外的端到端用例：\n{tests}\n"
+        "已合入工单的验收用例是冻结的；本分支只能新增自己的验收用例和 regression 旅程。\n"
+        "把改动移走后重新合并。"
+    ),
+    "merge.e2e_coverage": (
+        "本单的验收用例没有与验收点一一对应：\n{problems}\n"
+        "每个非 unit 的 AC 写一个验收用例，并在 `covers:` 里声明 `<工单>/AC-N`；然后重新合并。"
     ),
     "merge.journey_index": (
-        "`{index}` 必须恰好列出现有的全部端到端用例（每个用例标题一行）。\n"
+        "`{index}` 必须恰好列出现有的全部 regression 核心旅程（每个用例标题一行）。\n"
         "没有对应行的用例：\n{missing}\n没有对应用例的行：\n{stale}\n"
         "这份索引由 tester 维护；在分支上改好后再合并。"
     ),

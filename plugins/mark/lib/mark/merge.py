@@ -3,8 +3,10 @@
 1. Checks: status, the tester's `<!-- mark:verdict PASSED -->`, `merge-after` tickets
    passed or superseded (no cycle), clean worktree, main checkout on main.
 2. In the worktree: merge the latest main into the ticket branch (conflict: abort),
-   then refuse docs the branch grew past `[[doc_budget]]`, end-to-end tests its plan does
-   not name as new, and a `JOURNEYS.md` that does not list exactly the tests there are.
+   then refuse docs the branch grew past `[[doc_budget]]`, end-to-end tests outside
+   `regression/` or the ticket's own `tickets/<id>/`, a ticket whose criteria are not
+   covered one-to-one, and a regression `JOURNEYS.md` that does not list exactly the
+   regression tests there are.
 3. In the worktree: run `[merge] regression` (exit 0 = green; empty = skipped). Skipped too
    when `mark regress` recorded it green on the same code: nothing but ticket docs changed
    since, main included.
@@ -26,7 +28,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from . import budget, e2e, flow, reviews, states
+from . import budget, e2e, flow, reviews, states, tickets
 from .flow import Ctx, FlowError
 from .gitutil import dirty_paths, git, has_remote, ref_exists, worktrees
 from .i18n import t
@@ -149,45 +151,54 @@ def _tested(ctx: Ctx) -> dict | None:
         return None
 
 
-def _suite_at(cfg, worktree: Path, ref: str, tests_dir: str) -> set[str]:
-    """Test titles in the spec files at `ref` (the base the branch was merged with)."""
-    code, out = git(["ls-tree", "-r", "--name-only", ref, "--", tests_dir], worktree)
-    titles: set[str] = set()
-    for rel in out.splitlines() if code == 0 else []:
-        if "node_modules/" in rel or not e2e.holds_tests(rel, cfg.tests_profile):
-            continue
-        ok, text = git(["show", f"{ref}:{rel}"], worktree)
-        if ok == 0:
-            titles |= {b.title for b in e2e.tests_in(rel, text, cfg.tests_profile)}
-    return titles
+def _changed_tests(cfg, worktree: Path, base: str, tests_dir: str) -> list[str]:
+    """Test files the branch added, changed or deleted against the merged base."""
+    code, out = git(["diff", "--name-only", base, "--", tests_dir], worktree)
+    return [rel for rel in out.splitlines() if code == 0 and e2e.holds_tests(rel, cfg.tests_profile)]
 
 
-def _journeys(cfg, worktree: Path, base: str, plan: str | None) -> None:
-    """The branch adds only the end-to-end tests its plan names as new, and JOURNEYS.md lists
-    exactly the tests there are. `plan` None: a general lane, no plan to hold it to."""
+def _e2e_check(cfg, worktree: Path, base: str, ticket_id: str | None = None,
+               kind: str | None = None, plan_text: str = "") -> None:
+    """The suite keeps the two-directory layout; this ticket writes only its own acceptance
+    directory and the regression journeys; each non-unit AC has exactly one acceptance test;
+    the regression `JOURNEYS.md` lists exactly the regression tests there are."""
     tests_dir = cfg.path("tests")
-    if cfg.tests_profile == "none" or not tests_dir:
+    profile = cfg.tests_profile
+    if profile == "none" or not tests_dir:
         return
-    now = e2e.suite(worktree, tests_dir, cfg.tests_profile)
-    if plan is not None:
-        extra = sorted(set(now) - _suite_at(cfg, worktree, base, tests_dir) - e2e.planned_new(plan))
-        if extra:
-            raise FlowError("merge.journey_unplanned", tests="\n".join(f"  - {x}" for x in extra))
-    index_path = worktree / tests_dir / e2e.INDEX_FILE
+    unlaid = e2e.unlaid_tests(worktree, tests_dir, profile)
+    if unlaid:
+        raise FlowError("merge.e2e_layout", tests="\n".join(f"  - {x}" for x in unlaid),
+                        dirs=f"{tests_dir}/{e2e.REGRESSION_DIR}/, {tests_dir}/{e2e.TICKETS_DIR}/<id>/")
+    frozen = [rel for rel in _changed_tests(cfg, worktree, base, tests_dir)
+              if not e2e.ticket_layout(rel, tests_dir, ticket_id or "")]
+    if frozen:
+        raise FlowError("merge.e2e_frozen", tests="\n".join(f"  - {x}" for x in frozen),
+                        own=f"{tests_dir}/{e2e.TICKETS_DIR}/{ticket_id}/" if ticket_id else "-")
+    if ticket_id and plan_text:
+        problems = e2e.coverage_problems(
+            plan_text, e2e.acceptance_tests(worktree, tests_dir, ticket_id, profile),
+            tickets.ref_of(kind, ticket_id))
+        if problems:
+            raise FlowError("merge.e2e_coverage",
+                            problems="\n".join(f"  - {t(cfg.locale, p.key)}: {p.where}" for p in problems))
+    now = e2e.suite(worktree, tests_dir, profile, sub=e2e.REGRESSION_DIR)
+    index_path = worktree / tests_dir / e2e.REGRESSION_DIR / e2e.INDEX_FILE
     listed = e2e.indexed(index_path.read_text(encoding="utf-8")) if index_path.is_file() else set()
     missing, stale = sorted(set(now) - listed), sorted(listed - set(now))
     if missing or stale:
-        raise FlowError("merge.journey_index", index=f"{tests_dir}/{e2e.INDEX_FILE}",
+        raise FlowError("merge.journey_index", index=e2e.index_path(tests_dir),
                         missing="\n".join(f"  - {x}" for x in missing) or "  -",
                         stale="\n".join(f"  - {x}" for x in stale) or "  -")
 
 
 def land(cfg, worktree: Path, branch: str, log_name: str, conflict: FlowError,
-         plan: str | None = None, tested: dict | None = None) -> Notes:
+         ticket_id: str | None = None, kind: str | None = None, plan_text: str = "",
+         tested: dict | None = None) -> Notes:
     """Merge the latest main into `branch` (in its worktree), run the regression there,
-    fast-forward main and push it. Main is untouched unless every step passes. `plan`: the
-    ticket's plan text, which names the end-to-end tests the branch may add. `tested`: the
-    `mark regress` record; its green stands while the code it ran on is unchanged."""
+    fast-forward main and push it. Main is untouched unless every step passes. `ticket_id`,
+    `kind` and `plan_text`: set for a ticket (layout, AC coverage); None for a general lane.
+    `tested`: the `mark regress` record; its green stands while the code it ran on is unchanged."""
     notes: Notes = []
     main, main_branch = cfg.root, cfg.main_branch
     base = main_branch
@@ -203,7 +214,7 @@ def land(cfg, worktree: Path, branch: str, log_name: str, conflict: FlowError,
     over = budget.branch_overruns(cfg, worktree, base)
     if over:
         raise FlowError("merge.budget", files="\n".join(f"  - {f}" for f in over))
-    _journeys(cfg, worktree, base, plan)
+    _e2e_check(cfg, worktree, base, ticket_id, kind, plan_text)
     if tested and cfg.merge_regression and tested.get("cmd") == cfg.merge_regression \
             and _same_code(cfg, worktree, str(tested.get("tree", ""))):
         notes.append(("merge.reused", {"cmd": cfg.merge_regression}))
@@ -272,9 +283,10 @@ def cleanup(cfg, worktree: Path | None, branch: str, force: bool = False) -> Not
 def _merge(ctx: Ctx) -> Notes:
     _precheck(ctx)
     conflict = FlowError("merge.conflict", id=ctx.id, branch=ctx.branch)
-    plan = next((p.read_text(encoding="utf-8", errors="replace")
-                 for p in map(ctx.find, e2e.PLAN_FILES) if p is not None), "")
-    notes = land(ctx.cfg, ctx.worktree, ctx.branch, ctx.id, conflict, plan, _tested(ctx))
+    criteria = next((p.read_text(encoding="utf-8", errors="replace")
+                     for p in map(ctx.find, ("requirement.md", "fix-plan.md")) if p is not None), "")
+    notes = land(ctx.cfg, ctx.worktree, ctx.branch, ctx.id, conflict,
+                 ticket_id=ctx.id, kind=ctx.kind, plan_text=criteria, tested=_tested(ctx))
     # The work is on main now: force past regression output, and clean up even if bookkeeping fails.
     try:
         flow.set_status(ctx, "passed")

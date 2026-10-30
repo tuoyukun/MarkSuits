@@ -16,8 +16,7 @@ role: coder-plan
   （`T-N`）、完整使用路径、自查、ADR、风险与待确认。
 - 每条 `AC-N` 被某个 `T-N` 覆盖（只有端到端测试能交付的，由 tester 覆盖）；没有 `T-N` 落在
   coder-impl 可写范围之外；每个 `T-N` 出现在某张 `SD-N` 里；每个 `T-N` 都是具体改动。
-- 端到端覆盖：每条 `AC-N` 都有一行；只有 `JOURNEYS.md` 里没有可扩展的已有用例时才写 `new`，
-  并写明最接近的用例和原因。
+  端到端用例由 tester 负责：不要写用例标题、suite 或步骤。
 - 架构决策都有 ADR。
 - 方案依赖、但还没人在工程测试环境里见它跑通过的平台能力（媒体管线、系统页面或跳转、某种权限状态、
   设备能力），先在那个环境里用仓库外的一次性小程序试过；方案的风险一节写明跑了什么、结果如何。
@@ -30,7 +29,6 @@ role: coder-plan
 - 需求：`{{state_ticket_dir}}/requirement.md`
 - 设计：`{{ticket_dir}}/design.md`（如有）
 - 格式：`mark format tech-plan.md`
-- 已有端到端用例：测试目录（`[paths] tests`）里的 `JOURNEYS.md`
 - 工程：`{{worktree}}/CLAUDE.md`（技术栈、模块边界、ADR 放哪），以及你计划改动的代码
 
 ## 可写

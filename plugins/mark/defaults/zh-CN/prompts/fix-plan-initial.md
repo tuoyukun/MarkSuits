@@ -16,16 +16,14 @@ role: fix-plan
 - `fix-plan.md` 符合格式：根因、复现、修复方案、验收点（`AC-N`，至少一条回归检查）、影响文件、
   风险与待确认。
 - 根因从代码里讲清楚，而不是从症状推测。
-- 修复方案具体到 coder-impl 不会跑偏，但不贴实现。
-- 端到端覆盖：每条 `AC-N` 都有一行；只有 `JOURNEYS.md` 里没有可扩展的已有用例时才写 `new`，
-  并写明最接近的用例和原因。
+- 修复方案具体到 coder-impl 不会跑偏，但不贴实现。端到端用例由 tester 负责：不要写用例标题、
+  suite 或步骤。
 - 待确认为空。不为空，或修复需要架构变更，就报 `blocked-unclear`。
 
 ## 要读
 
 - bug 报告：`{{state_ticket_dir}}/bug.md`
 - 格式：`mark format fix-plan.md`
-- 已有端到端用例：测试目录（`[paths] tests`）里的 `JOURNEYS.md`
 - 工程：`{{worktree}}/CLAUDE.md`，以及涉及的代码
 
 ## 可写

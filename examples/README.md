@@ -20,8 +20,8 @@ repository, never inside this one:
 ```bash
 python3 examples/sandbox.py ~/mark-sandbox/todo      # copy + git init + local bare origin
 cd ~/mark-sandbox/todo
-npm --prefix tests ci                                # Node 18+, Python 3.11+
-npm --prefix tests exec playwright install chromium
+npm --prefix e2e ci                                # Node 18+, Python 3.11+
+npm --prefix e2e exec playwright install chromium
 bash scripts/selftest.sh && bash scripts/regression.sh   # baseline: everything green
 claude --plugin-dir <path to this repo>/plugins/mark
 ```
@@ -52,7 +52,7 @@ Now it opens `b0001-…`, writes `bug.md`, and runs the bug chain without stoppi
 |---|---|---|
 | plan the fix | fix-plan | `fix-plan.md`: root cause, `AC-N`, the change |
 | implement | coder-impl | the fix, a unit test, `handoff.md` |
-| verify | tester | an end-to-end test, `verdict.md` (`PASSED` after merging main and running the full regression) |
+| verify | tester | an end-to-end test, `verdict.md` (`PASSED` after merging main and running the regression suite) |
 
 At `pending-merge` the orchestrator runs `mark merge b0001`: it merges the latest main into
 the ticket branch, runs `bash scripts/selftest.sh && bash scripts/regression.sh` there (`[merge] regression`),
@@ -167,7 +167,7 @@ to `pending-merge`.
 ```bash
 python3 examples/sandbox.py ~/mark-sandbox/expenses --example expenses
 cd ~/mark-sandbox/expenses
-npm --prefix tests ci && npm --prefix tests exec playwright install chromium
+npm --prefix e2e ci && npm --prefix e2e exec playwright install chromium
 bash scripts/selftest.sh && bash scripts/regression.sh   # baseline: everything green
 claude --plugin-dir <path to this repo>/plugins/mark
 ```

@@ -1,5 +1,5 @@
 # Written by `mark init`; do not edit. Upgrades read the answers below.
-version = "0.37.0"
+version = "0.40.0"
 
 [answers]
 project_name = "notes"
@@ -7,5 +7,5 @@ locale = "en"
 profile = "service"
 main_branch = "main"
 service_dir = "service"
-tests_dir = "tests"
+tests_dir = "e2e"
 worktree_setup = ""

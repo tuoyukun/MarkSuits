@@ -27,7 +27,7 @@ written by the main thread only, so a new top-level path needs a row here and a 
 |---|---|---|
 | `{{ frontend_dir }}/` | frontend app, with its own dependencies and config | coder-impl (`{{ ui_dir }}/`: designer) |
 | `{{ backend_dir }}/` | backend service, with its own dependencies and config | coder-impl |
-| `{{ tests_dir }}/` | end-to-end tests, with their own dependencies and config; `JOURNEYS.md` lists them | tester |
+| `{{ tests_dir }}/` | end-to-end tests, with their own dependencies and config; core-flow journeys in `regression/`, this ticket's acceptance tests in `tickets/<id>/`; `regression/JOURNEYS.md` lists the journeys | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
 | `scripts/` | the entry points below; shipped by Mark, never edited by a ticket | main thread |
@@ -39,7 +39,7 @@ checkout's `.env` exported (each worktree's own ports among them):
 | Entry point | Who provides it | Does |
 |---|---|---|
 | `selftest.sh` | `{{ frontend_dir }}/`, `{{ backend_dir }}/` (required once the module exists) | white-box self-test: the module's lint, type check, unit tests, build |
-| `regression.sh` | `{{ tests_dir }}/` (required once it exists) | black-box regression: the whole end-to-end suite, driving the app as a user |
+| `regression.sh` | `{{ tests_dir }}/` (required once it exists) | black-box regression: the core-flow journeys in `regression/`, driving the app as a user |
 | `start.sh`, `stop.sh` | any module that runs a server | start it in the background on its port from `.env` and return once it answers; stop it |
 
 ## 4. Module boundaries

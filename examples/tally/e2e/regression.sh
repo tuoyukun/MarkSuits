@@ -2,7 +2,7 @@
 # Black-box regression on the iOS simulator (macOS). Under the device lock: start the app's
 # dev server on a port of this checkout's own, with a fresh storage key so the app starts
 # with no counters, open it in Expo Go, run the Maestro flows, stop the server.
-#   bash regression.sh                   every flow
+#   bash regression.sh                   the core-flow journeys
 #   bash regression.sh add-counter.yaml  selected flows
 set -euo pipefail
 # shortcut: one simulator serves every worktree, so runs queue on a lock; give each port slot
@@ -34,5 +34,5 @@ for _ in $(seq 240); do
   curl -fs "http://127.0.0.1:$mport/status" | grep -q running && break
   sleep 0.5
 done
-if [ $# -eq 0 ]; then set -- *.yaml; fi
+if [ $# -eq 0 ]; then set -- regression/*.yaml; fi
 maestro test -e METRO_PORT="$mport" "$@"

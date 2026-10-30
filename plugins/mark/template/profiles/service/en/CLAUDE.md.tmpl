@@ -27,7 +27,7 @@ written by the main thread only, so a new top-level path needs a row here and a 
 | Path | What | Written by |
 |---|---|---|
 | `{{ service_dir }}/` | the service, with its own dependencies, config and unit tests | coder-impl |
-| `{{ tests_dir }}/` | end-to-end tests, with their own dependencies and config | tester |
+| `{{ tests_dir }}/` | end-to-end tests, with their own dependencies and config; core-flow journeys in `regression/`, this ticket's acceptance tests in `tickets/<id>/` | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
 | `scripts/` | the entry points below; shipped by Mark, never edited by a ticket | main thread |
@@ -39,7 +39,7 @@ checkout's `.env` exported (each worktree's own ports among them):
 | Entry point | Who provides it | Does |
 |---|---|---|
 | `selftest.sh` | `{{ service_dir }}/` (required once it exists) | white-box self-test: lint, type check, unit tests, build |
-| `regression.sh` | `{{ tests_dir }}/` (required once it exists) | black-box regression: the whole end-to-end suite, calling the running service as a client would |
+| `regression.sh` | `{{ tests_dir }}/` (required once it exists) | black-box regression: the core-flow journeys in `regression/`, calling the running service as a client would |
 | `start.sh`, `stop.sh` | `{{ service_dir }}/` | start it in the background on its port from `.env` and return once it answers; stop it |
 
 ## 4. Module boundaries and contracts

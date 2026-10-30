@@ -27,7 +27,7 @@ written by the main thread only, so a new top-level path needs a row here and a 
 |---|---|---|
 | `{{ app_dir }}/` | mobile app, with its own dependencies and config (native projects included) | coder-impl (`{{ ui_dir }}/`: designer) |
 | `{{ backend_dir }}/` | backend service, with its own dependencies and config | coder-impl |
-| `{{ tests_dir }}/` | end-to-end flows, one per journey; shared steps in `subflows/`; `JOURNEYS.md` lists them | tester |
+| `{{ tests_dir }}/` | end-to-end tests: core-flow journeys in `regression/`, this ticket's acceptance tests in `tickets/<id>/`; shared steps in `subflows/`; `regression/JOURNEYS.md` lists the journeys | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
 | `scripts/` | the entry points below; shipped by Mark, never edited by a ticket | main thread |
@@ -39,7 +39,7 @@ checkout's `.env` exported (each worktree's own ports among them):
 | Entry point | Who provides it | Does |
 |---|---|---|
 | `selftest.sh` | `{{ app_dir }}/`, `{{ backend_dir }}/` (required once the module exists) | white-box self-test: the module's lint, type check, unit tests |
-| `regression.sh` | `{{ tests_dir }}/` (required once it exists) | black-box regression: the whole end-to-end suite on a simulator, under the device lock |
+| `regression.sh` | `{{ tests_dir }}/` (required once it exists) | black-box regression: the core-flow journeys in `regression/` on a simulator, under the device lock |
 | `start.sh`, `stop.sh` | `{{ backend_dir }}/`, and `{{ app_dir }}/` for its dev server (bundler) | start it in the background on its port from `.env` and return once it answers; stop it |
 
 ## 4. Module boundaries
@@ -63,8 +63,8 @@ checkout's `.env` exported (each worktree's own ports among them):
   build of the UI preview screen, inlined into one file; or, with no web build, simulator
   screenshots of every `S-N` inlined). It is close to the device, not the same: design QA
   on the simulator decides.
-- **End-to-end flows.** One Maestro flow per journey; its `name:` is the title in
-  `JOURNEYS.md`. Steps that several flows share live in `{{ tests_dir }}/subflows/` and run
+- **End-to-end flows.** `tickets/<id>/` holds one Maestro flow per AC; a core-flow
+  journey lives in `regression/`. Its `name:` is its title in `regression/JOURNEYS.md`. Steps that several flows share live in `{{ tests_dir }}/subflows/` and run
   through `runFlow`.
 
 ## 6. Commands

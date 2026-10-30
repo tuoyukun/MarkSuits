@@ -29,7 +29,7 @@ written by the main thread only, so a new top-level path needs a row here and a 
 |---|---|---|
 | `app/` | mobile app, with its own dependencies and config (native projects included) | coder-impl (`app/src/ui/`: designer) |
 | `backend/` | backend service, with its own dependencies and config | coder-impl |
-| `e2e/` | end-to-end flows, one per journey; shared steps in `subflows/`; `JOURNEYS.md` lists them | tester |
+| `e2e/` | core-flow journeys in `regression/`, each ticket's acceptance tests in `tickets/<id>/`; shared steps in `subflows/`; `regression/JOURNEYS.md` lists the journeys | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
 | `scripts/` | the entry points below; shipped by Mark, never edited by a ticket | main thread |
@@ -41,7 +41,7 @@ checkout's `.env` exported (each worktree's own ports among them):
 | Entry point | Who provides it | Does |
 |---|---|---|
 | `selftest.sh` | `app/`, `backend/` (required once the module exists) | white-box self-test: the module's lint, type check, unit tests |
-| `regression.sh` | `e2e/` (required once it exists) | black-box regression: the whole end-to-end suite on a simulator, under the device lock |
+| `regression.sh` | `e2e/` (required once it exists) | black-box regression: the core-flow journeys in `regression/` on a simulator, under the device lock |
 | `start.sh`, `stop.sh` | `backend/`, and `app/` for its dev server (bundler) | start it in the background on its port from `.env` and return once it answers; stop it |
 
 ## 4. Module boundaries
@@ -64,8 +64,8 @@ checkout's `.env` exported (each worktree's own ports among them):
 - **Design preview.** `preview.html` is the web build of `app/src/ui/Preview.js` (every
   `S-N` with mock props), inlined into one file by `app/preview.sh`. It is close to the
   device, not the same: design QA on the simulator decides.
-- **End-to-end flows.** One Maestro flow per journey; its `name:` is the title in
-  `JOURNEYS.md`. Steps that several flows share live in `e2e/subflows/` and run
+- **End-to-end flows.** `tickets/<id>/` holds one Maestro flow per AC; a core-flow
+  journey lives in `regression/`. Its `name:` is its title in `regression/JOURNEYS.md`. Steps that several flows share live in `e2e/subflows/` and run
   through `runFlow`.
 
 ## 6. Commands
@@ -79,7 +79,7 @@ Role agents run exactly these. Keep them working from a fresh worktree.
 | Open the app on the simulator | `bash scripts/start.sh`, then `xcrun simctl openurl booted "exp://127.0.0.1:$METRO_PORT"` (Expo Go; first time: `cd app && npx expo start --ios`) |
 | Build the UI preview (`preview.html`) | `cd app && bash preview.sh <ticket dir>/preview.html` |
 | Self-test (white-box, every module) | `bash scripts/selftest.sh` |
-| End-to-end tests (selected flows, under the device lock) | `cd e2e && bash regression.sh <flow>.yaml` (the script takes the lock) |
+| End-to-end tests (selected flows, under the device lock) | `cd e2e && bash regression.sh regression/<flow>.yaml` (the script takes the lock) |
 | Full regression (what a merge must pass, `[merge] regression`) | `bash scripts/selftest.sh && bash scripts/regression.sh` |
 
 ## 7. Red lines

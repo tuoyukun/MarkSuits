@@ -362,18 +362,25 @@ def tests_in(rel_file: str, text: str, profile: str) -> list[Block]:
 
 
 # --------------------------------------------------------------------------
-# Journey reuse: extend an existing end-to-end test before adding a new one.
+# Layout and coverage.
 #
-# The plan (tech-plan.md / fix-plan.md) decides, per acceptance criterion, which existing test
-# gets more steps or which new journey is added and why no existing one could be extended; the
-# human reviews that with the plan. The tester may add only the tests the plan names as new.
-# `<tests>/JOURNEYS.md` lists every test so the planner can see what already exists.
+# `[paths] tests` is the suite root:
+#
+#   <tests>/regression/         the few core journeys `mark merge` runs; shared, extendable
+#   <tests>/tickets/<ticket>/   this ticket's acceptance tests: one per AC, frozen on merge
+#   <tests>/regression/JOURNEYS.md
+#
+# The plan does not name tests: the tester derives one acceptance test per criterion and
+# decides whether the ticket adds a regression journey or extends one. The pre-write guard
+# keeps writes in the right directory; merge re-checks the layout, the AC coverage and the
+# regression index, since shell writes can bypass the guard.
 # --------------------------------------------------------------------------
 
-PLAN_ANCHOR = "<!-- mark:e2e-plan -->"
+REGRESSION_DIR = "regression"
+TICKETS_DIR = "tickets"
 INDEX_ANCHOR = "<!-- mark:journeys -->"
 INDEX_FILE = "JOURNEYS.md"
-PLAN_FILES = ("tech-plan.md", "fix-plan.md")
+AC_ANCHOR = "<!-- mark:ac -->"
 
 
 def table_rows(text: str, anchor: str) -> list[list[str]]:
@@ -397,25 +404,16 @@ def table_rows(text: str, anchor: str) -> list[list[str]]:
     return rows[1:]                                   # first row is the header
 
 
-def planned_new(plan: str) -> set[str]:
-    """Titles of the tests the plan adds (`| AC-N | new | <title> | ... |`)."""
-    return {r[2] for r in table_rows(plan, PLAN_ANCHOR) if len(r) > 2 and r[1].lower() == "new" and r[2]}
-
-
-def planned_extend(plan: str) -> set[str]:
-    """Titles of the existing tests the plan extends (`| AC-N | extend | <title> | ... |`)."""
-    return {r[2] for r in table_rows(plan, PLAN_ANCHOR) if len(r) > 2 and r[1].lower() == "extend" and r[2]}
-
-
 def indexed(index: str) -> set[str]:
     """Test titles listed in JOURNEYS.md (first column)."""
     return {r[0] for r in table_rows(index, INDEX_ANCHOR) if r and r[0]}
 
 
-def suite(root, tests_dir: str, profile: str, skip: str | None = None) -> dict[str, str]:
-    """{test title: file} for every test file under `root/tests_dir`, except the file `skip`."""
+def suite(root, tests_dir: str, profile: str, skip: str | None = None,
+          sub: str | None = None) -> dict[str, str]:
+    """{test title: file} for every test file under `root/tests_dir[/sub]`, except `skip`."""
     out: dict[str, str] = {}
-    base = root / tests_dir
+    base = root / tests_dir / sub if sub else root / tests_dir
     if not base.is_dir():
         return out
     for path in sorted(base.rglob("*")):
@@ -431,20 +429,97 @@ def suite(root, tests_dir: str, profile: str, skip: str | None = None) -> dict[s
     return out
 
 
-def added_tests(rel_file: str, old: str | None, new: str, elsewhere: set[str], profile: str) -> list[str]:
-    """Titles a write adds that no other file has (moving a test between files is not adding)."""
-    before = {b.title for b in tests_in(rel_file, old, profile)} if old is not None else set()
-    return [b.title for b in tests_in(rel_file, new, profile) if b.title not in before and b.title not in elsewhere]
+def in_layout(rel_file: str, tests_dir: str) -> bool:
+    """A test file under `<tests>/regression/` or `<tests>/tickets/<id>/`."""
+    parts = rel_file[len(tests_dir) + 1:].split("/")
+    return parts[0] == REGRESSION_DIR or (parts[0] == TICKETS_DIR and len(parts) >= 3)
 
 
+def ticket_layout(rel_file: str, tests_dir: str, ticket_id: str) -> bool:
+    """A test file this ticket may add: regression, or its own acceptance directory."""
+    parts = rel_file[len(tests_dir) + 1:].split("/")
+    return parts[0] == REGRESSION_DIR or (parts[0] == TICKETS_DIR and len(parts) >= 3
+                                          and parts[1] == ticket_id)
+
+
+def unlaid_tests(root, tests_dir: str, profile: str) -> list[str]:
+    """Test files outside the two directories the layout allows."""
+    base = root / tests_dir
+    out = []
+    for path in sorted(base.rglob("*")) if base.is_dir() else []:
+        rel = path.relative_to(root).as_posix()
+        if "node_modules" not in path.parts and path.is_file() and holds_tests(rel, profile) \
+                and not in_layout(rel, tests_dir):
+            out.append(rel)
+    return out
+
+
+_AC_LINE = re.compile(r"(?m)^\s*-\s*(AC-\d+)\b(.*)$")
+_COVER = re.compile(r"\b([A-Za-z0-9-]+)/(AC-\d+)\b")
 _COVERS = re.compile(r"covers:\s*([^\n*]+?)\s*(?:\*/|$)", re.M)
 
 
+def criteria(text: str) -> dict[str, bool]:
+    """{AC-N: tagged [unit]} under `<!-- mark:ac -->` (requirement.md or fix-plan.md)."""
+    at = text.find(AC_ANCHOR)
+    if at < 0:
+        return {}
+    section = re.split(r"(?m)^#{1,6} ", text[at + len(AC_ANCHOR):], maxsplit=1)[0]
+    return {m.group(1): "[unit]" in m.group(2).lower() for m in _AC_LINE.finditer(section)}
+
+
+def acceptance_tests(root, tests_dir: str, ticket_id: str, profile: str) -> dict[str, tuple[str, str]]:
+    """{test title: (file, body)} in this ticket's acceptance directory."""
+    out: dict[str, tuple[str, str]] = {}
+    base = root / tests_dir / TICKETS_DIR / ticket_id
+    if not base.is_dir():
+        return out
+    for path in sorted(base.rglob("*")):
+        rel = path.relative_to(root).as_posix()
+        if "node_modules" in path.parts or not path.is_file() or not holds_tests(rel, profile):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for b in tests_in(rel, text, profile):
+            out.setdefault(b.title, (rel, b.body))
+    return out
+
+
+def coverage_problems(plan_text: str, tests: dict[str, tuple[str, str]], ref: str) -> list[Problem]:
+    """Strict one test per criterion: every non-unit AC has exactly one acceptance test, and
+    each test declares exactly one of this ticket's criteria in its `covers:`."""
+    acs = criteria(plan_text)
+    if not acs:
+        return []
+    by_ac: dict[str, list[str]] = {ac: [] for ac in acs}
+    out: list[Problem] = []
+    for title, (_, body) in sorted(tests.items()):
+        own = sorted({ac for ticket, ac in _COVER.findall(body) if ticket == ref and ac in acs})
+        if len(own) != 1:
+            out.append(Problem("e2e.ac_not_one", title))
+        for ac in own:
+            by_ac[ac].append(title)
+    for ac, unit in acs.items():
+        if unit:
+            continue
+        if not by_ac[ac]:
+            out.append(Problem("e2e.ac_uncovered", ac))
+        elif len(by_ac[ac]) > 1:
+            out.append(Problem("e2e.ac_shared", ac))
+    return out
+
+
+def index_path(tests_dir: str) -> str:
+    return f"{tests_dir}/{REGRESSION_DIR}/{INDEX_FILE}"
+
+
 def index_drift(root, tests_dir: str, profile: str) -> tuple[list[str], list[str]]:
-    """(rows to add, rows to drop) that would make JOURNEYS.md match the suite under `root`.
+    """(rows to add, rows to drop) that would make the regression JOURNEYS.md match the suite.
     New rows carry the file and the `covers:` the test declares; the path is left to write."""
-    tests = suite(root, tests_dir, profile)
-    path = root / tests_dir / INDEX_FILE
+    tests = suite(root, tests_dir, profile, sub=REGRESSION_DIR)
+    path = root / tests_dir / REGRESSION_DIR / INDEX_FILE
     listed = indexed(path.read_text(encoding="utf-8")) if path.is_file() else set()
     add = []
     for title in sorted(set(tests) - listed):

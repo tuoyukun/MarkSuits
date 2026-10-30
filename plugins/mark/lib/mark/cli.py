@@ -469,10 +469,11 @@ def cmd_journeys(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
         _say(cfg, out, "cli.journeys.off")
         return 0
     add, drop = e2e.index_drift(root, tests_dir, cfg.tests_profile)
+    index = e2e.index_path(tests_dir)
     if not add and not drop:
-        _say(cfg, out, "cli.journeys.ok", index=f"{tests_dir}/{e2e.INDEX_FILE}")
+        _say(cfg, out, "cli.journeys.ok", index=index)
         return 0
-    _say(cfg, out, "cli.journeys.drift", index=f"{tests_dir}/{e2e.INDEX_FILE}",
+    _say(cfg, out, "cli.journeys.drift", index=index,
          add="\n".join(add) or "-", drop="\n".join(f"  - {x}" for x in drop) or "  -")
     return 1
 

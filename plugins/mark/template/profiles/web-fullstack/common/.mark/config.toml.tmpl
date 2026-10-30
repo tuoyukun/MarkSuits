@@ -23,6 +23,9 @@ backend = "{{ backend_dir }}"
 ui = "{{ ui_dir }}"
 tests = "{{ tests_dir }}"
 
+# The suite root holds `regression/` (the core-flow journeys `mark merge` runs) and
+# `tickets/<id>/` (a ticket's acceptance tests, one per AC).
+
 # End-to-end tests stay black-box: a tester write under [paths] tests may not import
 # production code or read its source. With profile = "playwright", each new or changed
 # test(...) block in a *.spec.* / *.test.* file must also perform a user action and assert
@@ -40,7 +43,7 @@ exclude = ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"]
 # `mark merge` runs this shell command in the ticket's worktree after merging the latest
 # main into the branch; exit 0 = green. Empty: merge on the tester's verdict alone.
 # The scripts ship with Mark and call each module's own selftest.sh / regression.sh, so a
-# new test joins the merge check by living in its module.
+# new regression journey joins the merge check by living in the suite's `regression/`.
 [merge]
 regression = "bash scripts/selftest.sh && bash scripts/regression.sh"
 

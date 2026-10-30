@@ -20,7 +20,10 @@ main_branch = "main"
 state_dir = ".mark"
 frontend = "frontend"
 ui = "frontend/src/ui"
-tests = "tests"
+tests = "e2e"
+
+# The suite root holds `regression/` (the core-flow journeys `mark merge` runs) and
+# `tickets/<id>/` (a ticket's acceptance tests, one per AC).
 
 # End-to-end tests stay black-box: a tester write under [paths] tests may not import
 # production code or read its source. With profile = "playwright", each new or changed
@@ -39,7 +42,7 @@ exclude = ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"]
 # `mark merge` runs this shell command in the ticket's worktree after merging the latest
 # main into the branch; exit 0 = green. Empty: merge on the tester's verdict alone.
 # The scripts ship with Mark and call each module's own selftest.sh / regression.sh, so a
-# new test joins the merge check by living in its module.
+# new regression journey joins the merge check by living in the suite's `regression/`.
 [merge]
 regression = "bash scripts/selftest.sh && bash scripts/regression.sh"
 
@@ -56,7 +59,7 @@ main_writable = []
 # Everything it creates must be gitignored (a symlink matches `node_modules`, not
 # `node_modules/`). On failure the new worktree is removed and the log is kept in
 # .mark/locks/<id>.setup.log. Empty: no setup.
-setup = "npm --prefix tests ci"
+setup = "npm --prefix e2e ci"
 setup_timeout = 300
 # Ports each worktree owns, so tickets can run dev servers and end-to-end tests at the same
 # time: env var = first port of its range. After setup, every new worktree gets one free slot
@@ -109,7 +112,7 @@ glob = "frontend/src/ui/**"
 roles = ["designer"]
 
 [[write_rules]]
-glob = "tests/**"
+glob = "e2e/**"
 roles = ["tester"]
 
 [[write_rules]]

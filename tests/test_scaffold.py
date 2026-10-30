@@ -136,7 +136,7 @@ class ChecksTest(unittest.TestCase):
         self.assertEqual((cfg.profile, cfg.module_dirs, cfg.tests_profile),
                          ("web-frontend", ["web", "web/src/ui"], "playwright"))
         self.assertIn("designer", cfg.roles)
-        self.assertEqual([r.glob for r in cfg.write_rules][-3:], ["web/src/ui/**", "tests/**", "web/**"])
+        self.assertEqual([r.glob for r in cfg.write_rules][-3:], ["web/src/ui/**", "e2e/**", "web/**"])
         self.assertIn('selftest.sh required "web"\n', (root / "scripts/selftest.sh").read_text())
         self.assertNotIn("backend", (root / "CLAUDE.md").read_text())
         record = tomllib.loads((root / scaffold.RECORD).read_text())
@@ -154,7 +154,7 @@ class ChecksTest(unittest.TestCase):
                          ("mobile-fullstack", ["mobile", "backend", "mobile/src/ui"], "maestro"))
         self.assertIn("designer", cfg.roles)
         self.assertEqual([r.glob for r in cfg.write_rules][-4:],
-                         ["mobile/src/ui/**", "tests/**", "mobile/**", "backend/**"])
+                         ["mobile/src/ui/**", "e2e/**", "mobile/**", "backend/**"])
         self.assertIn('selftest.sh required "mobile" "backend"\n', (root / "scripts/selftest.sh").read_text())
         self.assertIn('start.sh optional "backend" "mobile"\n', (root / "scripts/start.sh").read_text())
         self.assertNotIn("frontend", (root / "CLAUDE.md").read_text())
@@ -172,7 +172,7 @@ class ChecksTest(unittest.TestCase):
         self.assertEqual((cfg.profile, cfg.module_dirs, cfg.tests_profile),
                          ("mobile", ["mobile", "mobile/src/ui"], "maestro"))
         self.assertIn("designer", cfg.roles)
-        self.assertEqual([r.glob for r in cfg.write_rules][-3:], ["mobile/src/ui/**", "tests/**", "mobile/**"])
+        self.assertEqual([r.glob for r in cfg.write_rules][-3:], ["mobile/src/ui/**", "e2e/**", "mobile/**"])
         self.assertIn('selftest.sh required "mobile"\n', (root / "scripts/selftest.sh").read_text())
         self.assertIn('start.sh optional "mobile"\n', (root / "scripts/start.sh").read_text())
         self.assertNotIn("backend", (root / "CLAUDE.md").read_text())

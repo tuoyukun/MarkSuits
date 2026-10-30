@@ -32,5 +32,6 @@ git 历史里）。
 - `failureType` 取 `impl-bug`、`needs-unit-test`、`design-flaw`、`unclear` 之一。
 - `FAIL-N` 永不复用：从上一份报告的最大编号往后编。上次之后已修好的失败不再重复；orchestrator
   会把本文件里所有 `FAIL-N` 交给下一个角色。
-- 每份报告都有「回归影响」行：`none`，或 `extend <living journey>` 及加的步骤（计划里的 regression 行）。
+- 每份报告都有「回归影响」行：`none`；核心流程新增了回归用例写 `added <旅程>`；扩展现有旅程写
+  `extend <旅程>` 及加的步骤。验收用例是本单的证据，不算 regression。
 - `PASSED` 报告没有「失败项」段，且有「验收」行。

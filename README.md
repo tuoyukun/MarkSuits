@@ -53,10 +53,10 @@ from happening:
 - **Rules enforced by code.** Hooks exit 2 on writes outside a role's scope, skipped gates,
   duplicate dispatches, commits on the wrong branch, and an agent approving its own work.
 - **Parallel work that doesn't collide.** One branch, worktree and set of ports per ticket.
-  Code reaches main only through `mark merge`: full regression, then fast-forward. If anything
-  fails, main is untouched.
-- **A process that stays lean.** Byte budgets on the docs every agent loads, and new end-to-end
-  tests only where the plan says an existing user journey can't be extended.
+  Code reaches main only through `mark merge`: the core-flow regression, then fast-forward. If
+  anything fails, main is untouched.
+- **A process that stays lean.** Byte budgets on the docs every agent loads; the tester writes
+  one acceptance test per criterion, and only core flows join the regression suite.
 
 ## How Mark compares
 
@@ -70,7 +70,7 @@ that break it*.
 | What it is | Ticket workflow with role agents and a merge pipeline | Library of composable skills | Spec-driven toolkit: commands and templates | Agile method with specialized agents and workflows |
 | How the process holds | Hooks block violating tool calls (exit 2) | The agent follows the skills | The agent follows the commands | The agent follows the workflows |
 | Coding agents | Claude Code only | Many | Many | Many |
-| Who lands the code | `mark merge`, after a full regression | You choose: merge, PR, keep or discard | You | You |
+| Who lands the code | `mark merge`, after the regression suite | You choose: merge, PR, keep or discard | You | You |
 
 **When not to use Mark**
 
@@ -121,7 +121,10 @@ flowchart TB
 - **Guards are small, tested functions.** Every hook goes through one entry point, and each guard
   returns a message or nothing. Outside a Mark project they stay silent.
   [More](docs/architecture.md#guards-v03)
-- **One way into main.** `mark merge` merges main into the ticket, runs your regression command,
+- **Tests have two homes.** Each ticket's acceptance tests live in `e2e/tickets/<id>/`, one per
+  criterion; only the few core flows live in `e2e/regression/`, the suite `mark merge` runs.
+  [More](docs/architecture.md#end-to-end-tests-v022)
+- **One way into main.** `mark merge` merges main into the ticket, runs the core-flow regression,
   then fast-forwards and pushes. [More](docs/architecture.md#merge-v07)
 
 Role agents, prompts and artifact formats ship with the plugin and update with it. Your project
@@ -152,7 +155,7 @@ end-to-end test runner.
 
 ## Status
 
-v0.31. Feature and bug chains have run end to end on all five examples. Versions stay below 1.0
+v0.40. Feature and bug chains have run end to end on all five examples. Versions stay below 1.0
 until real users have run Mark. Claude Code does not auto-update plugins from this marketplace
 unless you turn it on (`/plugin` > Marketplaces > marksuits > Enable auto-update); `mark status`
 tells you when a newer version is out.

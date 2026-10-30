@@ -23,11 +23,11 @@ from mark.flow import SCENARIOS, Action, Ctx
 
 # Example -> (module whose selftest.sh runs its unit tests, commands its CLAUDE.md must name).
 EXAMPLES = {
-    "todo": ("backend", ("npm --prefix tests ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
+    "todo": ("backend", ("npm --prefix e2e ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
                          "npx playwright test", "bash scripts/selftest.sh && bash scripts/regression.sh")),
     "notes": ("service", ("bash scripts/selftest.sh", "bash scripts/start.sh", "bash regression.sh -k",
                           "bash scripts/selftest.sh && bash scripts/regression.sh")),
-    "expenses": ("frontend", ("npm --prefix tests ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
+    "expenses": ("frontend", ("npm --prefix e2e ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
                               "npx playwright test", "bash scripts/selftest.sh && bash scripts/regression.sh")),
     "habits": ("backend", ("cd app && npm ci", "bash scripts/selftest.sh", "bash scripts/start.sh",
                            "cd e2e && bash regression.sh", "bash scripts/selftest.sh && bash scripts/regression.sh")),

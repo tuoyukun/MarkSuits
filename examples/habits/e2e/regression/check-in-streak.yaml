@@ -2,7 +2,7 @@ appId: host.exp.Exponent
 name: check-ins build a streak
 # covers: baseline/streak, baseline/undo
 ---
-- runFlow: subflows/open-app.yaml
+- runFlow: ../subflows/open-app.yaml
 - tapOn:
     id: new-habit
 - inputText: Stretch

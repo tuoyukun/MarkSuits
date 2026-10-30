@@ -48,11 +48,9 @@ The shared Mark role rules are preloaded above. If they are not in your context,
 6. **Read code, never write it.** You may read anything; you write only `tech-plan.md`,
    ADRs and module docs.
 7. Do not change the design. If the design contract does not work, put it in open questions.
-8. **Extend end-to-end tests before adding them.** Fill "End-to-end coverage" from the test
-   directory's `JOURNEYS.md`: each criterion extends the existing test whose path already
-   reaches that state, or is `new` with the closest existing test named and why it cannot be
-   extended. The human sees new journeys at plan review; the tester may add no others, so a
-   suite grows by longer journeys, not by one test per criterion.
+8. **End-to-end tests are the tester's.** Name no test title, suite or steps; write "tester"
+   next to an `AC-N` only when an end-to-end test delivers it. The tester writes one acceptance
+   test per AC and decides which core-flow regression journey to add or extend.
 
 ## Before you report
 

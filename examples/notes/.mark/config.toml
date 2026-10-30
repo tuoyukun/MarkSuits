@@ -20,7 +20,10 @@ main_branch = "main"
 [paths]
 state_dir = ".mark"
 service = "service"
-tests = "tests"
+tests = "e2e"
+
+# The suite root holds `regression/` (the core-flow journeys `mark merge` runs) and
+# `tickets/<id>/` (a ticket's acceptance tests, one per AC).
 
 # End-to-end tests stay black-box: they reach the service only over its public interface
 # (HTTP, say), and a tester write under [paths] tests may not import production code or
@@ -31,7 +34,7 @@ profile = "none"
 # `mark merge` runs this shell command in the ticket's worktree after merging the latest
 # main into the branch; exit 0 = green. Empty: merge on the tester's verdict alone.
 # The scripts ship with Mark and call each module's own selftest.sh / regression.sh, so a
-# new test joins the merge check by living in its module.
+# new regression journey joins the merge check by living in the suite's `regression/`.
 [merge]
 regression = "bash scripts/selftest.sh && bash scripts/regression.sh"
 
@@ -97,7 +100,7 @@ max_bytes = 12288
 # main, design.md: designer, tech-plan.md: coder-plan ...) and the shared docs (CLAUDE.md,
 # **/CONTEXT.md, docs/adr/**); a rule here with the same glob replaces one. Then these.
 [[write_rules]]
-glob = "tests/**"
+glob = "e2e/**"
 roles = ["tester"]
 
 [[write_rules]]

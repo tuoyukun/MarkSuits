@@ -30,7 +30,7 @@ AGENTS = PLUGIN_ROOT / "agents"
 LOCALES = ("en", "zh-CN")
 ANSWERS = {"locale": "en", "profile": "web-fullstack", "project_name": "demo", "main_branch": "main",
            "frontend_dir": "frontend", "backend_dir": "backend", "ui_dir": "frontend/src/ui",
-           "tests_dir": "tests",
+           "tests_dir": "e2e",
            "worktree_setup": "npm ci"}
 
 # Anchors each artifact format must show (language-neutral, see CLAUDE.md rule 7).
@@ -39,11 +39,9 @@ FORMAT_ANCHORS = {
     "bug.md": [],
     "design.md": ["<!-- mark:states -->", "S-1", "<!-- mark:open-questions -->"],
     "design-qa.md": ["<!-- mark:qa-round 1 -->", "<!-- mark:qa passed -->", "<!-- mark:qa blocked -->", "D-1"],
-    "tech-plan.md": ["<!-- mark:tasks -->", "T-1", "SD-1", "sequenceDiagram", "<!-- mark:open-questions -->",
-                     "<!-- mark:e2e-plan -->", "| AC-1 | new |", "| AC-2 | extend |"],
-    "fix-plan.md": ["<!-- mark:ac -->", "AC-1", "[inline]", "<!-- mark:open-questions -->",
-                    "<!-- mark:e2e-plan -->", "| AC-1 | new |", "| AC-2 | extend |"],
-    "journeys.md": ["<!-- mark:journeys -->", "| test | file | suite | path | covers |"],
+    "tech-plan.md": ["<!-- mark:tasks -->", "T-1", "SD-1", "sequenceDiagram", "<!-- mark:open-questions -->"],
+    "fix-plan.md": ["<!-- mark:ac -->", "AC-1", "[inline]", "<!-- mark:open-questions -->"],
+    "journeys.md": ["<!-- mark:journeys -->", "| test | file | path | covers |"],
     "handoff.md": ["<!-- mark:ac-table -->", "<!-- mark:blocked -->"],
     "verdict.md": ["<!-- mark:verdict FAILED -->", "FAIL-3", "failureType:", "routeTo:"],
 }
@@ -153,7 +151,7 @@ class ShippedScriptsTest(unittest.TestCase):
     def test_before_the_skeleton_nothing_runs(self):
         code, out = self.run_script("regression.sh")
         self.assertEqual(code, 0, out)
-        self.assertIn("skip tests/: not created yet", out)
+        self.assertIn("skip e2e/: not created yet", out)
         self.assertIn("nothing ran", out)
 
     def test_a_module_without_its_required_entry_fails(self):
@@ -172,7 +170,7 @@ class ShippedScriptsTest(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn("backend on 8201", out)
         self.assertIn("skip frontend/: no start.sh", out)  # optional entry
-        self.entry("tests/regression.sh", "exit 3\n")
+        self.entry("e2e/regression.sh", "exit 3\n")
         self.assertEqual(self.run_script("regression.sh")[0], 3)  # the entry's own exit code
 
     def test_scripts_are_executable(self):

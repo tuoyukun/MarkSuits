@@ -47,10 +47,10 @@ claude plugin install mark@marksuits --scope project
 - **你只在两处审。** 设计（附可运行的 UI 预览）和技术方案。之后整条链自动跑到合并。bug 修复没有闸门。
 - **规则由代码强制。** 越权写入、跳过闸门、重复派发、提交到错误分支、agent 自己批准自己的工作，
   hook 一律 exit 2 拦截。
-- **并行不打架。** 一单一分支、一个 worktree、一组端口。代码只能经 `mark merge` 进 main：先跑全量回归，
-  再 fast-forward；任何一步失败，main 不动。
-- **流程保持精简。** 每个 agent 都加载的文档有字节预算；只有方案说明已有用户旅程无法扩展时，才新增
-  端到端测试。
+- **并行不打架。** 一单一分支、一个 worktree、一组端口。代码只能经 `mark merge` 进 main：先跑核心流程
+  回归，再 fast-forward；任何一步失败，main 不动。
+- **流程保持精简。** 每个 agent 都加载的文档有字节预算；tester 每个 AC 只写一个验收用例，只有核心流程
+  才进 regression 套件。
 
 ## 和同类工具比较
 
@@ -63,7 +63,7 @@ Mark 给 agent 一套方法，**并拒绝违反它的工具调用**。
 | 是什么 | 带角色 agent 和合并流水线的工单流程 | 可组合的 skill 库 | 规格驱动的工具包：命令和模板 | 敏捷方法，配专门的 agent 和工作流 |
 | 流程靠什么维持 | hook 拦截违规的工具调用（exit 2） | agent 遵循 skill | agent 遵循命令 | agent 遵循工作流 |
 | 支持的编码 agent | 仅 Claude Code | 多种 | 多种 | 多种 |
-| 谁把代码合进去 | `mark merge`，全量回归通过后 | 你选：合并、PR、保留或丢弃 | 你 | 你 |
+| 谁把代码合进去 | `mark merge`，回归套件通过后 | 你选：合并、PR、保留或丢弃 | 你 | 你 |
 
 **什么时候不该用 Mark**
 
@@ -109,7 +109,9 @@ flowchart TB
   你确实输入了 `/mark:approve`。[详情](docs/architecture.md#4-ticket-lifecycle-feature-chain)
 - **守卫是有测试的小函数。** 所有 hook 经过同一个入口，每个守卫返回一条消息或什么都不返回。
   在非 Mark 项目里完全静默。[详情](docs/architecture.md#guards-v03)
-- **进 main 只有一条路。** `mark merge` 先把 main 合进工单分支，跑你的回归命令，再 fast-forward 并推送。
+- **用例有两个家。** 每个工单的验收用例放在 `e2e/tickets/<id>/`，一个 AC 一个；只有少数核心流程放在
+  `e2e/regression/`，也就是 `mark merge` 跑的套件。[详情](docs/architecture.md#end-to-end-tests-v022)
+- **进 main 只有一条路。** `mark merge` 先把 main 合进工单分支，跑核心流程回归，再 fast-forward 并推送。
   [详情](docs/architecture.md#merge-v07)
 
 角色 agent、派活模板和制品格式随插件发布、随插件更新。项目里只保留 `CLAUDE.md` 和 `.mark/config.toml`，
@@ -136,7 +138,7 @@ flowchart TB
 
 ## 状态
 
-v0.31。feature 链和 bug 链已在全部五个示例上端到端跑通。在真实用户跑过之前，版本号保持在 1.0 以下。
+v0.40。feature 链和 bug 链已在全部五个示例上端到端跑通。在真实用户跑过之前，版本号保持在 1.0 以下。
 Claude Code 默认不会自动更新这个 marketplace 里的插件，需要你打开一次（`/plugin` > Marketplaces >
 marksuits > Enable auto-update）；有新版时 `mark status` 会提示。
 

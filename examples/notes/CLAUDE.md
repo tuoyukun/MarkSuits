@@ -17,7 +17,7 @@ restarting the service empties it.
 |---|---|---|
 | Service (`service/`) | Python 3.11+ standard library (`http.server`) | JSON API under `/api`, contract in the `server.py` docstring |
 | Storage | in memory (`store.py`) | no persistence |
-| End-to-end tests (`tests/`) | Python `unittest` + `urllib` | black-box: only the HTTP API; `regression.sh` starts its own service |
+| End-to-end tests (`e2e/`) | Python `unittest` + `urllib` | black-box: only the HTTP API; `regression.sh` starts its own service |
 
 ## 3. Layout
 
@@ -28,14 +28,14 @@ assigns (`[[write_rules]]` in `.mark/config.toml`) is written by the main thread
 | Path | What | Written by |
 |---|---|---|
 | `service/` | the HTTP service and its unit tests; `selftest.sh`, `start.sh`, `stop.sh` | coder-impl |
-| `tests/` | end-to-end tests (`e2e/`), their HTTP client; `regression.sh`; `JOURNEYS.md` (every test and its path) | tester |
+| `e2e/` | regression tests in `regression/`, each ticket's acceptance tests in `tickets/<id>/`, their HTTP client; `regression.sh`; `regression/JOURNEYS.md` (the regression journeys and their paths) | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
 | `scripts/` | entry points shipped by Mark; they call each module's own | main thread |
 | `README.md`, `.gitignore`, `.mark/`, `.claude/` | project docs and workflow files | main thread |
 
 `bash scripts/selftest.sh` runs `service/selftest.sh` (white-box); `bash scripts/regression.sh`
-runs `tests/regression.sh` (black-box, the whole end-to-end suite); `bash scripts/start.sh` /
+runs `e2e/regression.sh` (black-box, the core-flow regression journeys); `bash scripts/start.sh` /
 `stop.sh` / `restart.sh` run `service/start.sh` / `stop.sh`. Each runs inside its module with
 the checkout's `.env` exported.
 
@@ -47,7 +47,7 @@ status codes, and the error shape `{"error": "..."}`. The end-to-end tests check
 | Module | Owns | May depend on | Must not |
 |---|---|---|---|
 | `service` | `server.py` (routes, HTTP errors) and `store.py` (data and validation) | standard library only | serve anything outside `/api` |
-| `tests` | end-to-end tests in `tests/e2e/`, the client in `e2e/client.py` | the running service over HTTP | import service code or read its files |
+| `e2e` | regression tests in `e2e/regression/` (client beside them), ticket acceptance tests in `e2e/tickets/<id>/` | the running service over HTTP | import service code or read its files |
 
 Each module has a `CONTEXT.md` that describes its current shape.
 
@@ -60,7 +60,7 @@ Role agents run exactly these, from the root of their worktree. Nothing needs in
 | Install dependencies | none (standard library only) |
 | Start / stop / restart the service | `bash scripts/start.sh` / `bash scripts/stop.sh` / `bash scripts/restart.sh` (port: `SERVICE_PORT` in `.env`, default 8000) |
 | Self-test (white-box) | `bash scripts/selftest.sh` (Python compile and `unittest`, `service/test_*.py`) |
-| End-to-end tests (selected cases) | `cd tests && bash regression.sh -k <name>` |
+| End-to-end tests (selected cases) | `cd e2e && bash regression.sh -k <name>` |
 | Full regression (what a merge must pass, `[merge] regression`) | `bash scripts/selftest.sh && bash scripts/regression.sh` |
 
 End-to-end tests start the service on a port picked from the checkout path, so several

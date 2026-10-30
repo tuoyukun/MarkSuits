@@ -143,10 +143,6 @@ or its review file holds a round (the human rejected it), `mark set` passes it a
 the way `mark approve` would (the UI-only shortcut above included). A first review still stops.
 `[gates] rework_review = true` stops at every review again.
 
-A plan may `extend` only end-to-end tests main already has; one an earlier round of the same
-ticket added is `new` (`guards.write.plan_extend_guard`, v0.31), so `mark merge` no longer finds
-it unplanned after the whole chain has run.
-
 A profile without a UI (`profile = "service"`, v0.25) has no designer (`config.NO_UI_PROFILES`
 drops it from the default `roles`, and with it the `design-approved` gate): a new feature starts
 at `planning` (`states.initial`), and no move may enter a status whose role the project lacks
@@ -185,7 +181,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 
 | group | event / matcher | guards, in order |
 |---|---|---|
-| `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins; a path no rule assigns is the main thread's, except a role's working files in a ticket dir — v0.19; CLI-only files are nobody's, see below) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **budget** (`[[doc_budget]]`, see Doc budget) · **e2e** / **journey** (tester writes, v0.22–0.23) |
+| `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins; a path no rule assigns is the main thread's, except a role's working files in a ticket dir — v0.19; CLI-only files are nobody's, see below) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **budget** (`[[doc_budget]]`, see Doc budget) · **e2e** / **layout** (tester writes, v0.22–v0.40) |
 | `pre-dispatch` | PreToolUse `Agent\|Task` | **staffed** (a built-in role the project lacks, e.g. the designer in `service`, is refused, v0.30) · **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **status** (the role is the one the ticket's status names; gates are never revoked, so a gate alone would start coder-impl while a reworked plan waits for review, v0.30) · **gate** (feature roles need `[gates]`, plus `requirement-approved` when the ticket says `requirement-gate: yes`, v0.33; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **brief** (the prompt is the one `mark dispatch` last printed for that ticket and role, by digest in `locks/<id>.<role>.brief.json`; an edited copy starts no agent, v0.35) · **dedup** (one live agent per ticket+role; creates the lock) |
 | `pre-bash` | PreToolUse `Bash` | nobody touches human tokens; subagents never run state-changing `mark` commands, never commit on main or push to it (from any branch, e.g. `HEAD:main` in a worktree, v0.30); nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `touch`, `sed`/`perl`/`ruby -i`, `cp`, `mv`) follow the scope and worktree rules, and the tester writes test code under the tests directory with Edit/Write only, so the end-to-end rules see it; the main thread's never reach a CLI-only file or a role's artifact in a ticket dir (`verdict.md`, `design-qa.md`… carry anchors the engine trusts, v0.30) (commands split at `&&`, `||`, `;`, `|` and newlines outside quotes; `$VAR` and `cd` are followed through the command's own assignments and the environment; unclear or quoted targets pass) |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock; a foreground agent (`status: completed`) whose stop could not be matched is settled here instead, so no finished agent leaves a bound lock |
@@ -319,17 +315,20 @@ tester's word alone. The template now ships `scripts/` at the root and its merge
 `[merge] regression`, and then merges on the tester's verdict alone). The scripts never change per
 ticket: `scripts/each.sh` runs one entry point inside each module, with the checkout's `.env`
 exported (its v0.20 ports). `selftest.sh` (frontend, backend) is the white-box self-test
-coder-impl owns; `regression.sh` (test directory) is the black-box suite the tester owns;
+coder-impl owns; `regression.sh` (test directory) is the black-box suite the tester owns and
+runs only its `regression/` journeys;
 `start.sh` / `stop.sh` are optional, for modules that run a server. A module directory that
 does not exist yet is skipped, so before the skeleton the check is green and says nothing
 ran; a module that exists without its required entry fails, so a check never passes by
 running nothing. The skeleton's plan creates the entries, so its own merge, which runs in the
-ticket's worktree, already runs the real suites. A new test joins the check by living in its
-module. `scripts/` has no write rule (main thread only) and updates through `/mark:upgrade`;
+ticket's worktree, already runs the real suites. A new regression journey joins the check by
+living in the suite's `regression/` directory. `scripts/` has no write rule (main thread only) and updates through `/mark:upgrade`;
 an existing project writes its module entries in the init or upgrade lane before it lands.
 The `regression_cmd` answer is gone; a recorded one is ignored.
 
-**Black-box end-to-end tests (v0.22).** The tester's tests drive the app as a user; what only
+### End-to-end tests (v0.22)
+
+The tester's tests drive the app as a user; what only
 code can reach is a unit test in its module (`needs-unit-test`). `guards.write.e2e_guard`
 (rules in `lib/mark/e2e.py`) judges what a tester write adds under `[paths] tests`, never the
 lines and test blocks already there, so a legacy suite is not held to rules it predates. Any
@@ -350,24 +349,20 @@ flow needs a user action (`tapOn`, `inputText`, `swipe`...) and an assertion aft
 a `runFlow` counts as what the flow it runs does (`e2e.flow_problems`), and no `runFlow` /
 `runScript` / `file:` path may leave the test directory. Journeys work as below.
 
-**Extend before adding (v0.23).** Suites grow because the cheapest move for a tester is one
-more test per criterion, and nothing pushes back; a cap on the count does not work either,
-since how many journeys a product needs differs by orders of magnitude between projects. So
-the decision moves to where a human already looks: the plan. `tech-plan.md` and `fix-plan.md`
-carry "End-to-end coverage" (`<!-- mark:e2e-plan -->`), one row per criterion: `extend
-<existing title>` with the steps to add, `new <title>` with the closest existing test and why
-it cannot be extended, or `unit`. The planner reads `<tests>/JOURNEYS.md`
-(`<!-- mark:journeys -->`, tester-owned: every test's title, file, path through the app and
-covers), and the human sees each new journey at plan review; a bug has no review, but the
-reason is on record. No separate test review: the human could not judge one. Enforcement,
-with `[tests] profile = "playwright"` or `"maestro"`: the tester's write may add only tests titled as the
-plan's `new` rows (`guards.write.journey_guard`; a title already present in another spec is a
-move, not an addition; changing a test keeps its title); `mark merge` re-checks that the
-branch adds no test beyond them against the merged base (`merge._journeys`; shell writes
-cannot slip past) and that `JOURNEYS.md` lists exactly the tests there are. General lanes
-have no plan and get only the index check. `mark journeys [<checkout>]` prints the rows to
-add (file and `covers:` filled in) and to drop, which is also how an existing suite gets its
-first index in the init or upgrade lane.
+**Two suites, tester-owned (v0.40).** `[paths] tests` is the suite root:
+`regression/` holds the few core flows `mark merge` runs; `tickets/<id>/` holds one
+acceptance test per non-unit `AC-N` for that ticket, frozen once it merges. The tester
+derives the tests from the requirement (no plan table), writes exactly one per criterion
+(`covers: <ticket>/AC-N`), and decides the regression impact: `none`, a new core-flow
+journey, or steps added to an existing one. An acceptance test is evidence, never a
+regression entry. `guards.write.layout_guard` keeps tester writes in the ticket's own
+directory or `regression/` (another ticket's directory is frozen); `mark merge` re-checks the
+layout, the one-to-one coverage (`merge._e2e_check`, so shell writes cannot slip past) and
+that `regression/JOURNEYS.md` (`<!-- mark:journeys -->`) lists exactly the regression tests.
+The regression runner (`<tests>/regression.sh`) runs only `regression/`, so a ticket's
+acceptance tests never join the merge check. `mark journeys [<checkout>]` prints the rows to
+add (file and `covers:` filled in) and to drop. Until v0.39 the plan carried an
+`<!-- mark:e2e-plan -->` table and the planner chose every test; it is gone.
 
 ### General mode (v0.9)
 

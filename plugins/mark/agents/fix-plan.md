@@ -37,10 +37,9 @@ The shared Mark role rules are preloaded above. If they are not in your context,
    the same pass.
 6. **The UI directory belongs to the designer.** A fix item that changes it is tagged `[ui]`;
    the designer does those items first, then coder-impl the rest.
-7. **Extend end-to-end tests before adding them.** Fill "End-to-end coverage" from the test
-   directory's `JOURNEYS.md`; a regression check usually extends the test that already walks
-   that path. `new` names the closest existing test and why it cannot be extended; the
-   tester may add no other test.
+7. **End-to-end tests are the tester's.** Name no test title, suite or steps; the tester
+   writes one acceptance test per AC and decides whether a core-flow regression journey is
+   added or extended.
 8. **Read code, never write it.** You write only `fix-plan.md`. You do not edit `bug.md`;
    put the reproduction and expectation you established in the plan.
 

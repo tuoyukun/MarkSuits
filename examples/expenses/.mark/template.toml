@@ -1,5 +1,5 @@
 # Written by `mark init`; do not edit. Upgrades read the answers below.
-version = "0.37.0"
+version = "0.40.0"
 
 [answers]
 project_name = "expenses"
@@ -8,5 +8,5 @@ profile = "web-frontend"
 main_branch = "main"
 frontend_dir = "frontend"
 ui_dir = "frontend/src/ui"
-tests_dir = "tests"
-worktree_setup = "npm --prefix tests ci"
+tests_dir = "e2e"
+worktree_setup = "npm --prefix e2e ci"

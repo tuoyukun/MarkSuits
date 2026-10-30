@@ -26,9 +26,14 @@ lane. Main does not change until the human says to land it. Speak the human's la
    (`[paths]`), `regression.sh` in the test directory, and `start.sh` / `stop.sh` in each module
    that runs a server, each wrapping the commands `CLAUDE.md` lists today; point the Commands
    section of `CLAUDE.md` at `scripts/`; run both scripts once; commit in the lane.
-   Also: with `[tests] profile = "playwright"` or `"maestro"`, `mark merge` also needs `JOURNEYS.md` in the test
-   directory to list every end-to-end test: run `mark journeys <worktree>`, write the rows it
+   Also: with `[tests] profile = "playwright"` or `"maestro"`, `mark merge` also needs
+   `regression/JOURNEYS.md` in the test directory to list every regression journey: run
+   `mark journeys <worktree>`, write the rows it
    prints with the path column filled in from reading each test, and commit it in the lane.
+   v0.40 moved the suite: move the project's existing core flows under `<tests>/regression/`,
+   move `JOURNEYS.md` beside them, and put each ticket's acceptance tests under
+   `<tests>/tickets/<ticket id>/` with one test per `AC-N` (`covers: <ticket>/AC-N`). `mark merge`
+   refuses test files outside those two directories.
 5. **Show the human** what the upgrade changes: the rows, `git -C "<worktree>" diff <main>...HEAD --stat`,
    and in plain words what changed in the files they edited (merged or resolved). Mention rows
    that say skipped: those files did not get the template's change. Rows that say kept are

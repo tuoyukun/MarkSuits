@@ -24,7 +24,7 @@ TODO：用一段话说明 {{ project_name }} 做什么、给谁用。
 | 路径 | 内容 | 谁写 |
 |---|---|---|
 | `{{ app_dir }}/` | 移动端 App，自带依赖和配置（含原生工程） | coder-impl（`{{ ui_dir }}/`：designer） |
-| `{{ tests_dir }}/` | 端到端 flow，一个旅程一个文件；共用步骤放 `subflows/`；`JOURNEYS.md` 列出全部用例 | tester |
+| `{{ tests_dir }}/` | 端到端用例：核心流程旅程放 `regression/`，本单验收用例放 `tickets/<id>/`；共用步骤放 `subflows/`；`regression/JOURNEYS.md` 列出旅程 | tester |
 | `docs/adr/` | 架构决策记录 | coder-plan |
 | `CLAUDE.md` | 本文件 | 主线程、coder-plan、coder-impl |
 | `scripts/` | 下面这些入口；由 Mark 提供，工单不改 | 主线程 |
@@ -36,7 +36,7 @@ TODO：用一段话说明 {{ project_name }} 做什么、给谁用。
 | 入口 | 由谁提供 | 做什么 |
 |---|---|---|
 | `selftest.sh` | `{{ app_dir }}/`（建好后必须有） | 白盒自测：本模块的 lint、类型检查、单元测试 |
-| `regression.sh` | `{{ tests_dir }}/`（建好后必须有） | 黑盒回归：拿到设备锁后，在模拟器上跑整套端到端用例 |
+| `regression.sh` | `{{ tests_dir }}/`（建好后必须有） | 黑盒回归：拿到设备锁后，在模拟器上跑 `regression/` 的核心旅程 |
 | `start.sh`、`stop.sh` | `{{ app_dir }}/` 的开发服务器（bundler） | 用 `.env` 里的端口在后台启动，能响应后再返回；停止 |
 
 ## 4. 模块边界
@@ -60,7 +60,7 @@ TODO：用一段话说明 {{ project_name }} 做什么、给谁用。
 - **设计预览。** `preview.html` 由真实 UI 组件生成：TODO（UI 预览页的 web 构建，内联成单个文件；
   没有 web 构建时，用模拟器上每个 `S-N` 的截图内联而成）。它接近真机但不等于真机：以模拟器上的
   design QA 为准。
-- **端到端 flow。** 一个旅程一个 Maestro flow，`name:` 就是 `JOURNEYS.md` 里的标题。多个 flow 共用的
+- **端到端 flow。** `tickets/<id>/` 里每个 AC 一个 flow；核心流程旅程放 `regression/`。`name:` 就是 `regression/JOURNEYS.md` 里的标题。多个 flow 共用的
   步骤放在 `{{ tests_dir }}/subflows/`，用 `runFlow` 调用。
 
 ## 6. 命令

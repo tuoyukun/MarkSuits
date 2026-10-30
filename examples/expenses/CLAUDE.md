@@ -17,7 +17,7 @@ profile.
 |---|---|---|
 | Frontend (`frontend/`) | Vanilla JavaScript ES modules, plain CSS, no build step | served as static files (`python3 -m http.server`) |
 | APIs the app calls (none, or third-party) | none | data in localStorage |
-| End-to-end tests (`tests/`) | Playwright (`@playwright/test`, Chromium) | serves the app itself on a per-checkout port |
+| End-to-end tests (`e2e/`) | Playwright (`@playwright/test`, Chromium) | serves the app itself on a per-checkout port |
 
 ## 3. Layout
 
@@ -28,14 +28,14 @@ assigns (`[[write_rules]]` in `.mark/config.toml`) is written by the main thread
 | Path | What | Written by |
 |---|---|---|
 | `frontend/` | the browser app, no build step; `selftest.sh`, `start.sh`, `stop.sh` | coder-impl (`frontend/src/ui/`: designer) |
-| `tests/` | end-to-end specs, Playwright config, `package.json`; `regression.sh`; `JOURNEYS.md` (every test and its path) | tester |
+| `e2e/` | regression specs in `regression/`, each ticket's acceptance tests in `tickets/<id>/`; Playwright config, `package.json`; `regression.sh`; `regression/JOURNEYS.md` (the regression journeys and their paths) | tester |
 | `docs/adr/` | architecture decision records | coder-plan |
 | `CLAUDE.md` | this file | main thread, coder-plan, coder-impl |
 | `scripts/` | entry points shipped by Mark; they call each module's own | main thread |
 | `README.md`, `.gitignore`, `.mark/`, `.claude/` | project docs and workflow files | main thread |
 
 `bash scripts/selftest.sh` runs `frontend/selftest.sh` (white-box); `bash scripts/regression.sh`
-runs `tests/regression.sh` (black-box, the whole end-to-end suite); `bash scripts/start.sh` /
+runs `e2e/regression.sh` (black-box, the core-flow regression journeys); `bash scripts/start.sh` /
 `stop.sh` / `restart.sh` run `frontend/start.sh` / `stop.sh`. Each runs inside its module with
 the checkout's `.env` exported.
 
@@ -45,32 +45,32 @@ the checkout's `.env` exported.
 |---|---|---|---|
 | `frontend/src/ui` | Presentational components (`components.js`), `dom.js`, styles, and the preview (designer only) | `dom.js`, CSS custom properties in `styles.css` | storage, global state, `app.js`, `store.js` |
 | `frontend/src` (outside `ui/`) | `app.js` (state, wiring, which UI state is shown) and `store.js` (expense rules and localStorage) | `ui/components.js` through their props | build DOM by hand, style components, change `ui/` props types |
-| `tests` | end-to-end specs in `tests/e2e/` | the app through the browser | import application code, stub the network |
+| `e2e` | end-to-end specs in `e2e/regression/` | the app through the browser | import application code, stub the network |
 
 The app calls no API. If a feature adds one, end-to-end tests never call the real
 third-party API and never stub the network in the browser: the app reads the API's base URL
-from `.env`, and the tests run a fake of that API from `tests/` (tester) and point the URL at it.
+from `.env`, and the tests run a fake of that API from `e2e/` (tester) and point the URL at it.
 
 Each module has a `CONTEXT.md` that describes its current shape.
 
 ## 5. Commands
 
 Role agents run exactly these, from the root of their worktree. Every new worktree gets
-`npm --prefix tests ci` before an agent starts (`[worktree] setup`); install the browser
+`npm --prefix e2e ci` before an agent starts (`[worktree] setup`); install the browser
 once per machine.
 
 | Purpose | Command |
 |---|---|
-| Install dependencies | `npm --prefix tests ci && npm --prefix tests exec playwright install chromium` |
+| Install dependencies | `npm --prefix e2e ci && npm --prefix e2e exec playwright install chromium` |
 | Start / stop / restart the app | `bash scripts/start.sh` / `bash scripts/stop.sh` / `bash scripts/restart.sh` (port: `FRONTEND_PORT` in `.env`, default 8000) |
 | Open the UI preview | start the app, then `http://127.0.0.1:<port>/src/ui/preview.html` |
-| Screenshot a page | `npm --prefix tests exec -- playwright screenshot --viewport-size "1280, 800" --full-page <url> <file.png>` (mobile: `"390, 844"`) |
+| Screenshot a page | `npm --prefix e2e exec -- playwright screenshot --viewport-size "1280, 800" --full-page <url> <file.png>` (mobile: `"390, 844"`) |
 | Self-test (white-box) | `bash scripts/selftest.sh` (JS syntax check; `node --test`, `frontend/src/*.test.js`) |
-| End-to-end tests (selected specs) | `cd tests && npx playwright test e2e/<spec>.spec.js` |
+| End-to-end tests (selected specs) | `cd e2e && npx playwright test regression/<spec>.spec.js` |
 | Full regression (what a merge must pass, `[merge] regression`) | `bash scripts/selftest.sh && bash scripts/regression.sh` |
 
 End-to-end tests pick a port from the checkout path, so several worktrees can run them at
-once; set `PORT=<n>` to override. Failure traces and screenshots land in `tests/test-results/`.
+once; set `PORT=<n>` to override. Failure traces and screenshots land in `e2e/test-results/`.
 
 ## 6. Red lines
 

@@ -37,7 +37,7 @@ PROFILES = {
     "mobile": ("app_dir", "ui_dir", "tests_dir"),
 }
 DIR_DEFAULTS = {"frontend_dir": "frontend", "backend_dir": "backend", "service_dir": "service",
-                "app_dir": "app", "tests_dir": "tests"}
+                "app_dir": "app", "tests_dir": "e2e"}
 RECORD = ".mark/template.toml"
 BASE_DIR = ".mark/.base"
 KEPT = {"CLAUDE.md"}           # kept as it is when the project already has one

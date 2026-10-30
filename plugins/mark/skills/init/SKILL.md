@@ -84,12 +84,13 @@ Speak the human's language.
    The merge check is fixed: `bash scripts/selftest.sh && bash scripts/regression.sh`. Those
    scripts call each module's own entry points, so an existing project needs them before the
    lane can land: in the same lane, write `selftest.sh` in each code module (its
-   lint, type check, unit tests, build), `regression.sh` in the test directory (the whole
-   end-to-end suite), and `start.sh` / `stop.sh` in each module that runs a server, each
+   lint, type check, unit tests, build), `regression.sh` in the test directory (the core-flow
+   journeys under `regression/`), and `start.sh` / `stop.sh` in each module that runs a server, each
    wrapping the commands the project already uses. Run them once in the lane; the human
    reviews them with the rest.
-   With `[tests] profile = "playwright"` or `"maestro"`, `mark merge` also needs `JOURNEYS.md` in the test
-   directory to list every end-to-end test: run `mark journeys <worktree>`, write the rows it
+   With `[tests] profile = "playwright"` or `"maestro"`, `mark merge` also needs
+   `regression/JOURNEYS.md` in the test directory to list every regression journey: run
+   `mark journeys <worktree>`, write the rows it
    prints with the path column filled in from reading each test, and commit it in the lane.
    The main checkout is now a Mark project, so edit it in a general lane, as in /mark:general:
    `mark general new`, edit `<worktree>/CLAUDE.md`, commit in the lane, `mark general merge <branch>`.

@@ -10,15 +10,15 @@ CONFIG = (FULL_CONFIG + '\n[paths]\ntests = "tests"\nfrontend = "frontend"\nback
           '\n[tests]\nprofile = "playwright"\n')
 
 
-def plan(*rows):
-    body = "\n".join(f"| {' | '.join(r)} |" for r in rows)
-    return ("# plan\n\n## End-to-end coverage\n<!-- mark:e2e-plan -->\n"
-            "| AC | action | test | steps / why not extend |\n|---|---|---|---|\n" + body + "\n\n## Risks\n")
+def acceptance(*acs):
+    return ("# requirement\n\n## Acceptance criteria\n<!-- mark:ac -->\n"
+            + "".join(f"- {ac}: works\n" for ac in acs) + "\n## Risks\n")
 
 
 def index(*titles):
-    return ("# Journeys\n\n<!-- mark:journeys -->\n| test | file | path | covers |\n|---|---|---|---|\n"
-            + "".join(f"| {t} | e2e/a.spec.ts | / → add → listed | 0001/AC-1 |\n" for t in titles))
+    return ("# Regression journeys\n\n<!-- mark:journeys -->\n| test | file | path | covers |\n|---|---|---|---|\n"
+            + "".join(f"| {t} | regression/a.spec.ts | / → add → listed | baseline/{i} |\n"
+                      for i, t in enumerate(titles, 1)))
 
 GOOD = '''import { expect, test } from "@playwright/test";
 
@@ -118,13 +118,30 @@ class SourceRulesTest(unittest.TestCase):
         self.assertEqual(keys("tests/e2e/a.ts", old, old + "// more\n"), [])
 
 
-class PlanTablesTest(unittest.TestCase):
-    def test_planned_new_and_index(self):
-        text = plan(("AC-1", "new", "`checkout as guest`", "closest: login; guest has no session"),
-                    ("AC-2", "extend", "login", "add a step"), ("AC-3", "NEW", "pay", "x"))
-        self.assertEqual(e2e.planned_new(text), {"checkout as guest", "pay"})
-        self.assertEqual(e2e.planned_new("no table"), set())
-        self.assertEqual(e2e.indexed(index("a", "b")), {"a", "b"})
+class LayoutCoverageTest(unittest.TestCase):
+    def test_layout_allows_regression_and_the_own_ticket_only(self):
+        self.assertTrue(e2e.in_layout("tests/regression/a.spec.ts", "tests"))
+        self.assertTrue(e2e.in_layout("tests/tickets/0001-a/a.spec.ts", "tests"))
+        self.assertFalse(e2e.in_layout("tests/e2e/a.spec.ts", "tests"))
+        self.assertFalse(e2e.in_layout("tests/tickets/a.spec.ts", "tests"))
+        self.assertTrue(e2e.ticket_layout("tests/tickets/0001-a/a.spec.ts", "tests", "0001-a"))
+        self.assertFalse(e2e.ticket_layout("tests/tickets/0002-b/a.spec.ts", "tests", "0001-a"))
+
+    def test_criteria_and_strict_one_to_one(self):
+        text = acceptance("AC-1", "AC-2", "AC-3 [unit]")
+        tests = {"one": ("tests/tickets/0001-a/a.spec.ts", "// covers: 0001/AC-1\n"),
+                 "two": ("tests/tickets/0001-a/a.spec.ts", "// covers: 0001/AC-2\n")}
+        self.assertEqual(e2e.criteria(text), {"AC-1": False, "AC-2": False, "AC-3": True})
+        self.assertEqual(e2e.coverage_problems(text, tests, "0001"), [])
+
+    def test_coverage_names_the_missing_shared_and_multi_criteria_tests(self):
+        text = acceptance("AC-1", "AC-2", "AC-3")
+        tests = {"one": ("tests/tickets/0001-a/a.spec.ts", "// covers: 0001/AC-1\n"),
+                 "two": ("tests/tickets/0001-a/a.spec.ts", "// covers: 0001/AC-1, 0001/AC-2\n")}
+        found = [(p.key, p.where) for p in e2e.coverage_problems(text, tests, "0001")]
+        self.assertIn(("e2e.ac_shared", "AC-1"), found)
+        self.assertIn(("e2e.ac_not_one", "two"), found)
+        self.assertIn(("e2e.ac_uncovered", "AC-3"), found)
 
 
 class GuardTest(unittest.TestCase):
@@ -134,34 +151,38 @@ class GuardTest(unittest.TestCase):
         add_ticket(cls.root, "feature", "0001-a", "testing",
                    gates=["ticket-approved", "design-approved", "plan-approved"])
         cls.wt = add_worktree(cls.root, "feature", "0001-a")
-        write(cls.wt / ".mark/features/0001-a/tech-plan.md",
-              plan(("AC-1", "new", "add a todo", "closest: none, first journey"),
-                   ("AC-2", "extend", "old one", "add a reload step")))
-        write(cls.wt / "tests/e2e/old.spec.ts", block('  await page.click("a");\n  expect(1);', "old one"))
+        write(cls.wt / "tests/tickets/0000-old/old.spec.ts",
+              block('  await page.click("a");\n  expect(1);', "old one"))
+        write(cls.wt / "tests/regression/base.spec.ts",
+              block('  await page.click("a");\n  expect(1);', "baseline"))
 
     def write(self, rel, content, agent="tester"):
         return hook("pre-write", {"hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": str(self.wt),
                                   "agent_type": agent,
                                   "tool_input": {"file_path": str(self.wt / rel), "content": content}})
 
-    def test_tester_writes_a_real_journey(self):
-        self.assertEqual(self.write("tests/e2e/a.spec.ts", GOOD)[0], 0)
+    def test_tester_writes_its_own_acceptance_dir(self):
+        self.assertEqual(self.write("tests/tickets/0001-a/a.spec.ts", GOOD)[0], 0)
 
-    def test_an_unplanned_new_test_is_blocked(self):
-        code, err = self.write("tests/e2e/a.spec.ts", GOOD + block('  await page.click("b");\n  expect(2);', "extra"))
+    def test_a_test_outside_the_layout_is_blocked(self):
+        code, err = self.write("tests/e2e/a.spec.ts", GOOD)
         self.assertEqual(code, 2)
-        self.assertIn("  - extra", err)
-        self.assertIn("may add (plan, `<!-- mark:e2e-plan -->`): add a todo.", err)
-        self.assertIn("tests/JOURNEYS.md", err)
+        self.assertIn("outside the two directories", err)
+        self.assertIn("tests/tickets/0001-a/", err)
 
-    def test_extending_or_moving_an_existing_test_is_free(self):
-        longer = block('  await page.click("a");\n  await page.reload();\n  expect(1);', "old one")
-        self.assertEqual(self.write("tests/e2e/old.spec.ts", longer)[0], 0)
-        self.assertEqual(self.write("tests/e2e/moved.spec.ts", longer)[0], 0)
+    def test_another_ticket_dir_is_frozen(self):
+        code, err = self.write("tests/tickets/0000-old/x.spec.ts", GOOD)
+        self.assertEqual(code, 2)
+        self.assertIn("are frozen", err)
+
+    def test_regression_and_suite_root_files_are_writable(self):
+        self.assertEqual(self.write("tests/regression/a.spec.ts", GOOD)[0], 0)
+        self.assertEqual(self.write("tests/regression.sh", "#!/bin/bash\n")[0], 0)
+        self.assertEqual(self.write("tests/playwright.config.js", "export default {};\n")[0], 0)
 
     def test_white_box_spec_is_blocked_with_every_reason(self):
-        bad = 'import { api } from "../../frontend/src/api";\n' + block('  await page.goto("/");', "add a todo")
-        code, err = self.write("tests/e2e/a.spec.ts", bad)
+        bad = 'import { api } from "../../../frontend/src/api";\n' + block('  await page.goto("/");', "add a todo")
+        code, err = self.write("tests/tickets/0001-a/a.spec.ts", bad)
         self.assertEqual(code, 2)
         self.assertIn("imports production code", err)
         self.assertIn("no user action", err)
@@ -169,49 +190,13 @@ class GuardTest(unittest.TestCase):
         self.assertIn("needs-unit-test", err)
 
 
-class PlanExtendGuardTest(unittest.TestCase):
-    """A plan may extend only tests main has; one this branch added is still new (0001 R-1)."""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.root = make_repo(CONFIG)
-        add_ticket(cls.root, "feature", "0001-a", "planning", gates=["ticket-approved", "design-approved"])
-        cls.wt = add_worktree(cls.root, "feature", "0001-a")
-        write(cls.root / "tests/e2e/main.spec.ts", block('  await page.click("a");\n  expect(1);', "on main"))
-        write(cls.wt / "tests/e2e/branch.spec.ts", block('  await page.click("a");\n  expect(1);', "branch only"))
-        cls.rel = ".mark/features/0001-a/tech-plan.md"
-
-    def write(self, content, agent="coder-plan"):
-        return hook("pre-write", {"hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": str(self.wt),
-                                  "agent_type": agent,
-                                  "tool_input": {"file_path": str(self.wt / self.rel), "content": content}})
-
-    def test_extending_a_test_main_has_is_fine(self):
-        self.assertEqual(self.write(plan(("AC-1", "extend", "on main", "add a step")))[0], 0)
-
-    def test_extending_a_branch_only_test_is_blocked(self):
-        code, err = self.write(plan(("AC-1", "extend", "branch only", "add a step")))
-        self.assertEqual(code, 2)
-        self.assertIn("  - branch only", err)
-        self.assertIn("`new`", err)
-        self.assertEqual(self.write(plan(("AC-1", "new", "branch only", "closest: none")))[0], 0)
-
-    def test_only_rows_the_write_adds_are_judged_and_only_for_planners(self):
-        old = plan(("AC-1", "extend", "branch only", "add a step"))
-        write(self.wt / self.rel, old)
-        try:
-            self.assertEqual(self.write(old.replace("## Risks", "## Risks\n- more"))[0], 0)
-        finally:
-            (self.wt / self.rel).unlink()
-        self.assertNotIn("not on main", self.write(old, agent="designer")[1])
-
-
-class MergeJourneyTest(unittest.TestCase):
+class MergeE2ETest(unittest.TestCase):
     def setUp(self):
         self.root = make_repo(CONFIG)
         add_origin(self.root)
-        write(self.root / "tests/e2e/a.spec.ts", block('  await page.click("a");\n  expect(1);', "old one"))
-        write(self.root / "tests/JOURNEYS.md", index("old one"))
+        write(self.root / "tests/regression/base.spec.ts",
+              block('  await page.click("a");\n  expect(1);', "baseline"))
+        write(self.root / "tests/regression/JOURNEYS.md", index("baseline"))
         sh(self.root, "git", "add", "-A")
         sh(self.root, "git", "commit", "-qm", "suite")
         status = add_ticket(self.root, "bug", "b0001-x", "pending-merge", gates=["ticket-approved"]) / "status.md"
@@ -221,47 +206,64 @@ class MergeJourneyTest(unittest.TestCase):
         self.wt = add_worktree(self.root, "bug", "b0001-x")
         self.tdir = self.wt / ".mark/bugs/b0001-x"
         write(self.tdir / "verdict.md", "<!-- mark:verdict PASSED -->\n")
-        write(self.tdir / "fix-plan.md", plan(("AC-1", "new", "guest checkout", "closest: old one; no login")))
+        write(self.tdir / "fix-plan.md", acceptance("AC-1"))
+        self.base = ('  await page.click("a");\n  await page.reload();\n  expect(1);')
+        self.new = block('  // covers: b0001/AC-1\n  await page.click("g");\n  expect(2);', "guest checkout")
 
-    def commit(self, spec, titles):
-        write(self.wt / "tests/e2e/a.spec.ts", spec)
-        write(self.wt / "tests/JOURNEYS.md", index(*titles))
+    def commit(self, files, journeys=("baseline",)):
+        for rel, text in files.items():
+            write(self.wt / rel, text)
+        write(self.wt / "tests/regression/JOURNEYS.md", index(*journeys))
         sh(self.wt, "git", "add", "-A")
         sh(self.wt, "git", "commit", "-qm", "tests")
         sh(self.wt, "git", "push", "-q", "-u", "origin", "bug/b0001-x")
 
-    def test_planned_new_test_with_its_index_row_lands(self):
-        old = block('  await page.click("a");\n  await page.reload();\n  expect(1);', "old one")
-        new = block('  await page.click("g");\n  expect(2);', "guest checkout")
-        self.commit(old + new, ["old one", "guest checkout"])
+    def test_one_acceptance_test_per_ac_lands(self):
+        self.commit({"tests/tickets/b0001-x/a.spec.ts":
+                     "// covers: b0001/AC-1\n" + self.new})
         code, out, err = run(self.root, "merge", "b0001")
         self.assertEqual(code, 0, err + out)
 
-    def test_unplanned_test_is_refused(self):
-        spec = block('  await page.click("a");\n  expect(1);', "old one") + block('  await page.click("z");\n  expect(3);', "sneaky")
-        self.commit(spec, ["old one", "sneaky"])
+    def test_a_test_outside_the_layout_is_refused(self):
+        self.commit({"tests/e2e/sneaky.spec.ts": self.new})
         code, _, err = run(self.root, "merge", "b0001")
         self.assertEqual(code, 1)
-        self.assertIn("does not name as new", err)
-        self.assertIn("  - sneaky", err)
+        self.assertIn("outside the two allowed directories", err)
 
-    def test_journeys_command_drafts_the_missing_rows(self):
+    def test_another_ticket_dir_is_frozen(self):
+        self.commit({"tests/tickets/0000-old/a.spec.ts": self.new})
+        code, _, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 1)
+        self.assertIn("outside its own acceptance directory", err)
+
+    def test_criteria_must_be_covered_one_to_one(self):
+        write(self.tdir / "fix-plan.md", acceptance("AC-1", "AC-2", "AC-3"))
+        self.commit({"tests/tickets/b0001-x/a.spec.ts":
+                     block('  // covers: b0001/AC-1, b0001/AC-2\n  await page.click("g");\n  expect(2);',
+                           "guest checkout")})
+        code, _, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 1)
+        self.assertIn("one test per AC", err)
+        self.assertIn("has no acceptance test of its own", err)
+
+    def test_journeys_command_drafts_regression_rows_only(self):
         code, out, _ = run(self.root, "journeys")
         self.assertEqual(code, 0, out)
-        write(self.root / "tests/e2e/b.spec.ts",
-              block('  // covers: 0002/AC-1, 0002/AC-3\n  await page.click("a");\n  expect(1);', "new flow"))
-        write(self.root / "tests/JOURNEYS.md", index("old one", "gone"))
+        write(self.root / "tests/regression/b.spec.ts",
+              block('  // covers: 0002/AC-1\n  await page.click("a");\n  expect(1);', "new flow"))
+        write(self.root / "tests/tickets/0002-b/x.spec.ts", self.new)
+        write(self.root / "tests/regression/JOURNEYS.md", index("baseline", "gone"))
         code, out, _ = run(self.root, "journeys", str(self.root))
         self.assertEqual(code, 1)
-        self.assertIn("| new flow | e2e/b.spec.ts | TODO: entry → steps → outcome | 0002/AC-1, 0002/AC-3 |", out)
+        self.assertIn("| new flow | regression/b.spec.ts | TODO: entry → steps → outcome | 0002/AC-1 |", out)
+        self.assertNotIn("guest checkout", out)
         self.assertIn("  - gone", out)
 
-    def test_index_must_match_the_suite(self):
-        spec = block('  await page.click("a");\n  expect(1);', "old one") + block('  await page.click("g");\n  expect(2);', "guest checkout")
-        self.commit(spec, ["old one", "gone"])
+    def test_regression_index_must_match_the_journeys(self):
+        self.commit({"tests/tickets/b0001-x/a.spec.ts":
+                     "// covers: b0001/AC-1\n" + self.new}, journeys=("baseline", "gone"))
         code, _, err = run(self.root, "merge", "b0001")
         self.assertEqual(code, 1)
-        self.assertIn("Tests with no row:\n  - guest checkout", err)
         self.assertIn("Rows with no test:\n  - gone", err)
 
 
@@ -341,17 +343,21 @@ class MaestroRulesTest(unittest.TestCase):
 
 
 class MaestroSuiteTest(unittest.TestCase):
-    def test_suite_and_index_drift_read_flows(self):
+    def test_suite_and_index_drift_read_regression_flows(self):
         import tempfile
         from pathlib import Path
         root = Path(tempfile.mkdtemp())
-        write(root / "e2e/add.yaml", FLOW)
+        write(root / "e2e/regression/add.yaml", FLOW)
         write(root / "e2e/subflows/login.yaml", "- tapOn: a\n")
         write(root / "e2e/config.yaml", "flows: ['*']\n")
-        write(root / "e2e/JOURNEYS.md", index("gone"))
-        self.assertEqual(e2e.suite(root, "e2e", "maestro"), {"add a habit": "e2e/add.yaml"})
+        write(root / "e2e/tickets/0002-b/x.yaml", FLOW.replace("add a habit", "ticket flow"))
+        write(root / "e2e/regression/JOURNEYS.md", index("gone"))
+        self.assertEqual(e2e.suite(root, "e2e", "maestro"),
+                         {"add a habit": "e2e/regression/add.yaml", "ticket flow": "e2e/tickets/0002-b/x.yaml"})
+        self.assertEqual(e2e.suite(root, "e2e", "maestro", sub=e2e.REGRESSION_DIR),
+                         {"add a habit": "e2e/regression/add.yaml"})
         add, drop = e2e.index_drift(root, "e2e", "maestro")
-        self.assertEqual(add, ["| add a habit | add.yaml | TODO: entry → steps → outcome | 0001/AC-1 |"])
+        self.assertEqual(add, ["| add a habit | regression/add.yaml | TODO: entry → steps → outcome | 0001/AC-1 |"])
         self.assertEqual(drop, ["gone"])
 
 
@@ -362,9 +368,7 @@ class MaestroGuardTest(unittest.TestCase):
         add_ticket(cls.root, "feature", "0001-a", "testing",
                    gates=["ticket-approved", "design-approved", "plan-approved"])
         cls.wt = add_worktree(cls.root, "feature", "0001-a")
-        write(cls.wt / ".mark/features/0001-a/tech-plan.md",
-              plan(("AC-1", "new", "add a habit", "closest: none, first journey")))
-        write(cls.wt / "tests/old.yaml", "appId: x\nname: old one\n---\n- tapOn: a\n- assertVisible: b\n")
+        write(cls.wt / "tests/regression/old.yaml", "appId: x\nname: old one\n---\n- tapOn: a\n- assertVisible: b\n")
         write(cls.wt / "tests/subflows/login.yaml", "appId: x\n---\n- tapOn: Login\n- assertVisible: Home\n")
 
     def write(self, rel, content):
@@ -372,27 +376,29 @@ class MaestroGuardTest(unittest.TestCase):
                                   "agent_type": "tester",
                                   "tool_input": {"file_path": str(self.wt / rel), "content": content}})
 
-    def test_planned_flow_and_subflow_helpers_pass(self):
-        self.assertEqual(self.write("tests/add.yaml", FLOW)[0], 0)
-        self.assertEqual(self.write("tests/login.yaml", "appId: x\nname: old one\n---\n- runFlow: subflows/login.yaml\n")[0], 0)
+    def test_own_flow_and_subflow_helpers_pass(self):
+        self.assertEqual(self.write("tests/tickets/0001-a/add.yaml", FLOW)[0], 0)
+        self.assertEqual(self.write("tests/tickets/0001-a/login.yaml",
+                                    "appId: x\nname: old one\n---\n- runFlow: ../../subflows/login.yaml\n")[0], 0)
+        self.assertEqual(self.write("tests/regression/a.yaml", FLOW.replace("add a habit", "regression flow"))[0], 0)
 
-    def test_unplanned_flow_is_blocked(self):
+    def test_flow_outside_the_layout_is_blocked(self):
         code, err = self.write("tests/extra.yaml", FLOW.replace("add a habit", "extra"))
         self.assertEqual(code, 2)
-        self.assertIn("  - extra", err)
+        self.assertIn("outside the two directories", err)
 
     def test_test_code_is_written_with_edit_write_only(self):
         # The live gap: `cat >> e2e/flow.yaml <<EOF` slipped past the black-box and journey rules.
         def shell(cmd):
             return hook("pre-bash", {"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(self.wt),
                                      "agent_type": "tester", "tool_input": {"command": cmd}})[0]
-        self.assertEqual(shell("cat >> tests/old.yaml <<'EOF'\n- tapOn: c\nEOF"), 2)
-        self.assertEqual(shell("sed -i '' 's/a/b/' tests/old.yaml"), 2)
-        self.assertEqual(shell("perl -0pi -e 's/a/b/' tests/old.yaml"), 2)   # live gap in v0.28.0
+        self.assertEqual(shell("cat >> tests/regression/old.yaml <<'EOF'\n- tapOn: c\nEOF"), 2)
+        self.assertEqual(shell("sed -i '' 's/a/b/' tests/regression/old.yaml"), 2)
+        self.assertEqual(shell("perl -0pi -e 's/a/b/' tests/regression/old.yaml"), 2)   # live gap in v0.28.0
         self.assertEqual(shell("bash tests/regression.sh > tests/run.log 2>&1"), 0)
 
     def test_flow_without_action_is_blocked(self):
-        code, err = self.write("tests/add.yaml", "appId: x\nname: add a habit\n---\n- launchApp\n")
+        code, err = self.write("tests/tickets/0001-a/add.yaml", "appId: x\nname: add a habit\n---\n- launchApp\n")
         self.assertEqual(code, 2)
         self.assertIn("no user action", err)
 

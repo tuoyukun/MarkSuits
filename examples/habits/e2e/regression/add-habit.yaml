@@ -2,7 +2,7 @@ appId: host.exp.Exponent
 name: add a habit
 # covers: baseline/add
 ---
-- runFlow: subflows/open-app.yaml
+- runFlow: ../subflows/open-app.yaml
 - tapOn:
     id: new-habit
 - inputText: Read

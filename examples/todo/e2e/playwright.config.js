@@ -7,7 +7,7 @@ const port = Number(process.env.PORT) ||
   8100 + (createHash("sha1").update(process.cwd()).digest().readUInt16BE(0) % 800);
 
 export default defineConfig({
-  testDir: "e2e",
+  testDir: ".",  // the suite root: tickets/<id>/ and regression/ both live here
   fullyParallel: false,
   workers: 1,
   reporter: [["list"]],
@@ -17,10 +17,9 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  // Serves the app as static files; each test gets a fresh browser context, so empty localStorage.
   webServer: {
-    command: `python3 -m http.server ${port} --bind 127.0.0.1 --directory ../frontend`,
-    url: `http://127.0.0.1:${port}/`,
+    command: `python3 ../backend/server.py --port ${port}`,
+    url: `http://127.0.0.1:${port}/api/todos`,
     reuseExistingServer: false,
   },
 });

@@ -203,72 +203,34 @@ def e2e_guard(env: Env) -> str | None:
     return env.t("guard.e2e", rel=loc.rel, problems=listed)
 
 
-def plan_text(cfg, checkout: Path, branch: str | None) -> str | None:
-    """The e2e-plan source for a ticket branch (its tech-plan.md or fix-plan.md, "" when the
-    plan is not written yet); None for any other branch."""
-    for kind, kind_dir in states.KIND_DIRS.items():
+def branch_ticket(cfg, branch: str | None) -> str | None:
+    """The ticket id of a ticket branch (`feature/0001-a` -> `0001-a`); None otherwise."""
+    for kind in states.KINDS:
         prefix = cfg.branch_for(kind, "")
         if branch and branch.startswith(prefix) and len(branch) > len(prefix):
-            folder = checkout / cfg.state_rel / kind_dir / branch[len(prefix):]
-            for name in e2e.PLAN_FILES:
-                if (folder / name).is_file():
-                    return (folder / name).read_text(encoding="utf-8", errors="replace")
-            return ""
+            return branch[len(prefix):]
     return None
 
 
-def journey_guard(env: Env) -> str | None:
-    """A tester adds only the end-to-end tests the plan names as new; everything else extends
-    an existing test."""
+def layout_guard(env: Env) -> str | None:
+    """A tester's test files live in `regression/` or this ticket's `tickets/<id>/`; another
+    ticket's directory is frozen. Files that are not tests (config, helpers, scripts) may sit
+    at the suite root."""
     loc = _located(env)
     tests_dir = env.cfg.path("tests")
-    if (loc is None or env.role != "tester" or env.cfg.tests_profile == "none" or not tests_dir
+    if (loc is None or env.role != "tester" or not tests_dir
             or not loc.rel.startswith(tests_dir + "/") or loc.checkout is None):
         return None
-    plan = plan_text(env.cfg, loc.checkout, current_branch(loc.checkout))
-    if plan is None:
-        return None
-    try:
-        old_text = loc.path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        old_text = None
-    new_text = _new_text(env, old_text)
-    if new_text is None:
-        return None
+    own = branch_ticket(env.cfg, current_branch(loc.checkout))
+    parts = loc.rel[len(tests_dir) + 1:].split("/")
+    if parts[0] == e2e.TICKETS_DIR and len(parts) >= 2 and parts[1] != own:
+        return env.t("guard.e2e_frozen", rel=loc.rel, ticket=parts[1], own=own or "-")
     profile = env.cfg.tests_profile
-    elsewhere = set(e2e.suite(loc.checkout, tests_dir, profile, skip=loc.rel))
-    allowed = e2e.planned_new(plan)
-    extra = [title for title in e2e.added_tests(loc.rel, old_text, new_text, elsewhere, profile)
-             if title not in allowed]
-    if not extra:
-        return None
-    return env.t("guard.journey", rel=loc.rel, tests="\n".join(f"  - {x}" for x in extra),
-                 planned=", ".join(sorted(allowed)) or "-",
-                 index=f"{tests_dir}/{e2e.INDEX_FILE}")
+    if profile != "none" and e2e.holds_tests(loc.rel, profile) \
+            and not e2e.ticket_layout(loc.rel, tests_dir, own or ""):
+        return env.t("guard.e2e_layout", rel=loc.rel,
+                     dirs=f"{tests_dir}/{e2e.REGRESSION_DIR}/, {tests_dir}/{e2e.TICKETS_DIR}/{own}/")
+    return None
 
 
-def plan_extend_guard(env: Env) -> str | None:
-    """A plan extends only tests that are on main. A test this ticket's own branch added (an
-    earlier round's tester) is still new to main, and `mark merge` would refuse it as unplanned."""
-    loc = _located(env)
-    tests_dir = env.cfg.path("tests")
-    if (loc is None or env.role not in ("coder-plan", "fix-plan") or env.cfg.tests_profile == "none"
-            or not tests_dir or Path(loc.rel).name not in e2e.PLAN_FILES):
-        return None
-    try:
-        old_text = loc.path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        old_text = ""
-    new_text = _new_text(env, old_text or None)
-    if new_text is None:
-        return None
-    on_main = set(e2e.suite(env.main, tests_dir, env.cfg.tests_profile))
-    added = e2e.planned_extend(new_text) - e2e.planned_extend(old_text) - on_main
-    if not added:
-        return None
-    return env.t("guard.plan_extend", rel=loc.rel, tests="\n".join(f"  - {x}" for x in sorted(added)),
-                 index=f"{tests_dir}/{e2e.INDEX_FILE}")
-
-
-PRE_WRITE = [scope_guard, worktree_guard, ticket_guard, budget_guard, e2e_guard,
-             journey_guard, plan_extend_guard]
+PRE_WRITE = [scope_guard, worktree_guard, ticket_guard, budget_guard, e2e_guard, layout_guard]

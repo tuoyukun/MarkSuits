@@ -38,5 +38,5 @@ for _ in $(seq 240); do
     && curl -fs "http://127.0.0.1:$mport/status" | grep -q running && break
   sleep 0.5
 done
-if [ $# -eq 0 ]; then set -- *.yaml; fi
+if [ $# -eq 0 ]; then set -- regression/*.yaml; fi
 maestro test -e METRO_PORT="$mport" "$@"

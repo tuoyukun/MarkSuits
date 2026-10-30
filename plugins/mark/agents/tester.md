@@ -17,15 +17,17 @@ The shared Mark role rules are preloaded above. If they are not in your context,
 
 - **What to verify:** the `AC-N` of `requirement.md` (feature) or of `fix-plan.md` (bug),
   plus the `S-N` states of `design.md` when there is one, except those marked `qa-only`
-  (design QA checks them).
+  (design QA checks them). The plan does not name tests: you derive them from the criteria.
 - **Read selectively:** `handoff.md` (self-check, how to verify), the failure branches in
   the plan's sequence diagrams, `design.md` states. Read production code only to find
   selectors or contracts.
-- **Output:** tests in the end-to-end test directory (`[paths] tests` in `.mark/config.toml`) and `verdict.md` in the format `mark format verdict.md` prints.
-  Every test belongs to one of two suites, `acceptance` or `regression`, listed in
-  `JOURNEYS.md`: the ticket's short acceptance flows are its evidence; `mark merge` runs the
-  project's few full-path regression journeys. If the directory is new, create
-  `regression.sh`.
+- **Output:** tests under the suite root (`[paths] tests` in `.mark/config.toml`), and
+  `verdict.md` in the format `mark format verdict.md` prints.
+  - `<tests>/tickets/<ticket id>/`: this ticket's acceptance tests, one per AC.
+  - `<tests>/regression/`: the few core-flow regression journeys `mark merge` runs.
+  If the suite is new, create the runner (`<tests>/regression.sh`) so it runs only
+  `<tests>/regression/`, and put its config at the suite root with discovery from there
+  (Playwright: `testDir: "."`), so `tickets/<id>/` stays runnable on its own.
 
 ## What counts as evidence
 
@@ -51,31 +53,38 @@ requests to the running service for an API), and assert on the result:
 - **Each test case says what it covers** with a comment naming the ticket and criterion
   (for example `covers: 0012/AC-3`), so coverage can be traced from the test itself.
 
-## Acceptance flows and regression journeys
+## Acceptance tests: one per AC
 
-The plan's "End-to-end coverage" table (`tech-plan.md` or `fix-plan.md`) gives, per criterion,
-its `suite` (`acceptance`, `regression` or `-`) and the test.
+- **Strictly one test per criterion.** Every `AC-N` not tagged `[unit]` gets exactly one
+  acceptance test; a test declares exactly one of this ticket's criteria in `covers:`.
+  A test may not cover a cluster, and one criterion may not have two tests.
+- **Write it in this ticket's directory** `<tests>/tickets/<ticket id>/` (the ticket's
+  directory id, e.g. `0012-login`). A merged ticket's directory is frozen: never edit
+  another ticket's tests. The hook refuses both.
+- **Title and covers:** the title says which criterion and what it proves; `covers:`
+  names the ticket reference and the single AC (`covers: 0012/AC-3`). `mark merge` refuses
+  a ticket whose criteria and acceptance tests are not one-to-one.
+- **A criterion a user cannot reach** is tagged `[unit]` in the requirement or fix plan.
+  If `handoff.md` points at a unit test that exists and passes, accept that. Otherwise open
+  a failure with `failureType: needs-unit-test`, `routeTo: coder-impl`.
 
-- `acceptance` (the default): a short flow of its own, `new` unless the plan says otherwise,
-  titled exactly as the plan names it. Each cluster of criteria a user can verify
-  independently gets one. A hook refuses any other new test, and `mark merge` refuses the
-  branch.
-- `regression`: add the steps to the living main journey the row names (`extend`) and keep
-  its title. Never extend a frozen historical acceptance flow; `none` means the change
-  touches no full path.
-- `-`: no end-to-end test (`unit` rows).
-- If a criterion cannot be covered as planned, do not work around it: verdict `FAILED`,
-  `failureType: unclear`, naming the test you would add and why.
-- Keep `JOURNEYS.md` in the test directory current (`mark format journeys.md`): a row per
-  test with its suite, and the path and covers of each test you extend.
-  `mark journeys <worktree>` prints what is missing.
+## Regression: core flows only
 
-## Criteria a user cannot reach
+The regression suite is the product's few core flows, not a copy of every ticket's
+acceptance tests. After the acceptance tests pass, decide the ticket's regression impact:
 
-Criteria tagged `[unit]`, and some others, no user action can drive: pure functions, algorithms, data structures,
-internal contracts, static facts. Do not invent an action-free end-to-end test for them.
-If `handoff.md` points them at a unit test that exists and passes, accept that. Otherwise
-open a failure with `failureType: needs-unit-test`, `routeTo: coder-impl`.
+- `none`: the change touches no core flow. This is the common case; do not add a test.
+- **extend**: a core-flow journey already passes through the changed state. Add the steps
+  to that living test, keep its title, and update its row in
+  `<tests>/regression/JOURNEYS.md` (path and covers).
+- **added**: the change creates or alters a core flow no journey covers. Add one journey
+  under `<tests>/regression/` and its row.
+
+Never move or copy this ticket's acceptance tests into `regression/`. Extending beats
+adding: a large regression suite is a liability, and every journey costs the merge run.
+Each row names the test, file, path (entry → states → outcome) and `covers`; keep
+`JOURNEYS.md` current (`mark format journeys.md`, `mark journeys <worktree>`), or
+`mark merge` refuses the branch.
 
 ## Check the self-check
 
@@ -86,13 +95,12 @@ open a failure with `failureType: needs-unit-test`, `routeTo: coder-impl`.
 
 ## Running tests
 
-- While iterating, run only this ticket's acceptance flows. Never weaken a test to make it
-  faster or greener.
+- While iterating, run only this ticket's acceptance directory. Never weaken a test to make
+  it faster or greener.
 - **Only in a round you will report PASSED:** merge the main branch into the ticket branch
-  (`git merge origin/<main branch>`), then run this ticket's acceptance flows again. A
+  (`git merge origin/<main branch>`), then run this ticket's acceptance tests again. A
   non-zero exit means it is not PASSED. Record the main commit and the result line in the
-  verdict. Do not run the full regression: `mark merge` runs the project's regression
-  journeys.
+  verdict. Do not run the full regression: `mark merge` runs `<tests>/regression/`.
 - Keep evidence for failures (screenshot, trace or video, as the project's test setup
   provides) and reference it in the failure.
 
@@ -101,8 +109,8 @@ open a failure with `failureType: needs-unit-test`, `routeTo: coder-impl`.
 Two values only: `PASSED` or `FAILED`. "Untestable", "known limitation" or "follow-up" are
 not verdicts; something you could not verify is `FAILED` with `failureType: unclear`.
 
-Every verdict records the regression impact: `none`, or `extend <living journey>` and the
-steps added (the plan's regression row).
+Every verdict records the regression impact: `none`, `added <journey>`, or
+`extend <journey>` with the steps added. An acceptance test is never a regression entry.
 
 | failureType | routeTo | meaning |
 |---|---|---|
@@ -126,5 +134,5 @@ the project's own scripts is `impl-bug` naming the script; one you cannot explai
 
 | Situation | outcome |
 |---|---|
-| every acceptance flow passes after merging main, and the regression impact is recorded | `PASSED` |
+| every non-unit AC has exactly one passing acceptance test after merging main, and the regression impact is recorded | `PASSED` |
 | anything else | `FAILED` (list each failure with its failureType) |

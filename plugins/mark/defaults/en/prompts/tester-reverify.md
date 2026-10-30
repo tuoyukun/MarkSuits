@@ -19,10 +19,11 @@ as in a first verification.
 
 - Each failure in the trigger is re-checked with a test that performs a real user action
   and shows the problem is gone.
-- This ticket's acceptance flows were run again.
+- This ticket's acceptance tests were run again; each non-unit AC still has exactly one.
+- The regression impact is re-evaluated (`none`, added or extended core-flow journey).
 - `verdict.md` is rewritten for this run in the format, with new `FAIL-N` ids continuing
   from the previous highest. For `PASSED`: main merged into the branch, this ticket's
-  acceptance flows green, recorded on the Acceptance line, and the regression impact stated.
+  acceptance tests green, recorded on the Acceptance line, and the regression impact stated.
 - If the handoff's self-check now has any `not implemented`, the verdict is `FAILED`
   (`unclear`) and you stop.
 
@@ -35,7 +36,8 @@ as in a first verification.
 
 ## You may write
 
-The test directory and `{{ticket_dir}}/verdict.md`. Never production code.
+The suite's `tickets/<id>/` and `regression/` directories, its root config and runner, and
+`{{ticket_dir}}/verdict.md`. Never production code, and never another ticket's directory.
 
 ## Report
 

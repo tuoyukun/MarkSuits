@@ -16,9 +16,10 @@ role: tester
 ## 完成标准
 
 - 触发源里的每条失败都用带真实用户操作的测试复验过，证明问题已消失。
-- 本单的 acceptance flows 重新跑过。
+- 本单的验收用例重新跑过；每个非 unit 的 AC 仍然有且只有一个验收用例。
+- 回归影响重新判断过（`none`、新增或扩展核心流程旅程）。
 - `verdict.md` 按格式为本次运行重写，新 `FAIL-N` 从上一份的最大编号往后编。报 `PASSED` 时：
-  main 已合进分支、本单 acceptance flows 为绿，记在「验收」行，并写明「回归影响」。
+  main 已合进分支、本单验收用例为绿，记在「验收」行，并写明「回归影响」。
 - 若交接的自检表现在出现任何 `未实现`，结论为 `FAILED`（`unclear`），并停止。
 
 ## 要读
@@ -30,7 +31,8 @@ role: tester
 
 ## 可写
 
-测试目录和 `{{ticket_dir}}/verdict.md`。绝不改生产代码。
+用例根目录下的 `tickets/<id>/`、`regression/`、根目录的配置和 runner，以及
+`{{ticket_dir}}/verdict.md`。绝不改生产代码，也绝不改别的工单的目录。
 
 ## 汇报
 
