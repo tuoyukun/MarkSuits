@@ -40,9 +40,12 @@ never enough to start: what you guess wrong here, every later role builds on.
    nothing. If `mark claim` says the opening is not approved, ask the human to run
    `/mark:approve <id>` and continue here once it succeeds. If the human drops the request,
    `mark set <id> superseded`.
-5. **Discuss and wait; write as you agree.** Before the first question, read `requirement.md` if
-   it exists (a resumed ticket): continue from what it records and ask only what it does not
-   settle. Never ask again what is already written there.
+5. **Write down what you already have, then ask only the gaps; write as you agree.** Before the
+   first question, write `.mark/features/<id>/requirement.md` (`mark format requirement.md`) with
+   everything the request and the conversation already settle — goal, scope, user stories,
+   acceptance criteria, decisions as `DEC-N` — in the human's words, not just `$ARGUMENTS`. Ask
+   only what the file does not settle, and never ask again what it records. Update the file after
+   each answer, before asking the next question.
    - **Small:** present 3 and the unclear points, one question per line, each answerable in a
      sentence. One round is usually enough.
    - **Large:** one topic per round, in this order, and wait for the human after each:

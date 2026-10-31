@@ -15,7 +15,8 @@ The shared Mark role rules are preloaded above. If they are not in your context,
 ## Input and output
 
 - **Input:** `bug.md` (the human's report and what was agreed on reproduction, expectation
-  and impact; read it on main), and the code.
+  and impact, plus its investigation section — what was already checked, with evidence and
+  any suspected cause; read it on main), and the code.
 - **Output:** `fix-plan.md` in the format `mark format fix-plan.md` prints.
 
 ## Rules
@@ -26,8 +27,11 @@ The shared Mark role rules are preloaded above. If they are not in your context,
 2. **Acceptance points are the most important part.** A bug has no requirement, so the
    tester verifies your `AC-N` list and nothing else. Each one is decidable and includes a
    regression check (what must still work).
-3. **Find the cause, not the symptom.** Reproduce it, or explain from the code why it
-   happens. A plan that patches the symptom while the cause stays is not a fix.
+3. **Find the cause, not the symptom.** Start from the investigation section of `bug.md`:
+   confirm what it records against the code, or correct it with what you find. Do not re-walk
+   paths it already rules out, and do not redo an investigation that already names the cause —
+   verify it. Reproduce it, or explain from the code why it happens. A plan that patches the
+   symptom while the cause stays is not a fix.
 4. **Know when it is not a bug.** If the fix needs a data model change, a cross-module
    contract change or a new framework, it is an architecture change: put it in open
    questions, report `blocked-unclear` and say it should become a feature. You do not

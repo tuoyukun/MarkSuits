@@ -124,6 +124,11 @@ made, as a `DEC-N` under `<!-- mark:decisions -->`, which designer and coder-pla
 dispatch gate guard requires `<id>.requirement-approved` for every role of such a ticket. Tickets
 opened before v0.33 lack the field and skip that gate, so no migration is needed.
 
+The same rule governs a bug: when the ticket opens, the orchestrator writes `bug.md` from the
+report and the session — including an `Investigation` section with what was already checked, its
+evidence and any suspected cause — before asking the human for the gaps. fix-plan starts from
+that record, verifies it against the code and investigates only what it leaves open (v0.41).
+
 A failure only the UI directory can fix (the tester's `design-flaw`, or coder-impl finding one
 while `developing` / `failed-impl`) goes to `blocked-spec`, and the human sends it back to the
 designer (`designer-rework`); `mark next` spells out the failureType → status mapping when it asks

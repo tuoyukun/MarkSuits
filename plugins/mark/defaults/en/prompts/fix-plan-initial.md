@@ -8,14 +8,18 @@ Scenario: **first fix plan**.
 
 ## Why you are here
 
-The human reported the bug and the ticket is open. Find the root cause and plan the fix.
-No human review follows: coder-impl starts from your plan as soon as you report.
+The human reported the bug and the ticket is open. `bug.md` records what was already checked
+(the `Investigation` section), including any cause found before the ticket opened: start from
+it, verify it against the code, and investigate only what it leaves open. Find the root cause
+and plan the fix. No human review follows: coder-impl starts from your plan as soon as you
+report.
 
 ## Done when
 
 - `fix-plan.md` follows the format: root cause, reproduction, fix, acceptance points
   (`AC-N`, at least one regression check), affected files, risks and open questions.
-- The root cause is explained from the code, not inferred from the symptom.
+- The root cause confirms or corrects `bug.md`'s investigation and is explained from the code,
+  not inferred from the symptom.
 - The fix is concrete enough that coder-impl cannot drift, without pasting the
   implementation. End-to-end tests are the tester's: name no test title, suite or steps.
 - Open questions are empty. If they are not, or the fix needs an architecture change,
@@ -23,7 +27,7 @@ No human review follows: coder-impl starts from your plan as soon as you report.
 
 ## Read
 
-- Bug report: `{{state_ticket_dir}}/bug.md`
+- Bug report and investigation: `{{state_ticket_dir}}/bug.md`
 - Format: `mark format fix-plan.md`
 - Project: `{{worktree}}/CLAUDE.md`, and the code involved
 
