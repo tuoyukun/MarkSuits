@@ -38,4 +38,5 @@ Argument: `$ARGUMENTS`
    `requirement.md` on main and `mark commit <id> -m "<what changed>"` before dispatching.
 5. Then keep looping (`mark next`, dispatch, record, merge) until the next human gate or a stop,
    reporting after each step. `pending-merge` is not a human gate: run `mark merge` without
-   asking again.
+   asking again, in the background (it waits while another merge holds the lock, then runs
+   the regression).

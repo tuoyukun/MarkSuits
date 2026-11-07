@@ -297,8 +297,16 @@ main in, skips its own run when the command is unchanged and `git diff <tree> HE
 outside `<state_dir>/features` and `<state_dir>/bugs` (verdicts and status commits move main
 without changing code). Anything else runs the regression as before; general lanes always do.
 A failure is recorded as `locks/<id>.merge.result.json`; while it is newer than `status.md`,
-`mark next` stops for the human. Concurrent merges serialize on the fast-forward: the loser
-fails with `merge.ff_failed` and is run again.
+`mark next` stops for the human.
+**Merge lock (v0.42).** `mark merge` and `mark general merge` hold `locks/main.merge.lock`
+(O_EXCL, owner/pid/time) from the checks to cleanup and release it on success or failure; a
+second merge waits (polls every 5 s, says once whom it waits for). A lock older than one hour
+is a dead merge and is taken over; `mark unlock main merge` removes one by hand. Status commits
+(`mark set/approve/reject/commit`) are not locked: when they move main during the regression,
+the fast-forward or push fails, and the merge merges main (remote, then local) into the branch
+again; if that changed nothing outside the ticket dirs and `gates/`, it retries without
+rerunning the regression (up to 5 times), else it fails with `merge.main_moved` and main is
+unchanged. A failed push undoes the fast-forward only while main still points at the branch.
 
 **Merge order (v0.8).** `merge-after: [0012, b0007]` lists tickets that must land first; `passed`
 and `superseded` both satisfy it (otherwise folding one ticket into another deadlocks). One check,

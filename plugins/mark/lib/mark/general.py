@@ -50,8 +50,13 @@ def new(cfg: MarkConfig) -> tuple[str, Path, Notes]:
     return branch, wt, notes
 
 
-def merge_lane(cfg: MarkConfig, branch: str) -> Notes:
+def merge_lane(cfg: MarkConfig, branch: str, say: merge.Say | None = None) -> Notes:
     _require_git(cfg)
+    with merge.main_lock(cfg, branch, say):
+        return _merge_lane(cfg, branch)
+
+
+def _merge_lane(cfg: MarkConfig, branch: str) -> Notes:
     if not branch.startswith(PREFIX):
         raise FlowError("general.not_lane", branch=branch, prefix=PREFIX)
     wt = next((p for p, b in worktrees(cfg.root) if b == branch), None)

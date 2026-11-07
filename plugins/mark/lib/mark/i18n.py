@@ -542,6 +542,9 @@ MESSAGES["en"].update({
     ),
     "merge.ff_failed": "`{main}` cannot fast-forward to `{branch}` (it has commits the branch lacks). Push or drop them, then retry.",
     "merge.push_failed": "Pushing {main} failed, so the local fast-forward was undone. Pull, then retry `mark merge`.",
+    "merge.queued": "Waiting for the merge of {owner} (started {since}) to finish; merges run one at a time.",
+    "merge.caught_up": "{main} moved with ticket state during the merge; merged it in again (regression still stands).",
+    "merge.main_moved": "{main} gained code changes while the merge ran, so the regression no longer covers it; main was not changed. Run `mark merge` again.",
     "merge.e2e_layout": (
         "The branch leaves end-to-end tests outside the two allowed directories:\n{tests}\n"
         "Acceptance tests live in `{dirs}`: one per AC under the ticket's own id. Move them, then merge again."
@@ -826,6 +829,9 @@ MESSAGES["zh-CN"].update({
     ),
     "merge.ff_failed": "`{main}` 无法快进到 `{branch}`（main 上有分支没有的提交）。先推送或丢弃它们，再重试。",
     "merge.push_failed": "推送 {main} 失败，本地快进已撤销。先拉取，再重试 `mark merge`。",
+    "merge.queued": "等待 {owner} 的 merge 结束（开始于 {since}）；merge 一次只跑一个。",
+    "merge.caught_up": "merge 期间 {main} 有工单状态提交；已重新合入（回归结果仍有效）。",
+    "merge.main_moved": "merge 期间 {main} 有代码变更，回归已不能覆盖；main 未改动。请重新运行 `mark merge`。",
     "merge.e2e_layout": (
         "分支上有端到端用例落在允许的两个目录之外：\n{tests}\n"
         "验收用例放在 `{dirs}`：每个 AC 一个，放在本单自己的 id 目录下。移好后重新合并。"

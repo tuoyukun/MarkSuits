@@ -625,6 +625,76 @@ class MergeTest(unittest.TestCase):
         self.assertIn("Regression passed", out)
         self.assertEqual(runs.read_text().count("run"), 2)
 
+    def commit_on_main(self, rel, text="x"):
+        """A shell command that commits `rel` on main and pushes, as another ticket would."""
+        return (f"cd {self.root} && mkdir -p $(dirname {rel}) && echo {text} > {rel} && git add {rel}"
+                f" && git commit -qm moved && git push -q origin main")
+
+    def test_status_commit_during_the_regression_is_caught_up(self):
+        runs = self.root.parent / f"{self.root.name}-runs.log"
+        other = ".mark/bugs/b0002-y/status.md"
+        self.regression(f"echo run >> {runs} && {self.commit_on_main(other)}")
+        code, out, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 0, err + out)
+        self.assertIn("merged it in again", out)
+        self.assertEqual(runs.read_text().count("run"), 1)
+        self.assertTrue((self.root / "fix.txt").is_file())
+        self.assertTrue((self.root / other).is_file())
+        self.assertIn("status: passed", (self.dir / "status.md").read_text())
+        self.assertEqual(sh(self.root, "git", "rev-parse", "main"), sh(self.root, "git", "rev-parse", "origin/main"))
+        self.assertFalse((self.root / ".mark/locks" / merge.LOCK_NAME).exists())
+
+    def test_code_change_during_the_regression_fails_the_merge(self):
+        self.regression(self.commit_on_main("other.txt"))
+        code, _, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 1)
+        self.assertIn("gained code changes", err)
+        self.assertFalse((self.root / "fix.txt").exists())
+        self.assertIn("status: pending-merge", (self.dir / "status.md").read_text())
+        self.assertFalse((self.root / ".mark/locks" / merge.LOCK_NAME).exists())
+
+    def hold_lock(self, age=0.0):
+        lock = self.root / ".mark/locks" / merge.LOCK_NAME
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        lock.write_text(json.dumps({"owner": "f0009"}))
+        if age:
+            os.utime(lock, (time.time() - age,) * 2)
+        return lock
+
+    def test_merge_waits_for_the_lock(self):
+        lock = self.hold_lock()
+        waits = []
+
+        def sleep(_):
+            waits.append(1)
+            lock.unlink()  # the other merge finishes
+        original = merge.time.sleep
+        merge.time.sleep = sleep
+        try:
+            code, out, err = run(self.root, "merge", "b0001")
+        finally:
+            merge.time.sleep = original
+        self.assertEqual(code, 0, err + out)
+        self.assertEqual(len(waits), 1)
+        self.assertIn("Waiting for the merge of f0009", err)
+        self.assertFalse(lock.exists())
+
+    def test_stale_lock_is_taken_over(self):
+        lock = self.hold_lock(age=merge.LOCK_TIMEOUT + 60)
+        original = merge.time.sleep
+        merge.time.sleep = lambda _: self.fail("waited on a stale lock")
+        try:
+            code, out, err = run(self.root, "merge", "b0001")
+        finally:
+            merge.time.sleep = original
+        self.assertEqual(code, 0, err + out)
+        self.assertFalse(lock.exists())
+
+    def test_failed_merge_releases_the_lock(self):
+        self.regression("exit 3")
+        self.assertEqual(run(self.root, "merge", "b0001")[0], 1)
+        self.assertFalse((self.root / ".mark/locks" / merge.LOCK_NAME).exists())
+
     def test_red_regress_leaves_no_green(self):
         self.regression("echo boom && exit 5")
         code, _, err = run(self.wt, "regress", "b0001")

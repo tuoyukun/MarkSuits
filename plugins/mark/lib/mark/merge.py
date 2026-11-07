@@ -1,5 +1,7 @@
 """Automated merge: `mark merge <id>` takes a ticket from `pending-merge` to `passed`.
 
+0. Takes the merge lock (`locks/main.merge.lock`): one merge at a time; the next waits for it.
+   A lock older than LOCK_TIMEOUT is a dead merge and is taken over.
 1. Checks: status, the tester's `<!-- mark:verdict PASSED -->`, `merge-after` tickets
    passed or superseded (no cycle), clean worktree, main checkout on main.
 2. In the worktree: merge the latest main into the ticket branch (conflict: abort),
@@ -10,7 +12,9 @@
 3. In the worktree: run `[merge] regression` (exit 0 = green; empty = skipped). Skipped too
    when `mark regress` recorded it green on the same code: nothing but ticket docs changed
    since, main included.
-4. In the main checkout: fast-forward main to the branch and push it.
+4. In the main checkout: fast-forward main to the branch and push it. If main moved during the
+   regression with ticket state only (status commits are not locked), merge it in again and
+   retry without rerunning the regression; a code change there fails the merge.
 5. `passed`, committed and pushed; then the worktree and branch are removed.
 
 Main only moves at step 4, and only by fast-forward, so a failure before it lands
@@ -26,6 +30,8 @@ import shutil
 import subprocess
 import tempfile
 import time
+from collections.abc import Callable
+from contextlib import contextmanager
 from pathlib import Path
 
 from . import budget, e2e, flow, reviews, states, tickets
@@ -38,9 +44,60 @@ LOG_TAIL = 20
 ORDER_KEYS = ("merge.waiting", "merge.cycle")
 
 Notes = list[tuple[str, dict]]
+Say = Callable[[str, dict], None]
+
+LOCK_NAME = "main.merge.lock"
+LOCK_TIMEOUT = 3600
+LOCK_POLL = 5.0
+CATCH_UP_TRIES = 5
 
 
-def run(ctx: Ctx) -> Notes:
+@contextmanager
+def main_lock(cfg, owner: str, say: Say | None = None):
+    """Hold the merge lock for the block; wait while another live merge holds it."""
+    path = cfg.state_dir / "locks" / LOCK_NAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    token = json.dumps({"owner": owner, "pid": os.getpid(), "at": time.time()})
+    told = False
+    while True:
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:
+                since = path.stat().st_mtime
+            except FileNotFoundError:
+                continue  # released between the two calls
+            if time.time() - since > LOCK_TIMEOUT:
+                path.unlink(missing_ok=True)
+                continue
+            if not told and say:
+                try:
+                    holder = json.loads(path.read_text(encoding="utf-8")).get("owner", "?")
+                except (OSError, ValueError, AttributeError):
+                    holder = "?"
+                say("merge.queued", {"owner": holder, "since": time.strftime("%H:%M", time.localtime(since))})
+                told = True
+            time.sleep(LOCK_POLL)
+            continue
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(token)
+        break
+    try:
+        yield
+    finally:
+        try:
+            if path.read_text(encoding="utf-8") == token:  # not taken over after a timeout
+                path.unlink()
+        except OSError:
+            pass
+
+
+def run(ctx: Ctx, say: Say | None = None) -> Notes:
+    with main_lock(ctx.cfg, ctx.id, say):
+        return _run(ctx)
+
+
+def _run(ctx: Ctx) -> Notes:
     try:
         return _merge(ctx)
     except FlowError as exc:
@@ -119,8 +176,9 @@ def _snapshot(worktree: Path) -> str | None:
 
 
 def _same_code(cfg, worktree: Path, tree: str) -> bool:
-    """HEAD matches `tree` outside the ticket dirs (verdicts, status: main moves with them)."""
-    skip = [f":(exclude){cfg.state_rel}/{d}" for d in states.KIND_DIRS.values()]
+    """HEAD matches `tree` (a tree or commit) outside the ticket dirs and gates (status
+    commits move main with them)."""
+    skip = [f":(exclude){cfg.state_rel}/{d}" for d in (*states.KIND_DIRS.values(), "gates")]
     return bool(tree) and git(["diff", "--quiet", tree, "HEAD", "--", ".", *skip], worktree)[0] == 0
 
 
@@ -221,14 +279,49 @@ def land(cfg, worktree: Path, branch: str, log_name: str, conflict: FlowError,
     else:
         _regression(cfg, worktree, log_name, notes)
 
-    before = git(["rev-parse", "HEAD"], main)[1]
-    if git(["merge", "-q", "--ff-only", branch], main)[0] != 0:
-        raise FlowError("merge.ff_failed", main=main_branch, branch=branch)
-    if has_remote(main) and git(["push", "-q", "origin", main_branch], main)[0] != 0:
-        git(["reset", "-q", "--keep", before], main)
-        raise FlowError("merge.push_failed", main=main_branch)
+    for attempt in range(CATCH_UP_TRIES):
+        failure = _fast_forward(cfg, branch)
+        if failure is None:
+            break
+        if attempt == CATCH_UP_TRIES - 1:
+            raise failure
+        if not _catch_up(cfg, worktree, conflict):
+            raise FlowError("merge.main_moved", main=main_branch)
+        notes.append(("merge.caught_up", {"main": main_branch}))
     notes.append(("merge.landed", {"branch": branch, "main": main_branch}))
     return notes
+
+
+def _fast_forward(cfg, branch: str) -> FlowError | None:
+    """Fast-forward main to `branch` and push; on failure main is as it was."""
+    main, main_branch = cfg.root, cfg.main_branch
+    before = git(["rev-parse", "HEAD"], main)[1]
+    if git(["merge", "-q", "--ff-only", branch], main)[0] != 0:
+        return FlowError("merge.ff_failed", main=main_branch, branch=branch)
+    if has_remote(main) and git(["push", "-q", "origin", main_branch], main)[0] != 0:
+        # Undo only our own fast-forward: a status commit made on top since stays.
+        if git(["rev-parse", "HEAD"], main)[1] == git(["rev-parse", branch], main)[1]:
+            git(["reset", "-q", "--keep", before], main)
+        return FlowError("merge.push_failed", main=main_branch)
+    return None
+
+
+def _catch_up(cfg, worktree: Path, conflict: FlowError) -> bool:
+    """Merge main (remote, then local: a status commit whose push failed) into the branch again.
+    True when it brought only ticket state, so the regression still stands."""
+    main, main_branch = cfg.root, cfg.main_branch
+    old = git(["rev-parse", "HEAD"], worktree)[1]
+    refs = [main_branch]
+    if has_remote(main):
+        if git(["fetch", "-q", "origin", main_branch], main)[0] != 0:
+            raise FlowError("merge.fetch_failed", main=main_branch)
+        refs.insert(0, f"origin/{main_branch}")
+    for ref in refs:
+        if git(["merge", "-q", "--no-edit", ref], worktree)[0] != 0:
+            git(["merge", "--abort"], worktree)
+            conflict.params["base"] = ref
+            raise conflict
+    return _same_code(cfg, worktree, old)
 
 
 REMOVE_TRIES = 3

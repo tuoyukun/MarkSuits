@@ -307,7 +307,7 @@ def cmd_merge(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
         _say(cfg, err, "cli.usage")
         return 2
     ctx = flow.load(cfg, pos[0])
-    notes = merge.run(ctx)
+    notes = merge.run(ctx, lambda key, params: _say(cfg, err, key, **params))
     for key, params in notes:
         _say(cfg, out, key, **params)
     _say(cfg, out, "merge.done", id=ctx.id)
@@ -333,7 +333,7 @@ def cmd_general(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> i
         _say(cfg, out, "general.new", branch=branch, wt=wt)
         return 0
     if len(args) == 2 and args[0] == "merge":
-        for key, params in general.merge_lane(cfg, args[1]):
+        for key, params in general.merge_lane(cfg, args[1], lambda k, p: _say(cfg, err, k, **p)):
             _say(cfg, out, key, **params)
         _say(cfg, out, "general.done", branch=args[1])
         return 0
