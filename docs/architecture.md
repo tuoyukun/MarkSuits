@@ -307,6 +307,9 @@ the fast-forward or push fails, and the merge merges main (remote, then local) i
 again; if that changed nothing outside the ticket dirs and `gates/`, it retries without
 rerunning the regression (up to 5 times), else it fails with `merge.main_moved` and main is
 unchanged. A failed push undoes the fast-forward only while main still points at the branch.
+**Git lock collisions (v0.42.1).** `gitutil.git` retries a command that failed on another
+git process's lock (`.lock': File exists`: `index.lock`, a ref lock) every 0.2 s for about 5 s.
+A lock still there is a crashed git's leftover: the call fails and the lock is never deleted.
 
 **Merge order (v0.8).** `merge-after: [0012, b0007]` lists tickets that must land first; `passed`
 and `superseded` both satisfy it (otherwise folding one ticket into another deadlocks). One check,

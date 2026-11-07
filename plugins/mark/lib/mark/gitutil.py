@@ -8,17 +8,27 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from pathlib import Path
 
 TIMEOUT = 10
+LOCK_RETRY_WAIT = 0.2
+LOCK_RETRIES = 25  # ~5 s: a live git command holds index.lock or a ref lock for milliseconds
 
 
 def git(args: list[str], cwd: str | Path) -> tuple[int, str]:
-    try:
-        p = subprocess.run(["git", "-C", str(cwd), *args],
-                           capture_output=True, text=True, timeout=TIMEOUT)
-    except (OSError, subprocess.SubprocessError):
-        return 1, ""
+    """Run git; retry while another git process in the same repo holds a lock. A lock still
+    there after the retries is a crashed git's leftover: fail, never delete it."""
+    for attempt in range(LOCK_RETRIES + 1):
+        if attempt:
+            time.sleep(LOCK_RETRY_WAIT)
+        try:
+            p = subprocess.run(["git", "-C", str(cwd), *args],
+                               capture_output=True, text=True, timeout=TIMEOUT)
+        except (OSError, subprocess.SubprocessError):
+            return 1, ""
+        if p.returncode == 0 or ".lock': File exists" not in (p.stderr or ""):
+            break
     return p.returncode, (p.stdout or "").strip()
 
 

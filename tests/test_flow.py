@@ -11,7 +11,7 @@ import zlib
 from tests._support import (FULL_CONFIG, PLUGIN_ROOT, add_origin, add_templates, add_ticket, add_worktree, hook,
                             human_typed, make_project, make_repo, sh, status_text)
 
-from mark import brief, cli, flow, human, merge, reviews, states, tickets
+from mark import brief, cli, flow, gitutil, human, merge, reviews, states, tickets
 from mark.config import load_config
 
 ALL_GATES = ["ticket-approved", "design-approved", "plan-approved"]
@@ -740,6 +740,48 @@ class MergeTest(unittest.TestCase):
         code, _, err = run(self.root, "merge", "b0001")
         self.assertEqual(code, 1)
         self.assertIn("0002-y (testing)", err)
+
+
+class GitLockTest(unittest.TestCase):
+    """Another git process holding index.lock: wait for it, never delete a leftover."""
+
+    def setUp(self):
+        self.root = make_repo()
+        write(self.root / "a.txt", "a")
+        self.lock = self.root / ".git/index.lock"
+        self.lock.write_text("")
+
+    def test_waits_for_a_live_lock(self):
+        original = gitutil.time.sleep
+        gitutil.time.sleep = lambda _: self.lock.unlink(missing_ok=True)  # the other git finishes
+        try:
+            code, _ = gitutil.git(["add", "a.txt"], self.root)
+        finally:
+            gitutil.time.sleep = original
+        self.assertEqual(code, 0)
+        self.assertIn("a.txt", sh(self.root, "git", "diff", "--cached", "--name-only"))
+
+    def test_leftover_lock_fails_and_stays(self):
+        waits = []
+        original = gitutil.time.sleep
+        gitutil.time.sleep = waits.append
+        try:
+            code, _ = gitutil.git(["add", "a.txt"], self.root)
+        finally:
+            gitutil.time.sleep = original
+        self.assertNotEqual(code, 0)
+        self.assertEqual(len(waits), gitutil.LOCK_RETRIES)
+        self.assertTrue(self.lock.exists())
+
+    def test_other_failures_are_not_retried(self):
+        self.lock.unlink()
+        original = gitutil.time.sleep
+        gitutil.time.sleep = lambda _: self.fail("retried a non-lock failure")
+        try:
+            code, _ = gitutil.git(["add", "missing.txt"], self.root)
+        finally:
+            gitutil.time.sleep = original
+        self.assertNotEqual(code, 0)
 
 
 class GeneralLaneTest(unittest.TestCase):

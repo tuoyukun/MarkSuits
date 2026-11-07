@@ -540,7 +540,7 @@ MESSAGES["en"].update({
         "Regression `{cmd}` failed (exit {code}) after merging main into the branch; main was not changed.\n"
         "Full log: {log}\n--- last lines ---\n{tail}"
     ),
-    "merge.ff_failed": "`{main}` cannot fast-forward to `{branch}` (it has commits the branch lacks). Push or drop them, then retry.",
+    "merge.ff_failed": "`{main}` cannot fast-forward to `{branch}` (it has commits the branch lacks). Push or drop them, then retry. If `.git/index.lock` stays and no git process runs, delete it.",
     "merge.push_failed": "Pushing {main} failed, so the local fast-forward was undone. Pull, then retry `mark merge`.",
     "merge.queued": "Waiting for the merge of {owner} (started {since}) to finish; merges run one at a time.",
     "merge.caught_up": "{main} moved with ticket state during the merge; merged it in again (regression still stands).",
@@ -626,7 +626,7 @@ MESSAGES["en"].update({
     "flow.bad_merge_after": "Not a ticket reference: {refs}. Use `0012` or `b0007`.",
     "flow.ambiguous": "`{ref}` matches several tickets: {hits}. Use the full id.",
     "flow.not_main": "Ticket state only changes on `{main}`, but the main checkout is on `{branch}`.\n  git checkout {main}",
-    "flow.commit_failed": "Commit of {paths} failed. Check `git status` in the main checkout.",
+    "flow.commit_failed": "Commit of {paths} failed. Check `git status` in the main checkout. If `.git/index.lock` stays and no git process runs, delete it.",
     "flow.committed": "Committed ticket state on main.",
     "flow.pushed": "Pushed main.",
     "flow.push_failed": "Pushing main failed. Push it before the next dispatch: git push origin main",
@@ -827,7 +827,7 @@ MESSAGES["zh-CN"].update({
         "合入 main 后回归 `{cmd}` 失败（退出码 {code}）；main 未被改动。\n"
         "完整日志：{log}\n--- 最后几行 ---\n{tail}"
     ),
-    "merge.ff_failed": "`{main}` 无法快进到 `{branch}`（main 上有分支没有的提交）。先推送或丢弃它们，再重试。",
+    "merge.ff_failed": "`{main}` 无法快进到 `{branch}`（main 上有分支没有的提交）。先推送或丢弃它们，再重试。若 `.git/index.lock` 一直存在且没有 git 进程在运行，删除它。",
     "merge.push_failed": "推送 {main} 失败，本地快进已撤销。先拉取，再重试 `mark merge`。",
     "merge.queued": "等待 {owner} 的 merge 结束（开始于 {since}）；merge 一次只跑一个。",
     "merge.caught_up": "merge 期间 {main} 有工单状态提交；已重新合入（回归结果仍有效）。",
@@ -909,7 +909,7 @@ MESSAGES["zh-CN"].update({
     "flow.bad_merge_after": "不是工单引用：{refs}。请写 `0012` 或 `b0007`。",
     "flow.ambiguous": "`{ref}` 匹配到多张工单：{hits}。请写完整编号。",
     "flow.not_main": "工单状态只能在 `{main}` 上改，但主仓现在在 `{branch}` 上。\n  git checkout {main}",
-    "flow.commit_failed": "提交 {paths} 失败。请在主仓查看 `git status`。",
+    "flow.commit_failed": "提交 {paths} 失败。请在主仓查看 `git status`。若 `.git/index.lock` 一直存在且没有 git 进程在运行，删除它。",
     "flow.committed": "已在 main 上提交工单状态。",
     "flow.pushed": "已推送 main。",
     "flow.push_failed": "推送 main 失败。下次派活前先推送：git push origin main",
