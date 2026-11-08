@@ -218,6 +218,7 @@ decision that can be computed is computed by the `mark` CLI and tested.
 | `/mark:approve <id>` | `mark approve`, then continues | next human gate or stop |
 | `/mark:reject <id> <text>` | splits comments into items, `mark reject`, dispatches the rework | next human gate or stop |
 | `/mark:status` | board summary | — |
+| `/mark:board` | `mark board`: the URL of the live web board | — |
 | `/mark:general <text>` | no-ticket docs/config change on a throwaway lane, then `mark general merge` | landed or a stop |
 
 Each skill injects `mark rules` (the shared orchestrator rulebook, `plugins/mark/rules/orchestrator.md`)
@@ -425,6 +426,32 @@ by deleting someone else's verified record. The template ships defaults with roo
 own docs in both locales; `tests/test_template.py` checks they fit. Raising a budget is a config
 change: roles cannot make it (`.mark/config.toml` is main-thread only), and the orchestrator
 leaves it to the human.
+
+### Web board (v0.43)
+
+`mark board` (`lib/mark/board.py`, page `lib/mark/board.html`) serves a read-only board on
+127.0.0.1: tickets by stage, a history timeline, and per ticket a modal with every document,
+the gates and the moves. It adds no state and no write path; its sources are the ones above:
+
+- **Status**: each main-checkout `status.md`.
+- **History**: `git log -p -U0` of the status files on main. Every commit that sets `status:` is
+  one move (time, updater, owner, note, sha); a field the diff leaves alone keeps its earlier
+  value. A status changed but not committed yet shows as a last move without a sha. Recomputed
+  only when main's HEAD moves.
+- **Documents**: top-level files of the ticket dir in the main checkout and in the ticket's
+  worktree. When both hold a name, an identical copy is shown from main, else the newer one; a
+  worktree copy is marked as a draft. `/f/<features|bugs>/<id>/<main|worktree>/<path>` serves
+  them, resolved inside that ticket dir only, so a preview's relative assets load; HTML opens
+  in a sandboxed iframe. Gates come from `<state>/gates/<id>.*`.
+- **Live**: one thread fingerprints those dirs (mtime, size) plus HEAD every second;
+  `/events` (server-sent events) tells the page to refetch `/api/board`.
+
+One board per project. The port is the first free one from 6275 up (`--port` changes the start);
+a port with any listener is skipped before binding. The server records `pid` and `port` in
+`<state>/locks/board.json` (gitignored); `mark board` reuses a live one, `--stop` ends it. The
+child runs in its own session so it outlives the Bash call that started it. Requests whose Host
+is not `127.0.0.1`/`localhost` are refused (DNS rebinding). Markdown renders with a small built-in
+renderer; mermaid fences load mermaid from jsDelivr and stay code blocks offline.
 
 ### Worktree provisioning (v0.11)
 

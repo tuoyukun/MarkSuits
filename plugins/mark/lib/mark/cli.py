@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import brief, defaults, e2e, flow, general, merge, scaffold, states, tickets, updates, upgrade
+from . import board, brief, defaults, e2e, flow, general, merge, scaffold, states, tickets, updates, upgrade
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -130,7 +130,7 @@ def cmd_claim(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
 # Orchestration commands
 # --------------------------------------------------------------------------
 
-_FLAGS = {"--json", "--retry", "--no-commit"}
+_FLAGS = {"--json", "--retry", "--no-commit", "--stop", "--serve"}
 
 
 def _parse(args: list[str], valued: set[str], multi: set[str] = frozenset()
@@ -478,7 +478,27 @@ def cmd_journeys(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
     return 1
 
 
-COMMANDS = {"format": cmd_format, "next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
+def cmd_board(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark board [--port N] [--stop]`: the read-only web board, one per project."""
+    opts, pos = _parse(args, {"--port"})
+    port = (opts or {}).get("--port", str(board.DEFAULT_PORT))
+    if opts is None or pos or not port.isdigit():
+        _say(cfg, err, "cli.usage")
+        return 2
+    if opts.get("--serve"):  # internal: the background process `mark board` starts
+        return board.serve(cfg, int(port))
+    if opts.get("--stop"):
+        _say(cfg, out, "board.stopped" if board.stop(cfg) else "board.not_running")
+        return 0
+    live, reused = board.start(cfg, int(port))
+    if live is None:
+        _say(cfg, err, "board.failed", log=board.state_path(cfg).with_name("board.log"))
+        return 1
+    _say(cfg, out, "board.reused" if reused else "board.started", url=f"http://127.0.0.1:{live}")
+    return 0
+
+
+COMMANDS = {"board": cmd_board, "format": cmd_format, "next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
             "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim, "merge": cmd_merge,
             "regress": cmd_regress, "general": cmd_general, "upgrade": cmd_upgrade, "journeys": cmd_journeys}
 

@@ -91,6 +91,7 @@ that break it*.
 | Accept or send back a review | `/mark:approve <id>`, `/mark:reject <id> <why>` | the chain continues, or the role reworks it |
 | Change docs or config | `/mark:general <what>` | edited on a throwaway branch, landed through the same regression |
 | See where things stand | `/mark:status` | every ticket, and what waits on you |
+| Watch it in a browser | `/mark:board` | a live, read-only board: tickets by status, each one's documents (preview, tech plan, verdict...) and status history |
 | Upgrade the project files | `/mark:upgrade` | 3-way merge of the new template, landed when you say so |
 
 On [`examples/todo`](examples/README.md#walkthrough), one bug and one feature went from request

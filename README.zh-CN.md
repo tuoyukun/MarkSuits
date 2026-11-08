@@ -83,6 +83,7 @@ Mark 给 agent 一套方法，**并拒绝违反它的工具调用**。
 | 通过或打回评审 | `/mark:approve <id>`、`/mark:reject <id> <原因>` | 链继续往下走，或由对应角色返工 |
 | 改文档或配置 | `/mark:general <内容>` | 在一次性分支上修改，经同样的回归落地 |
 | 看整体进度 | `/mark:status` | 所有工单，以及哪些在等你 |
+| 在浏览器里看 | `/mark:board` | 实时、只读的看板：按状态看工单，每单的文档（preview、技术方案、验收结论……）和流转历史 |
 | 升级项目文件 | `/mark:upgrade` | 三方合并新模板，你点头才落地 |
 
 在 [`examples/todo`](examples/README.md#walkthrough) 上，一个 bug 和一个功能从提出到进 main，共用约 25 分钟

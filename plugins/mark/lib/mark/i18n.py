@@ -439,6 +439,7 @@ _USAGE_EN = (
     "  mark init [--dry-run] [--<answer> <value>]...  set up Mark in this repository (/mark:init)\n"
     "  mark upgrade [--dry-run]                       merge the new template into a general lane (/mark:upgrade)\n"
     "  mark status [--active | --json | --check]      ticket board\n"
+    "  mark board [--port <first>] [--stop]           read-only live web board (/mark:board)\n"
     "  mark next <id> [--json]                        what happens next for a ticket\n"
     "  mark dispatch <id> [--prev \"<text>\"] [--trigger \"<text>\"] [--retry]\n"
     "                                                 prepare the worktree, print the dispatch prompt\n"
@@ -460,6 +461,7 @@ _USAGE_ZH = (
     "  mark init [--dry-run] [--<答案> <值>]...       在本仓库启用 Mark（/mark:init）\n"
     "  mark upgrade [--dry-run]                       把新模板合进一条通用车道（/mark:upgrade）\n"
     "  mark status [--active | --json | --check]      工单看板\n"
+    "  mark board [--port <起始端口>] [--stop]        只读的实时网页看板（/mark:board）\n"
     "  mark next <编号> [--json]                      这张工单下一步做什么\n"
     "  mark dispatch <编号> [--prev \"<文本>\"] [--trigger \"<文本>\"] [--retry]\n"
     "                                                 备好 worktree，输出派活 prompt\n"
@@ -1187,4 +1189,19 @@ MESSAGES["zh-CN"].update({
         "车道改动了只能由 `mark` 命令在 main 上写的流程状态（gates、工单状态、评审记录、locks）：\n{files}\n"
         "请从车道里撤掉这些改动；车道不携带任何决定。"
     ),
+})
+
+MESSAGES["en"].update({
+    "board.started": "Board: {url}  (read-only, updates live; `mark board --stop` stops it)",
+    "board.reused": "Board already running: {url}",
+    "board.stopped": "Board stopped.",
+    "board.not_running": "No board is running for this project.",
+    "board.failed": "The board did not start; see {log}.",
+})
+MESSAGES["zh-CN"].update({
+    "board.started": "看板：{url}（只读，实时更新；`mark board --stop` 关闭）",
+    "board.reused": "看板已在运行：{url}",
+    "board.stopped": "看板已关闭。",
+    "board.not_running": "本项目没有运行中的看板。",
+    "board.failed": "看板没有启动成功，见 {log}。",
 })
