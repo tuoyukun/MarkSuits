@@ -190,6 +190,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
     <button class="nav kf on" data-k="all"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span data-i="allTickets"></span></button>
     <button class="nav kf" data-k="feature"><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="3" fill="#5e6ad2"/><path d="M8 5.5v5M5.5 8h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>Feature</button>
     <button class="nav kf" data-k="bug"><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="3" fill="#eb5757"/><circle cx="8" cy="8" r="1.8" fill="#fff"/></svg>Bug</button>
+    <button class="nav kf" data-k="general"><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="3" fill="#8a8f98"/><path d="M5.5 8h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>General</button>
     <div class="sbfoot">
       <span class="live" id="live"><i></i><span id="liveText"></span></span>
       <span>127.0.0.1:<code id="port"></code> · <span data-i="readonly"></span></span>
@@ -264,7 +265,7 @@ function icon(status,size=14){
   const r=3,len=2*Math.PI*r;
   return `<svg width="${size}" height="${size}" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="${c}" stroke-width="1.5" ${st.k==="req"?'stroke-dasharray="1.4 1.6"':""}/><circle cx="7" cy="7" r="${r}" fill="none" stroke="${c}" stroke-width="${r*2}" stroke-dasharray="${len*st.p} ${len}" transform="rotate(-90 7 7)"/></svg>`;
 }
-const kindIcon=k=>k==="bug"?`<svg class="kicon" viewBox="0 0 16 16" aria-label="bug"><rect x="2" y="2" width="12" height="12" rx="3.5" fill="#eb5757"/><circle cx="8" cy="8" r="2" fill="#fff"/></svg>`:`<svg class="kicon" viewBox="0 0 16 16" aria-label="feature"><rect x="2" y="2" width="12" height="12" rx="3.5" fill="#5e6ad2"/><path d="M8 5.2v5.6M5.2 8h5.6" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+const kindIcon=k=>k==="general"?`<svg class="kicon" viewBox="0 0 16 16" aria-label="general"><rect x="2" y="2" width="12" height="12" rx="3.5" fill="#8a8f98"/><path d="M5.5 8h5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`:k==="bug"?`<svg class="kicon" viewBox="0 0 16 16" aria-label="bug"><rect x="2" y="2" width="12" height="12" rx="3.5" fill="#eb5757"/><circle cx="8" cy="8" r="2" fill="#fff"/></svg>`:`<svg class="kicon" viewBox="0 0 16 16" aria-label="feature"><rect x="2" y="2" width="12" height="12" rx="3.5" fill="#5e6ad2"/><path d="M8 5.2v5.6M5.2 8h5.6" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`;
 function av(role){if(!role)return"";const ini=role.split(/[-_ ]/).map(w=>w[0]||"").join("").slice(0,2).toUpperCase();let h=0;for(const c of role)h=(h*31+c.charCodeAt(0))%360;
   return `<span class="av" title="${esc(role)}" style="background:hsl(${h} 55% 52%)">${esc(ini)}</span>`}
 
@@ -388,7 +389,7 @@ function side(t){
   $("#side").innerHTML=`<div class="blk"><h5>${tr("props")}</h5>
    <div class="prop"><span>${tr("status")}</span><span class="v">${icon(t.status)}${esc(label(t.status))}</span></div>
    <div class="prop"><span>${tr("owner")}</span><span class="v">${av(t.owner)}${esc(t.owner||"—")}</span></div>
-   <div class="prop"><span>${tr("type")}</span><span class="v">${kindIcon(t.kind)}${t.kind==="bug"?"Bug":"Feature"}</span></div>
+   <div class="prop"><span>${tr("type")}</span><span class="v">${kindIcon(t.kind)}${{bug:"Bug",general:"General"}[t.kind]||"Feature"}</span></div>
    <div class="prop"><span>${tr("branch")}</span><span class="v"><code title="${esc(t.branch)}">${esc(t.branch)}</code></span></div>
    ${t.worktree?`<div class="prop"><span>${tr("worktree")}</span><span class="v"><code title="${esc(t.worktree)}">${esc(t.worktree)}</code></span></div>`:""}
    <div class="prop"><span>${tr("created")}</span><span class="v">${fmt(first.at)||"—"}</span></div>

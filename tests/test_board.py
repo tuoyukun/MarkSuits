@@ -93,6 +93,25 @@ class FilesTest(unittest.TestCase):
         self.assertNotEqual(board.signature(self.cfg), before)
 
 
+class GeneralLaneTest(unittest.TestCase):
+    def test_an_open_general_lane_shows_and_changes_the_signature(self):
+        root = make_repo()
+        cfg = load_config(root)
+        before = board.signature(cfg)
+        sh(root, "git", "branch", "chore/general-20260101-120000")
+        self.assertNotEqual(board.signature(cfg), before)
+        sh(root, "git", "checkout", "-q", "chore/general-20260101-120000")
+        (root / "notes.md").write_text("x\n", encoding="utf-8")
+        sh(root, "git", "add", "-A")
+        sh(root, "git", "commit", "-q", "-m", "Tidy the notes")
+        sh(root, "git", "checkout", "-q", "main")
+        lanes = [t for t in board.snapshot(cfg, board.History(cfg))["tickets"] if t["kind"] == "general"]
+        self.assertEqual(len(lanes), 1)
+        lane = lanes[0]
+        self.assertEqual((lane["id"], lane["desc"], lane["status"]), ("general-20260101-120000", "Tidy the notes", "developing"))
+        self.assertTrue(lane["history"][0]["at"].startswith("2026-01-01T12:00:00"))
+
+
 class ServerTest(unittest.TestCase):
     def setUp(self):
         root = make_repo()

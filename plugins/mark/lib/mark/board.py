@@ -27,9 +27,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import states, tickets
+from . import general, states, tickets
 from .config import MarkConfig
-from .gitutil import git
+from .gitutil import git, worktrees
 from .ports import in_use
 
 DEFAULT_PORT = 6275  # "MARK" on a phone keypad; no well-known dev server uses it
@@ -155,12 +155,40 @@ def snapshot(cfg: MarkConfig, history: History) -> dict[str, object]:
                       "branch": cfg.branch_for(tk.kind, tk.id),
                       "worktree": cfg.worktree_for(tk.kind, tk.id) if dirs["worktree"].is_dir() else "",
                       "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist})
-    return {"project": cfg.root.name, "locale": cfg.locale, "branch": cfg.main_branch, "tickets": items}
+    return {"project": cfg.root.name, "locale": cfg.locale, "branch": cfg.main_branch,
+            "tickets": items + general_lanes(cfg)}
+
+
+def general_lanes(cfg: MarkConfig) -> list[dict[str, object]]:
+    """Open `chore/general-*` lanes as cards. A landed lane fast-forwards onto main and is
+    deleted, leaving no record, so only open lanes show."""
+    code, out = git(["for-each-ref", "--format=%(refname:short)", f"refs/heads/{general.PREFIX}*"], cfg.root)
+    if code != 0:
+        return []
+    wts = {b: p for p, b in worktrees(cfg.root)}
+    items = []
+    for branch in out.splitlines():
+        stamp = branch.removeprefix(general.PREFIX)
+        try:
+            at = _dt.datetime.strptime(stamp, "%Y%m%d-%H%M%S").astimezone().isoformat(timespec="seconds")
+        except ValueError:
+            at = ""
+        subject = git(["log", "-1", "--format=%s", f"{cfg.main_branch}..{branch}"], cfg.root)[1]
+        commits = git(["rev-list", "--count", f"{cfg.main_branch}..{branch}"], cfg.root)[1] or "0"
+        note = f"{commits} commit(s) ahead of {cfg.main_branch}"
+        wt = wts.get(branch)
+        items.append({"kind": "general", "id": f"general-{stamp}", "status": "developing", "desc": subject or branch,
+                      "owner": "orchestrator", "updater": "orchestrator", "note": note, "dir": "", "side": "",
+                      "branch": branch, "worktree": os.path.relpath(wt, cfg.root) if wt else "",
+                      "files": [], "gates": [], "history": [{"sha": "", "at": at, "status": "developing",
+                                                              "owner": "orchestrator", "updater": "orchestrator", "note": note}]})
+    return items
 
 
 def signature(cfg: MarkConfig) -> tuple:
     """Cheap fingerprint of everything the snapshot reads; changes when any of it does."""
-    sig: list[object] = [git(["rev-parse", "HEAD"], cfg.root)[1]]
+    sig: list[object] = [git(["rev-parse", "HEAD"], cfg.root)[1],
+                         git(["for-each-ref", f"refs/heads/{general.PREFIX}*"], cfg.root)[1]]
     roots = [cfg.state_dir / "gates"]
     for kind in states.KINDS:
         roots.append(tickets.kind_dir(cfg, kind))
