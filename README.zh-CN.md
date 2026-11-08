@@ -89,6 +89,22 @@ Mark 给 agent 一套方法，**并拒绝违反它的工具调用**。
 在 [`examples/todo`](examples/README.md#walkthrough) 上，一个 bug 和一个功能从提出到进 main，共用约 25 分钟
 agent 时间、约 6 美元 token。人只输入了两条需求，回答了几个问题，批准了一份设计和一份方案。
 
+## 看板
+
+`/mark:board` 在浏览器里打开一个只读看板（监听 127.0.0.1，从 6275 起找第一个空闲端口）。agent
+推进工单、写文件时它会自己更新；除了 Mark 本来就有的文件，它不需要项目提供任何东西。
+
+![按状态分组的工单，以及等你处理的事](docs/images/board-zh-CN.png)
+
+点开一张工单，能看到它的全部文档，包括还在 worktree 里的草稿：需求、设计和可交互的预览、带图的技术方案、
+验收结论。旁边是评审闸门和每一次状态流转：谁、什么时候。可以全屏，按 Esc 关闭。
+
+![工单详情：带时序图的技术方案、评审闸门和动态](docs/images/board-ticket-zh-CN.png)
+
+流转历史视图显示每张工单在各阶段停留了多久。
+
+![所有工单的流转历史时间轴](docs/images/board-history-zh-CN.png)
+
 ## 工作原理
 
 ```mermaid

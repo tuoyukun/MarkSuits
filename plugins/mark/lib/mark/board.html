@@ -338,8 +338,11 @@ function render(){
 function timeline(v){
   const now=Date.now(),starts=v.map(t=>ts(t.history[0]?.at)).filter(x=>!isNaN(x));
   const first=starts.length?Math.min(...starts):now-36e5,span=Math.max(now-first,18e5)*1.04,t0=now-span*.99,pct=x=>((x-t0)/span*100);
-  const ticks=Array.from({length:8},(_,i)=>t0+span*i/8);
-  const tickLabel=x=>{const d=new Date(x),p=n=>String(n).padStart(2,"0");return span>3*864e5?`${p(d.getMonth()+1)}/${p(d.getDate())}`:span>12*36e5?`${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:00`:`${p(d.getHours())}:${p(d.getMinutes())}`};
+  // ticks on round local times (minutes, hours, midnights), at most ~8 of them
+  const M=6e4,step=[5,10,15,30,60,120,180,360,720,1440,2880,10080,20160,43200].map(x=>x*M).find(x=>span/x<=8)||43200*M;
+  const off=new Date(t0).getTimezoneOffset()*M,ticks=[];
+  for(let x=Math.ceil((t0-off)/step)*step+off;x<t0+span;x+=step)ticks.push(x);
+  const tickLabel=x=>{const d=new Date(x),p=n=>String(n).padStart(2,"0");return step>=1440*M?`${p(d.getMonth()+1)}/${p(d.getDate())}`:d.getHours()+d.getMinutes()===0||step>=720*M?`${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`:`${p(d.getHours())}:${p(d.getMinutes())}`};
   return `<div class="tlwrap"><div class="legend">${STAGES.map(s=>`<span><i style="background:var(${s.c})"></i>${esc(s.n[L]||s.n.en)}</span>`).join("")}</div>
   <div class="tl"><div class="tlgrid"><div class="tlh" style="padding-left:14px">${tr("ticket")}</div><div class="tlh"><div class="ticks">${ticks.map(x=>`<div style="left:${pct(x)}%">${tickLabel(x)}</div>`).join("")}</div></div>
   ${v.map(t=>`<div class="tln" data-open="${esc(t.id)}" data-tab="__hist">${kindIcon(t.kind)}<span class="id">${short(t.id)}</span><span class="t">${esc(t.desc||t.id)}</span><span style="margin-left:auto">${icon(t.status)}</span></div>

@@ -98,6 +98,24 @@ On [`examples/todo`](examples/README.md#walkthrough), one bug and one feature we
 to main in about 25 minutes of agent time and roughly $6 of tokens. The human typed two requests,
 answered a few questions, and approved one design and one plan.
 
+## The board
+
+`/mark:board` opens a read-only board in your browser (on 127.0.0.1, first free port from 6275).
+It updates by itself as agents move tickets and write files, and needs nothing from the project
+beyond what Mark already keeps.
+
+![Tickets grouped by status, with what waits on you](docs/images/board-en.png)
+
+Click a ticket for every document it has, drafts still in its worktree included: the
+requirement, the design and its live preview, the tech plan with its diagrams, the verdict. Next
+to them: the gates and each status move, with who made it and when. Full screen, or Esc to close.
+
+![A ticket: tech plan with a sequence diagram, gates and activity](docs/images/board-ticket-en.png)
+
+The history view shows how long each ticket spent in each stage.
+
+![Status history of every ticket on a timeline](docs/images/board-history-en.png)
+
 ## How it works
 
 ```mermaid
