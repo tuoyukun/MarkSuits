@@ -505,6 +505,24 @@ nothing: they need the human in the conversation. `[board] run = "off"` only dec
 uses the `claude` on the board's PATH and the plugin as installed. Design and experiments:
 [board-two-way.md](board-two-way.md).
 
+**Board chat (v0.50).** The human opens a ticket on the board and talks it through there
+(`lib/mark/chat.py`). `POST /api/new {kind, text, slug?}` grants a `feature`/`fix` token with
+`source = "board"`, claims the ticket (the first line of the text is its `desc`) and deletes the
+token, as `decide` does. Then every message (`POST /api/chat {ticket, text}`, cookie required)
+runs one `claude -p` turn in the main checkout: the first sends `/mark:feature <id>` (or
+`/mark:fix <id>`) plus the text, later ones `--resume` the session id the log last reported, so it
+is one conversation. The prompt goes in on stdin, so the human's text is never a CLI option;
+`--append-system-prompt` tells the session the human reads it on the board and decides with its
+buttons. The skill runs as in a terminal: a feature stops at `review-requirement`, a bug runs its
+chain once `bug.md` is agreed. One turn per ticket, none while the runner carries that ticket on;
+the log is `<state>/locks/chat-<id>.jsonl` (the human's lines plus each turn's stream-json), the
+pid `chat-<id>.json`; `GET /api/chat/<id>` turns it into messages, and `POST /api/stop {ticket}`
+ends a turn. Turns are unattended, so nothing typed in the chat is a human command.
+
+Live runs showed that a `-p` session does not exit while a background task runs, so a
+`mark wait` started at a gate kept the turn alive forever. `wait_guard` (pre-bash) refuses
+`mark wait` in any unattended session (`CLAUDE_CODE_SESSION_ATTENDED=0`); the runner benefits too.
+
 ### Worktree provisioning (v0.11)
 
 `git worktree add` brings only tracked files: no dependencies, no `.env`, no local config, so

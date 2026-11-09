@@ -13,7 +13,7 @@ from pathlib import Path
 from ..general import PREFIX as LANE_PREFIX
 from ..gitutil import checkout_root, current_branch, git
 from .common import Env
-from .. import e2e, globs
+from .. import e2e, globs, human
 from .write import cli_only_rules, scope_block, worktree_block
 
 _SEPARATORS = ("&&", "||", ";", "|", "\n")
@@ -328,4 +328,16 @@ def claude_guard(env: Env) -> str | None:
     return None
 
 
-PRE_BASH = [claude_guard, mark_guard, git_guard, shell_write_guard]
+def wait_guard(env: Env) -> str | None:
+    """In a headless session (`claude -p`: the board's chat or runner) nobody comes back for a
+    background task, and a running one keeps the session from ever ending: no `mark wait`."""
+    command = str(env.tool_input.get("command") or "")
+    if "wait" not in command or human.attended():
+        return None
+    for _, _, words, _ in _commands(command, env.cwd):
+        if os.path.basename(words[0]) == "mark" and words[1:2] == ["wait"] and "--stop" not in words:
+            return env.t("guard.bash.headless_wait")
+    return None
+
+
+PRE_BASH = [claude_guard, mark_guard, wait_guard, git_guard, shell_write_guard]

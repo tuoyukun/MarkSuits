@@ -148,6 +148,7 @@ permission_mode = "auto" # for the headless session
 | 0.47 ✅ | decide endpoint, secret, decision panel | No: say "continue" in the terminal |
 | 0.48 ✅ | `mark wait`, orchestrator rule change | Yes, while a terminal session is open |
 | 0.49 ✅ | headless runner, `/mark:continue`, run panel | Yes, with no session open |
+| 0.50 ✅ | open a ticket on the board and talk it through (`chat.py`) | Yes, one turn per message |
 
 Each phase ships tests (rule 9): secret and Origin checks, token `source`, a bad target status
 refused, runner lock, `mark wait` exit conditions, denial parsing.

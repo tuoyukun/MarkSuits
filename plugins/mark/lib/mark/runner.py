@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -21,6 +22,7 @@ from pathlib import Path
 from .config import MarkConfig
 
 STATE_FILE = "runner.json"
+WAIT_RE = re.compile(r"(^|[\s;&|/])mark\s+wait\b")
 TAIL_BYTES = 256 * 1024
 LINES_KEPT = 40
 SESSION_MARKERS = frozenset({"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_SSE_PORT"})
@@ -123,6 +125,7 @@ def outcome(result: dict | None, alive: bool) -> dict[str, object]:
         return {"kind": "failed", "text": "the session ended without a result"}
     denials = [d.get("tool_input", {}).get("command") or d.get("tool_name", "")
                for d in result.get("permission_denials") or [] if isinstance(d, dict)]
+    denials = [c for c in denials if not WAIT_RE.search(str(c))]  # refused on purpose (wait_guard), not by permissions
     if denials:
         return {"kind": "blocked", "commands": denials, "text": str(result.get("result") or "")}
     if result.get("is_error"):

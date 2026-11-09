@@ -13,7 +13,7 @@ from unittest import mock
 
 from tests._support import add_ticket, add_worktree, make_repo, sh, status_text
 
-from mark import board, cli, flow, human, reviews, runner, wait
+from mark import board, cli, flow, human, reviews, runner, tickets, wait
 from mark.config import load_config
 
 
@@ -304,6 +304,52 @@ class DecideTest(unittest.TestCase):
                      {"ticket": "0001-a", "verb": "reject", "items": "one"}):
             self.assertEqual(self.post("/api/decide", body, cookie=cookie)[0], 409, body)
         self.assertEqual(self.status("0001-a"), "review-plan")
+
+    def test_new_ticket_opens_approved_and_starts_the_chat(self):
+        cookie = self.login()
+        with mock.patch.object(board.chat, "start", return_value=(True, "")) as start:
+            code, res, _ = self.post("/api/new", {"kind": "feature", "text": "Due dates\nOverdue ones in red.",
+                                                  "slug": "due-dates"}, cookie=cookie)
+        self.assertEqual((code, res["ok"]), (200, True), res)
+        tid = res["id"]
+        self.assertTrue(tid.endswith("-due-dates"))
+        self.assertEqual(self.status(tid), "drafting")
+        self.assertTrue((self.root / ".mark" / "gates" / f"{tid}.ticket-approved").is_file())
+        self.assertEqual(flow.load(self.cfg, tid).ticket.get("desc"), "Due dates")
+        start.assert_called_once_with(self.cfg, "feature", tid, "Due dates\nOverdue ones in red.")
+        self.no_tokens_left()
+
+    def test_new_ticket_and_chat_need_the_cookie_and_a_good_request(self):
+        with mock.patch.object(board.chat, "start", return_value=(True, "")) as start:
+            self.assertEqual(self.post("/api/new", {"kind": "bug", "text": "Crash"})[0], 403)
+            self.assertEqual(self.post("/api/chat", {"ticket": "0003-c", "text": "hi"})[0], 403)
+            cookie = self.login()
+            for body in ({"kind": "chore", "text": "x"}, {"kind": "bug", "text": "  "}, {"kind": "bug", "text": 1},
+                         {"kind": "bug", "text": "x" * 20001}):
+                self.assertEqual(self.post("/api/new", body, cookie=cookie)[0], 409, body)
+            for body in ({"ticket": "../x", "text": "hi"}, {"ticket": "0003-c", "text": ""}):
+                self.assertEqual(self.post("/api/chat", body, cookie=cookie)[0], 409, body)
+            start.assert_not_called()
+            code, res, _ = self.post("/api/chat", {"ticket": "0003-c", "text": " ISO dates. "}, cookie=cookie)
+            self.assertEqual(code, 200, res)
+            start.assert_called_once_with(self.cfg, "feature", "0003-c", "ISO dates.")
+        self.assertEqual(len(tickets.ticket_dirs(self.cfg, "feature")), 3)  # nothing was claimed
+        self.no_tokens_left()
+
+    def test_a_busy_chat_comes_back(self):
+        with mock.patch.object(board.chat, "start", return_value=(False, "busy")):
+            code, res, _ = self.post("/api/chat", {"ticket": "0003-c", "text": "hi"}, cookie=self.login())
+        self.assertEqual((code, res["text"]), (409, "chat.busy"))
+
+    def test_the_chat_view_and_stop(self):
+        self.assertEqual(json.loads(self._get("/api/chat/0003-c")), {"running": False, "messages": []})
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request("GET", "/api/chat/nope", headers={"Host": f"127.0.0.1:{self.port}"})
+        self.assertEqual(c.getresponse().status, 404)
+        with mock.patch.object(board.chat, "stop", return_value=True) as stop:
+            code, res, _ = self.post("/api/stop", {"ticket": "0003-c"}, cookie=self.login())
+        self.assertEqual((code, res["ok"]), (200, True))
+        stop.assert_called_once_with(self.cfg, "0003-c")
 
     def test_board_decide_off(self):
         cfg_path = self.root / ".mark" / "config.toml"

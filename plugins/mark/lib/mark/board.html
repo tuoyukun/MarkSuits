@@ -242,6 +242,21 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .dout.bad{color:var(--c-block)}
 .runlog{max-height:220px;overflow:auto;background:var(--app);border:1px solid var(--line2);border-radius:6px;padding:6px 8px;margin:0 0 8px}
 .tag.run{background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
+.dec input{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:0 0 8px}
+.top .btn{margin:0;white-space:nowrap}
+.nmodal{width:min(560px,94vw);height:auto;max-height:90vh}
+.nmodal .pad{padding:16px 18px;overflow:auto}
+.chat{flex:1;display:flex;flex-direction:column;min-height:0}
+.msgs{flex:1;overflow:auto;padding:20px 28px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:760px;border-radius:10px;padding:10px 14px;font-size:13.5px;line-height:1.6;word-wrap:break-word}
+.msg.me{align-self:flex-end;background:var(--brand-soft);color:var(--text);white-space:pre-wrap}
+.msg.ai{align-self:flex-start;background:var(--panel);border:1px solid var(--line)}
+.msg.ai.md p:first-child{margin-top:0}.msg.ai.md p:last-child{margin-bottom:0}
+.msg.err{align-self:flex-start;color:var(--c-block);font-family:var(--mono);font-size:11.5px;padding:2px 14px}
+.steps{align-self:flex-start;font-family:var(--mono);font-size:11px;color:var(--mute);padding:0 14px;white-space:pre-wrap;word-break:break-all;max-width:760px}
+.cin{border-top:1px solid var(--line);padding:10px 14px;flex:none}
+.cin textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical;margin:0 0 8px}
+.crow{display:flex;align-items:center;gap:8px}.crow .btn{margin:0}
 @media (max-width:760px){
   .app{grid-template-columns:1fr}.sb{display:none}.main{margin:0;border-radius:0;border:0}
   .search{width:auto;flex:1}.crumb span,.crumb .p{display:none}.top{padding:0 16px}
@@ -272,6 +287,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
     <div class="top">
       <div class="crumb"><span class="p" id="crumbP" style="color:var(--text);font-weight:500"></span><span>/</span><b id="vt"></b></div>
       <span class="grow"></span>
+      <button class="btn pri" id="newBtn" data-new hidden>+ <span data-i="newT"></span></button>
       <div class="seg" id="seg"><button class="on" data-k="all" data-i="all"></button><button data-k="active" data-i="active"></button><button data-k="done" data-i="done"></button></div>
       <label class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3" stroke-linecap="round"/></svg><input id="q"><kbd>/</kbd></label>
     </div>
@@ -282,6 +298,17 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
   <div class="modal" role="dialog" aria-modal="true">
     <div class="mh" id="mh"></div>
     <div class="mb"><div class="mmain"><div class="dtabs" id="tabs"></div><div class="doc" id="doc"></div></div><aside class="mside"><div id="dec"></div><div id="run"></div><div id="side"></div></aside></div>
+  </div>
+</div>
+<div class="ov" id="nv">
+  <div class="modal nmodal dec" role="dialog" aria-modal="true">
+    <div class="mh"><span class="t" data-i="newT"></span><span class="grow"></span><button class="ib" data-nclose><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
+    <div class="pad">
+      <label for="nKind" data-i="type"></label><select id="nKind"><option value="feature">Feature</option><option value="bug">Bug</option></select>
+      <label for="nText" data-i="newText"></label><textarea id="nText" rows="8"></textarea>
+      <label for="nSlug" data-i="newSlug"></label><input id="nSlug" maxlength="40" pattern="[a-z0-9-]*" placeholder="due-dates">
+      <button class="btn pri" data-create data-i="create"></button><pre class="dout bad" id="nOut"></pre>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -305,7 +332,10 @@ const I18N={
   runBlockedHint:"A command needed your approval. Continue in a terminal with /mark:continue {id}, or allow the command in .claude/settings.json.",
   "run.session":"Your open Claude session picks this up.","run.started":"Started a headless session to carry on.","run.terminal":"Say \"continue\" in your Claude session to carry on.",
   "run.busy":"Another headless session is running; carry on with /mark:continue {id} in a terminal.","run.no-claude":"`claude` was not found; carry on with /mark:continue {id} in a terminal.",
-  needLogin:"Read-only in this window. Run `mark board` (or /mark:board) and decide in the window it opens.",offDecide:"Deciding on the board is off ([board] decide = false)."},
+  needLogin:"Read-only in this window. Run `mark board` (or /mark:board) and decide in the window it opens.",offDecide:"Deciding on the board is off ([board] decide = false).",
+  newT:"New ticket",newText:"What to build or fix. The first line becomes the title; Claude reads it all and asks about the gaps.",newSlug:"Short name for the id (optional, a-z 0-9 -)",create:"Open and start talking",
+  chat:"Discussion",chatPh:"Reply to Claude…",send:"Send",thinking:"Claude is working…",chatEmpty:"No discussion yet. Send a message to start one.",
+  "chat.busy":"Claude is already working on this ticket; wait for its reply.","chat.no-claude":"`claude` was not found, so nobody can reply. Continue in a terminal."},
  "zh-CN":{board:"看板",timeline:"流转历史",human:"等我处理",kind:"类型",allTickets:"全部工单",readonly:"只读",live:"实时同步中",offline:"重新连接中…",all:"全部",active:"进行中",done:"已完成",search:"搜索工单",
   sWait:"等你处理",sAgent:"Agent 进行中",sDone:"已完成",sBugs:"未关闭 Bug",empty:"暂无工单",noTickets:"还没有工单。用这个命令建一张：",ticket:"工单",now:"现在",
   props:"属性",status:"状态",owner:"负责",type:"类型",branch:"分支",worktree:"工作区",created:"创建",elapsed:"耗时",moves:"次流转",hours:" 小时",
@@ -322,7 +352,10 @@ const I18N={
   runBlockedHint:"有条命令需要你授权。在终端里用 /mark:continue {id} 继续，或在 .claude/settings.json 里放行该命令。",
   "run.session":"你开着的 Claude 会话会接着干。","run.started":"已启动一个后台会话接着干。","run.terminal":"在 Claude 会话里说一声\"继续\"即可接着干。",
   "run.busy":"已有另一个后台会话在运行；请在终端用 /mark:continue {id} 继续。","run.no-claude":"没找到 `claude` 命令；请在终端用 /mark:continue {id} 继续。",
-  needLogin:"此窗口只读。运行 `mark board`（或 /mark:board），在它打开的窗口里处理。",offDecide:"看板处理已关闭（[board] decide = false）。"}};
+  needLogin:"此窗口只读。运行 `mark board`（或 /mark:board），在它打开的窗口里处理。",offDecide:"看板处理已关闭（[board] decide = false）。",
+  newT:"新建工单",newText:"要做什么或修什么。第一行作为标题；Claude 会读完全部内容，再就缺的地方提问。",newSlug:"编号里的短名（可选，a-z 0-9 -）",create:"创建并开始讨论",
+  chat:"讨论",chatPh:"回复 Claude…",send:"发送",thinking:"Claude 处理中…",chatEmpty:"还没有讨论。发一条消息开始。",
+  "chat.busy":"Claude 正在处理这张工单，等它回复后再发。","chat.no-claude":"没找到 `claude` 命令，没人能回复。请到终端里继续。"}};
 const LABELS={
  en:{drafting:"Drafting","review-requirement":"Requirement review",designing:"Designing","review-design":"Design review",planning:"Planning","review-plan":"Plan review",developing:"Developing","failed-impl":"Rework","design-qa":"Design QA",testing:"Testing","pending-merge":"Pending merge","blocked-plan":"Blocked: plan","blocked-spec":"Blocked: design","blocked-unclear":"Needs answer",passed:"Passed",superseded:"Superseded"},
  "zh-CN":{drafting:"起草需求","review-requirement":"需求评审",designing:"设计中","review-design":"设计评审",planning:"方案中","review-plan":"方案评审",developing:"开发中","failed-impl":"返工中","design-qa":"设计验收",testing:"测试中","pending-merge":"待合并","blocked-plan":"方案阻塞","blocked-spec":"设计阻塞","blocked-unclear":"需澄清",passed:"已完成",superseded:"已并入他单"}};
@@ -421,7 +454,7 @@ function card(t){const st=stageOf(t.status),i=PIPE.indexOf(st.k),done=st.k==="do
 function render(){
   document.querySelectorAll("[data-i]").forEach(e=>e.textContent=tr(e.dataset.i));
   $("#q").placeholder=tr("search");$("#pname").textContent=data.project;$("#crumbP").textContent=data.project;$("#psub").textContent=`Mark · ${data.branch}`;
-  $("#port").textContent=location.port;$("#mode").textContent=tr(data.decide==="on"?"canDecide":"readonly");document.title=`${data.project} · Mark`;
+  $("#port").textContent=location.port;$("#mode").textContent=tr(data.decide==="on"?"canDecide":"readonly");$("#newBtn").hidden=data.decide!=="on";document.title=`${data.project} · Mark`;
   $("#nAll").textContent=data.tickets.length;const nh=data.tickets.filter(isHuman).length;$("#nHuman").textContent=nh;$("#nHuman").classList.toggle("zero",!nh);
   $("#vt").textContent=tr(view);
   const all=data.tickets.filter(t=>kind==="all"||t.kind===kind),v=visible();
@@ -535,12 +568,12 @@ function closeM(){open=null;docKey="";decKey="";decMsg=null;$("#dec").innerHTML=
 function modal(){
   const t=data.tickets.find(x=>x.id===open.id);if(!t){closeM();return}
   const ov=$("#ov"),files=sortFiles(t.files);
-  if(open.tab!=="__hist"&&!files.some(f=>f.name===open.tab))open.tab="__hist";
+  if(open.tab!=="__hist"&&!(open.tab==="__chat"&&t.kind!=="general")&&!files.some(f=>f.name===open.tab))open.tab="__hist";
   $("#mh").innerHTML=`${kindIcon(t.kind)}<span class="id">${short(t.id)}</span><span class="t">${esc(t.desc||t.id)}</span><span class="tag" style="margin-left:6px">${icon(t.status,12)}${esc(label(t.status))}</span>${isHuman(t)?`<span class="tag wait">${tr("waiting")}</span>`:""}<span class="grow"></span>
    <button class="ib" title="${tr("sidebar")}" data-act="side"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11"/></svg></button>
    <button class="ib" title="${tr("fullscreen")}" data-act="full"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">${ov.classList.contains("full")?'<path d="M6 2.5V6H2.5M10 2.5V6h3.5M6 13.5V10H2.5M10 13.5V10h3.5"/>':'<path d="M2.5 6V2.5H6M13.5 6V2.5H10M2.5 10v3.5H6M13.5 10v3.5H10"/>'}</svg></button>
    <button class="ib" title="${tr("close")}" data-act="close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>`;
-  $("#tabs").innerHTML=files.map(f=>`<button class="dtab ${open.tab===f.name?"on":""}" data-tab="${esc(f.name)}">${esc(f.name)}${f.draft?`<span class="wt">${tr("draft")}</span>`:""}</button>`).join("")+`<button class="dtab ${open.tab==="__hist"?"on":""}" data-tab="__hist">${tr("history")}</button>`;
+  $("#tabs").innerHTML=files.map(f=>`<button class="dtab ${open.tab===f.name?"on":""}" data-tab="${esc(f.name)}">${esc(f.name)}${f.draft?`<span class="wt">${tr("draft")}</span>`:""}</button>`).join("")+(t.kind!=="general"?`<button class="dtab ${open.tab==="__chat"?"on":""}" data-tab="__chat">${tr("chat")}</button>`:"")+`<button class="dtab ${open.tab==="__hist"?"on":""}" data-tab="__hist">${tr("history")}</button>`;
   doc(t,files);
   side(t);
   decBlk(t);
@@ -585,6 +618,12 @@ async function decide(verb){const t=data.tickets.find(x=>x.id===open.id);if(!t||
 }
 async function doc(t,files){
   const el=$("#doc"),f=files.find(x=>x.name===open.tab);
+  if(open.tab==="__chat"){const key=`${t.id}|__chat`;
+    if(key!==docKey){docKey=key;chatKey="";
+      el.innerHTML=`<div class="chat"><div class="msgs" id="msgs"></div><div class="cin">${data.decide==="on"?`<textarea id="cText" rows="3" placeholder="${tr("chatPh")}"></textarea>
+       <div class="crow"><span class="none" id="cState"></span><span class="grow"></span><button class="btn" data-cstop hidden>${tr("stop")}</button><button class="btn pri" data-send>${tr("send")}</button></div>`
+       :`<div class="none">${esc(tr(data.decide==="off"?"offDecide":"needLogin"))}</div>`}</div></div>`}
+    chatLoad(t);return}
   const key=f?`${t.id}|${f.name}|${f.src}|${f.mtime}`:`${t.id}|__hist|${t.history.length}|${last(t).at}`;
   if(key===docKey)return;  // unchanged: keep scroll position and the iframe as they are
   docKey=key;
@@ -597,6 +636,36 @@ async function doc(t,files){
   el.innerHTML=`<div class="pad"><div class="md">${/\.(md|markdown)$/i.test(f.name)?md(text):`<pre><code>${esc(text)}</code></pre>`}</div></div>`;
   el.scrollTop=top;mermaid(el);
 }
+// ---- chat: one headless Claude turn per message; the log is re-read on every board change
+let chatKey="";
+async function chatLoad(t){
+  let c;try{c=await (await fetch(`/api/chat/${encodeURIComponent(t.id)}`,{cache:"no-store"})).json()}catch{return}
+  if(!open||open.id!==t.id||open.tab!=="__chat")return;
+  const key=JSON.stringify(c);if(key===chatKey)return;chatKey=key;  // unchanged: keep scroll and selection
+  const box=$("#msgs"),atEnd=box.scrollTop+box.clientHeight>=box.scrollHeight-8,o=[];
+  for(const m of c.messages){
+    if(m.who==="step"){if(o.at(-1)?.step)o.at(-1).lines.push(m.text);else o.push({step:true,lines:[m.text]});continue}
+    o.push(m.who==="human"?`<div class="msg me">${esc(m.text)}</div>`:m.who==="claude"?`<div class="msg ai md">${md(m.text)}</div>`:`<div class="msg err">${esc(m.text)}</div>`)}
+  box.innerHTML=(o.length?o.map(x=>x.step?`<div class="steps">${esc(x.lines.join("\n"))}</div>`:x).join(""):`<div class="none">${tr("chatEmpty")}</div>`)
+    +(c.running?`<div class="msg ai none">${tr("thinking")}</div>`:"");
+  if(atEnd||c.running)box.scrollTop=box.scrollHeight;
+  const send=$("[data-send]"),stop=$("[data-cstop]");if(send)send.disabled=c.running;if(stop)stop.hidden=!c.running;
+  mermaid(box)}
+async function chatSend(){const t=data.tickets.find(x=>x.id===open?.id),ta=$("#cText");if(!t||!ta||!ta.value.trim())return;
+  $("[data-send]").disabled=true;
+  let r;try{r=await (await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:t.id,text:ta.value})})).json()}catch{r={ok:false,text:"loadFail"}}
+  $("#cState").textContent=r.ok?"":tr(r.text)||r.text;
+  if(r.ok)ta.value="";else $("[data-send]").disabled=false;
+  chatKey="";chatLoad(t)}
+function newOpen(){$("#nOut").textContent="";$("#nv").classList.add("on");$("#nText").focus()}
+function newClose(){$("#nv").classList.remove("on")}
+async function create(){const text=$("#nText").value;if(!text.trim()){$("#nText").focus();return}
+  const b=$("[data-create]");b.disabled=true;
+  let r;try{r=await (await fetch("/api/new",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#nKind").value,text,slug:$("#nSlug").value.trim()})})).json()}catch{r={ok:false,text:tr("loadFail")}}
+  b.disabled=false;
+  if(!r.ok){$("#nOut").textContent=r.text||"";return}
+  $("#nText").value="";$("#nSlug").value="";newClose();
+  await load();openM(r.id,"__chat");if(r.text)toast(esc(tr(r.text)))}
 function histTable(t){return `<div class="tw"><table><tr><th>${tr("when")}</th><th>${tr("move")}</th><th>${tr("by")}</th><th>${tr("stay")}</th><th>commit</th></tr>${t.history.map((e,i)=>{const n=t.history[i+1];
   return `<tr><td>${fmt(e.at)}</td><td>${i?esc(label(t.history[i-1].status))+" → ":""}<b>${esc(label(e.status))}</b></td><td>${esc(e.updater||"")}</td><td>${TERMINAL.has(e.status)?"—":dur((n?ts(n.at):Date.now())-ts(e.at))}</td><td>${e.sha?`<code>${esc(e.sha)}</code>`:`<span class="none">${tr("uncommitted")}</span>`}</td></tr>`}).join("")}</table></div>`}
 function side(t){
@@ -624,15 +693,21 @@ document.addEventListener("click",e=>{
   if(e.target.id==="follow"){follow=e.target.checked;gRows();return}
   const act=e.target.closest("[data-act]");if(act){const ov=$("#ov");if(act.dataset.act==="close")closeM();else{ov.classList.toggle(act.dataset.act==="full"?"full":"noside");if(act.dataset.act==="full")modal()}return}
   const dec=e.target.closest("[data-dec]");if(dec){decide(dec.dataset.dec);return}
+  if(e.target.closest("[data-new]")){newOpen();return}
+  if(e.target.closest("[data-nclose]")||e.target===$("#nv")){newClose();return}
+  if(e.target.closest("[data-create]")){create();return}
+  if(e.target.closest("[data-send]")){chatSend();return}
+  if(e.target.closest("[data-cstop]")){fetch("/api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:open.id})}).then(load);return}
   if(e.target.closest("[data-stop]")){fetch("/api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(load);return}
   const tab=e.target.closest(".dtab");if(tab){open.tab=tab.dataset.tab;modal();return}
   const o=e.target.closest("[data-open]");if(o){openM(o.dataset.open,o.dataset.tab);return}
   if(e.target===$("#ov"))closeM();
 });
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){if(document.activeElement===$("#q"))$("#q").blur();else if(open)closeM()}
+  if(e.key==="Escape"){if($("#nv").classList.contains("on"))newClose();else if(document.activeElement===$("#q"))$("#q").blur();else if(open)closeM()}
+  else if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)&&document.activeElement?.id==="cText"){e.preventDefault();chatSend()}
   else if(e.key==="Enter"&&document.activeElement?.dataset.open)openM(document.activeElement.dataset.open);
-  else if(e.key==="/"&&!open&&document.activeElement!==$("#q")){e.preventDefault();$("#q").focus()}});
+  else if(e.key==="/"&&!open&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||"")){e.preventDefault();$("#q").focus()}});
 document.querySelectorAll(".nav[data-v]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-v]").forEach(x=>x.classList.toggle("on",x===b));view=b.dataset.v;render()});
 document.querySelectorAll(".kf").forEach(b=>b.onclick=()=>{document.querySelectorAll(".kf").forEach(x=>x.classList.toggle("on",x===b));kind=b.dataset.k;render()});
 document.querySelectorAll("#seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#seg button").forEach(x=>x.classList.toggle("on",x===b));scope=b.dataset.k;render()});

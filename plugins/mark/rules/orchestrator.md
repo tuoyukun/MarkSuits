@@ -83,6 +83,9 @@ ticket moves, `mark wait` exits, and its completion notice wakes you. Then:
 - it says another session waits, the wait stopped, or the session is gone: do nothing;
 - it says the ticket does not wait on the human: run `mark next <id>` once and follow it.
 
+In a headless session (`claude -p`: the board's chat or its runner) never start `mark wait`; it
+is refused there. Report and end your turn: the board carries the ticket on when the human decides.
+
 One `mark wait` per ticket; starting a new one replaces the old. A failed merge, a hook block
 or a general lane waits on the human's words, not a decision: report and stop as before.
 

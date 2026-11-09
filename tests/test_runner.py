@@ -72,6 +72,9 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual((v["kind"], v["commands"]), ("blocked", ["npm test"]))
         self.assertEqual(self.run_once("error")["kind"], "failed")
         self.assertEqual(runner.outcome(None, False)["kind"], "failed")
+        waited = {"type": "result", "result": "Waiting.", "permission_denials": [
+            {"tool_name": "Bash", "tool_input": {"command": "mark wait 0001-a"}}]}
+        self.assertEqual(runner.outcome(waited, False)["kind"], "done")  # wait_guard's refusal is not a permission
 
     def test_one_runner_per_project_and_stop(self):
         os.environ["FAKE_CLAUDE"] = "sleep"

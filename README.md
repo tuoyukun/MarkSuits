@@ -109,6 +109,12 @@ if not, the board starts a headless Claude session that carries the ticket to th
 shows what it runs, and can be stopped (`[board] run = "off"` turns that off). `[board] decide = false` keeps the
 board read-only.
 
+You can also open a ticket on the board (**+ New ticket**) and talk it through with Claude in the
+ticket's **Discussion** tab until the requirement (or bug report) is agreed. Each message runs one
+headless Claude turn in the same conversation, and the requirement file updates on the board as
+you go. What happens next is what `/mark:feature` or `/mark:fix` would do in a terminal: a feature
+stops for your review, a bug runs its chain.
+
 ![Tickets grouped by status, with what waits on you](docs/images/board-en.png)
 
 Click a ticket for every document it has, drafts still in its worktree included: the

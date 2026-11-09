@@ -431,6 +431,16 @@ class BashTest(unittest.TestCase):
             self.assertEqual(bash(self.wt, cmd, "coder-impl")[0], 2, cmd)
             self.assertEqual(bash(self.root, cmd)[0], 0, cmd)
 
+    def test_headless_sessions_cannot_wait(self):  # a background `mark wait` would keep `claude -p` alive
+        headless = {"CLAUDE_CODE_SESSION_ATTENDED": "0"}
+        for cmd in ("mark wait 0001-a", "cd . && mark wait 0001-a", "/x/bin/mark wait 0001-a"):
+            self.assertEqual(hook("pre-bash", {"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(self.root),
+                                               "tool_input": {"command": cmd}}, headless)[0], 2, cmd)
+        for cmd in ("mark wait 0001-a --stop", "mark next 0001-a", "sleep 1; wait"):
+            self.assertEqual(hook("pre-bash", {"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(self.root),
+                                               "tool_input": {"command": cmd}}, headless)[0], 0, cmd)
+        self.assertEqual(bash(self.root, "mark wait 0001-a")[0], 0)  # a person's terminal session waits
+
     def test_subagent_commit_on_main_is_blocked(self):
         self.assertEqual(bash(self.root, "git add . && git commit -m x", "coder-impl")[0], 2)
 

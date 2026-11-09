@@ -11,7 +11,10 @@ plugin was updated since: then the old server is replaced). The page
     POST /api/open                     open the board in the human's browser (what `mark board` calls)
     POST /api/login                    trade a one-time key from that URL for the session cookie
     POST /api/decide                   approve or reject, with the cookie
-    POST /api/stop                     stop the headless session (with the cookie)
+    POST /api/stop                     stop the headless session, or with {"ticket"} its chat turn (with the cookie)
+    POST /api/new                      open a ticket and start talking it through (with the cookie)
+    POST /api/chat                     send the next message in a ticket's chat (with the cookie)
+    /api/chat/<id>                     a ticket's chat (`chat.py`)
 
 Deciding: the server holds a random session secret in memory only. It opens the browser itself
 with a one-time key in the URL (`#k=`); the page trades it for an HttpOnly cookie. The model can
@@ -41,9 +44,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import flow, general, human, runner, states, tickets
+from . import chat, flow, general, human, runner, states, tickets
 from .config import MarkConfig
 from .gitutil import git, worktrees
+from .i18n import t
 from .ports import in_use
 
 DEFAULT_PORT = 6275  # "MARK" on a phone keypad; no well-known dev server uses it
@@ -52,7 +56,7 @@ POLL_SECONDS = 1.0
 PING_SECONDS = 15
 STATE_FILE = "board.json"
 KEYS_KEPT = 10  # one-time keys not yet traded; older ones lapse
-BODY_MAX = 65536
+BODY_MAX = 131072  # a chat message of chat.TEXT_MAX characters, UTF-8
 NO_BROWSER_ENV = "MARK_BOARD_NO_BROWSER"  # tests: never open a browser
 PAGE = Path(__file__).with_name("board.html")
 SOURCES = ("main", "worktree")
@@ -252,6 +256,45 @@ def resolve_file(cfg: MarkConfig, parts: list[str]) -> Path | None:
     return target if target.is_relative_to(base) and target.is_file() else None
 
 
+def _known(cfg: MarkConfig, ticket: object) -> str | None:
+    """The ticket's kind, or None if no such ticket."""
+    if not isinstance(ticket, str):
+        return None
+    return next((k for k in states.KINDS if ticket in tickets.ticket_dirs(cfg, k)), None)
+
+
+def new_ticket(cfg: MarkConfig, req: dict) -> tuple[bool, str, str]:
+    """Open a ticket for the human, as their `/mark:feature` or `/mark:fix` would (a token for the
+    opening, then `claim`), and send their text as the first chat message. (ok, text, id)."""
+    kind, text, slug = req.get("kind"), req.get("text"), req.get("slug") or None
+    if kind not in states.KINDS or not isinstance(text, str) or not text.strip() or len(text) > chat.TEXT_MAX \
+            or not (slug is None or isinstance(slug, str)):
+        return False, "bad request", ""
+    desc = next(line.strip() for line in text.splitlines() if line.strip())[:tickets.DESC_MAX]
+    verb = "feature" if kind == states.FEATURE else "fix"
+    token = human.grant(cfg, verb, "", [], desc, source="board")
+    try:
+        ticket, _ = flow.open_ticket(cfg, kind, desc, slug=slug)
+    except tickets.ClaimError as exc:
+        return False, t(cfg.locale, exc.key, **exc.params), ""
+    except OSError as exc:
+        return False, str(exc), ""
+    finally:
+        token.unlink(missing_ok=True)
+    started, why = chat.start(cfg, kind, ticket.id, text.strip())
+    return True, "" if started else f"chat.{why}", ticket.id
+
+
+def send(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
+    """The human's next chat message on a ticket: (started, why not)."""
+    ticket, text = req.get("ticket"), req.get("text")
+    kind = _known(cfg, ticket)
+    if kind is None or not isinstance(text, str) or not text.strip() or len(text) > chat.TEXT_MAX:
+        return False, "bad request"
+    started, why = chat.start(cfg, kind, ticket, text.strip())
+    return started, "" if started else f"chat.{why}"
+
+
 def decide(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
     """Approve or reject for the human, through the same CLI code as `/mark:approve` and
     `/mark:reject`: a token for this decision, then `mark approve|reject`. Returns (ok, output)."""
@@ -259,8 +302,7 @@ def decide(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
 
     ticket, verb, to = req.get("ticket"), req.get("verb"), req.get("to") or None
     answer, items = req.get("answer") or "", req.get("items") or []
-    known = any(ticket in tickets.ticket_dirs(cfg, k) for k in states.KINDS) if isinstance(ticket, str) else False
-    if not known or verb not in ("approve", "reject") or not (to is None or isinstance(to, str)) \
+    if _known(cfg, ticket) is None or verb not in ("approve", "reject") or not (to is None or isinstance(to, str)) \
             or not isinstance(answer, str) or not (isinstance(items, list) and all(isinstance(i, str) for i in items)):
         return False, "bad request"
     if verb == "approve":
@@ -284,7 +326,7 @@ RUN_AFTER = ("review", "blocked")  # opening and drafting need the human in the 
 def carry_on(cfg: MarkConfig, ticket: str, before: dict | None, had_waiter: bool) -> str:
     """After a board decision: a session waiting on the ticket wakes by itself; else start a
     headless one (`[board] run`). Returns a note for the page."""
-    if had_waiter:
+    if had_waiter or chat.running(cfg, ticket):
         return "run.session"
     if not cfg.board_run or not before or before.get("kind") not in RUN_AFTER:
         return "run.terminal"
@@ -409,11 +451,20 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                     ok, text = decide(board.cfg, body)
                     note = carry_on(board.cfg, tid, before[1] if before else None, had_waiter) if ok else ""
                 self._json(200 if ok else 409, {"ok": ok, "text": text, "note": note})
-            elif path == "/api/stop":
+            elif path in ("/api/stop", "/api/new", "/api/chat"):
                 if board.mode(self.headers.get("Cookie"), port) != "on":
                     self._json(403, {"ok": False, "text": "read-only"})
-                    return
-                self._json(200, {"ok": runner.stop(board.cfg)})
+                elif path == "/api/stop":
+                    tid = body.get("ticket")
+                    self._json(200, {"ok": chat.stop(board.cfg, tid) if isinstance(tid, str) else runner.stop(board.cfg)})
+                elif path == "/api/new":
+                    with board.lock:
+                        ok, text, tid = new_ticket(board.cfg, body)
+                    self._json(200 if ok else 409, {"ok": ok, "text": text, "id": tid})
+                else:
+                    with board.lock:
+                        ok, text = send(board.cfg, body)
+                    self._json(200 if ok else 409, {"ok": ok, "text": text})
             else:
                 self._json(404, {"ok": False, "text": "not found"})
 
@@ -429,6 +480,12 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                                  "decide": board.mode(self.headers.get("Cookie"), port)})
             elif path == "/events":
                 self._events()
+            elif path.startswith("/api/chat/"):
+                tid = unquote(path[len("/api/chat/"):])
+                if _known(board.cfg, tid) is None:
+                    self._json(404, {"ok": False, "text": "not found"})
+                else:
+                    self._json(200, chat.view(board.cfg, tid))
             elif path.startswith("/f/"):
                 f = resolve_file(board.cfg, [unquote(p) for p in path[3:].split("/")])
                 if f is None:

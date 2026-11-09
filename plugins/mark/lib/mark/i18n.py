@@ -772,6 +772,7 @@ MESSAGES["en"].update({
     "guard.bash.mark_cli": "`{who}` may not run `mark {sub}`: ticket state belongs to the orchestrator. Put the outcome in your result.",
     "guard.bash.human_tokens": "Commands may not touch `{dir}`: it holds proof that a human typed a command.",
     "guard.bash.claude_cli": "Commands may not start the Claude Code CLI (`claude`) in a Mark project: a session you start could type `/mark:approve` as if it were the human. If the human wants one, they run it themselves.",
+    "guard.bash.headless_wait": "This is a headless session: nobody watches a background `mark wait`, and it would keep the session from ending. End your turn instead; the board carries the ticket on when the human decides.",
 })
 
 MESSAGES["zh-CN"].update({
@@ -1047,6 +1048,7 @@ MESSAGES["zh-CN"].update({
     "guard.bash.mark_cli": "`{who}` 不能执行 `mark {sub}`：工单状态归 orchestrator 管。把结果写进你的结论。",
     "guard.bash.human_tokens": "命令不能碰 `{dir}`：那里存放的是「人亲手输入过命令」的凭证。",
     "guard.bash.claude_cli": "Mark 项目里命令不能启动 Claude Code CLI（`claude`）：你启动的会话可以冒充人输入 `/mark:approve`。确实需要的话，由人自己去运行。",
+    "guard.bash.headless_wait": "这是无人值守会话：后台的 `mark wait` 没人等，还会让会话永远结束不了。直接结束本轮；人做出决定后，看板会接着推进工单。",
 })
 
 # --------------------------------------------------------------------------
