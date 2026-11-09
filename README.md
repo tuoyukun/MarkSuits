@@ -117,7 +117,9 @@ The history view has two tabs. Timeline puts every move on a real time axis you 
 starts each ticket at its own start, so you see how long each took, where the time went, and how
 much of it waited on you.
 
-![Status history of every ticket on a timeline](docs/images/board-history-en.png)
+![The timeline: every move on a real time axis](docs/images/board-history-en.png)
+
+![Durations: how long each ticket took and where the time went](docs/images/board-durations-en.png)
 
 ## How it works
 

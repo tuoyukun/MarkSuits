@@ -103,7 +103,9 @@ agent 时间、约 6 美元 token。人只输入了两条需求，回答了几�
 
 流转历史有两个标签。时间轴把每次流转放在真实时间轴上，可拖拽、可缩放（小时到月），只列出视口内的工单，开发几个月也看得清。耗时让每张单从它自己的开始时间算起：用了多久、时间花在哪个阶段、有多少在等你。
 
-![所有工单的流转历史时间轴](docs/images/board-history-zh-CN.png)
+![时间轴：每次流转都在真实时间上](docs/images/board-history-zh-CN.png)
+
+![耗时：每张单用了多久、时间花在哪](docs/images/board-durations-zh-CN.png)
 
 ## 工作原理
 
