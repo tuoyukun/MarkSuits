@@ -1,6 +1,6 @@
 # Board two-way: deciding gates from the board
 
-Status: phases 0.47 (deciding) and 0.48 (`mark wait`) implemented; 0.49 proposed. Agreed: a new `/mark:continue`; the `[board]` switches
+Status: phases 0.47–0.49 implemented. Agreed: a new `/mark:continue`; the `[board]` switches
 default on; the token hole was fixed on its own (v0.46.1). Experiments below were run on
 2026-11-09 with Claude Code 2.1.319 on macOS.
 
@@ -127,7 +127,9 @@ targeted attack); the architecture doc says so.
 
 1. Is a background Bash task (`mark merge`) killed when `claude -p` exits, like background agents?
 2. Under `-p` + auto, are subagents' writes and test runs allowed? (One real feature chain.)
-3. Does `--output-format stream-json` need `--verbose`; the event format.
+3. Does `--output-format stream-json` need `--verbose`; the event format. **Done:** yes; a
+   denied call shows as a `system`/`permission_denied` event, and the final `result` event lists
+   `permission_denials` (`tool_name`, `tool_input`) with `is_error: false`.
 
 ## 7. Config (`.mark/config.toml`, with defaults; no `mark_schema` bump)
 
@@ -145,7 +147,7 @@ permission_mode = "auto" # for the headless session
 | 0.46.1 ✅ | nested `claude -p` token hole closed | — |
 | 0.47 ✅ | decide endpoint, secret, decision panel | No: say "continue" in the terminal |
 | 0.48 ✅ | `mark wait`, orchestrator rule change | Yes, while a terminal session is open |
-| 0.49 | headless runner, `/mark:continue`, run panel | Yes, with no session open |
+| 0.49 ✅ | headless runner, `/mark:continue`, run panel | Yes, with no session open |
 
 Each phase ships tests (rule 9): secret and Origin checks, token `source`, a bad target status
 refused, runner lock, `mark wait` exit conditions, denial parsing.

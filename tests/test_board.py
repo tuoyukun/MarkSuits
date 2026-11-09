@@ -4,14 +4,16 @@ from __future__ import annotations
 import http.client
 import io
 import json
+import os
 import re
 import socket
 import threading
 import unittest
+from unittest import mock
 
 from tests._support import add_ticket, add_worktree, make_repo, sh, status_text
 
-from mark import board, cli, flow, human, reviews
+from mark import board, cli, flow, human, reviews, runner, wait
 from mark.config import load_config
 
 
@@ -180,6 +182,9 @@ class DecideTest(unittest.TestCase):
         self.port = self.server.server_address[1]
         self.origin = f"http://127.0.0.1:{self.port}"
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        patcher = mock.patch.object(runner, "start", return_value=(True, ""))  # never a real claude here
+        self.run_start = patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         self.board.stop.set()
@@ -257,6 +262,19 @@ class DecideTest(unittest.TestCase):
         self.assertTrue((self.root / ".mark" / "gates" / "0001-a.plan-approved").is_file())
         self.assertIn("0001-a: approved review-plan -> developing", sh(self.root, "git", "log", "-1", "--format=%s"))
         self.no_tokens_left()
+
+    def test_after_a_decision_a_waiting_session_carries_on_else_a_runner_starts(self):
+        cookie = self.login()
+        wait.path(self.cfg, "0001-a").parent.mkdir(parents=True, exist_ok=True)
+        wait.path(self.cfg, "0001-a").write_text(json.dumps({"pid": os.getpid()}))
+        code, res, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "approve"}, cookie=cookie)
+        self.assertEqual((code, res["note"]), (200, "run.session"))
+        self.run_start.assert_not_called()
+        code, res, _ = self.post("/api/decide", {"ticket": "0002-b", "verb": "approve", "to": "planning",
+                                                 "answer": "Yes."}, cookie=cookie)
+        self.assertEqual((code, res["note"]), (200, "run.started"))
+        self.run_start.assert_called_once_with(self.cfg, "0002-b")
+        self.assertEqual(self.post("/api/stop", {})[0], 403)
 
     def test_reject_records_each_line_as_an_item(self):
         code, res, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "reject", "items": ["too big", "split it"]},

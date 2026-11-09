@@ -11,6 +11,7 @@ plugin was updated since: then the old server is replaced). The page
     POST /api/open                     open the board in the human's browser (what `mark board` calls)
     POST /api/login                    trade a one-time key from that URL for the session cookie
     POST /api/decide                   approve or reject, with the cookie
+    POST /api/stop                     stop the headless session (with the cookie)
 
 Deciding: the server holds a random session secret in memory only. It opens the browser itself
 with a one-time key in the URL (`#k=`); the page trades it for an HttpOnly cookie. The model can
@@ -40,7 +41,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import flow, general, human, states, tickets
+from . import flow, general, human, runner, states, tickets
 from .config import MarkConfig
 from .gitutil import git, worktrees
 from .ports import in_use
@@ -172,7 +173,7 @@ def snapshot(cfg: MarkConfig, history: History) -> dict[str, object]:
                       "worktree": cfg.worktree_for(tk.kind, tk.id) if dirs["worktree"].is_dir() else "",
                       "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist, "wait": waits_on(cfg, tk)})
     return {"project": cfg.root.name, "locale": cfg.locale, "branch": cfg.main_branch,
-            "tickets": items + general_lanes(cfg)}
+            "tickets": items + general_lanes(cfg), "run": runner.view(cfg)}
 
 
 def waits_on(cfg: MarkConfig, tk: tickets.Ticket) -> dict[str, object] | None:
@@ -222,7 +223,7 @@ def signature(cfg: MarkConfig) -> tuple:
     """Cheap fingerprint of everything the snapshot reads; changes when any of it does."""
     sig: list[object] = [git(["rev-parse", "HEAD"], cfg.root)[1],
                          git(["for-each-ref", f"refs/heads/{general.PREFIX}*"], cfg.root)[1]]
-    roots = [cfg.state_dir / "gates"]
+    roots = [cfg.state_dir / "gates", cfg.state_dir / "locks"]  # locks: the runner's log grows there
     for kind in states.KINDS:
         roots.append(tickets.kind_dir(cfg, kind))
         for tid in tickets.ticket_dirs(cfg, kind):
@@ -275,6 +276,25 @@ def decide(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
     finally:
         token.unlink(missing_ok=True)  # a refused decision leaves nothing a later command could use
     return code == 0, out.getvalue().strip()
+
+
+RUN_AFTER = ("review", "blocked")  # opening and drafting need the human in the conversation
+
+
+def carry_on(cfg: MarkConfig, ticket: str, before: dict | None, had_waiter: bool) -> str:
+    """After a board decision: a session waiting on the ticket wakes by itself; else start a
+    headless one (`[board] run`). Returns a note for the page."""
+    if had_waiter:
+        return "run.session"
+    if not cfg.board_run or not before or before.get("kind") not in RUN_AFTER:
+        return "run.terminal"
+    try:
+        if flow.load(cfg, ticket).ticket.status == states.DRAFTING:
+            return "run.terminal"
+    except flow.FlowError:
+        return "run.terminal"
+    started, why = runner.start(cfg, ticket)
+    return "run.started" if started else f"run.{why}"
 
 
 class Board:
@@ -381,9 +401,19 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 if board.mode(self.headers.get("Cookie"), port) != "on":
                     self._json(403, {"ok": False, "text": "read-only"})
                     return
+                from . import wait  # wait imports this module
+                tid = body.get("ticket")
                 with board.lock:  # one decision at a time
+                    before = wait.state(board.cfg, tid) if isinstance(tid, str) else None
+                    had_waiter = isinstance(tid, str) and wait.waiter(board.cfg, tid) is not None
                     ok, text = decide(board.cfg, body)
-                self._json(200 if ok else 409, {"ok": ok, "text": text})
+                    note = carry_on(board.cfg, tid, before[1] if before else None, had_waiter) if ok else ""
+                self._json(200 if ok else 409, {"ok": ok, "text": text, "note": note})
+            elif path == "/api/stop":
+                if board.mode(self.headers.get("Cookie"), port) != "on":
+                    self._json(403, {"ok": False, "text": "read-only"})
+                    return
+                self._json(200, {"ok": runner.stop(board.cfg)})
             else:
                 self._json(404, {"ok": False, "text": "not found"})
 

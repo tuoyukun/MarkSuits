@@ -240,6 +240,8 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .btn:disabled{opacity:.5;cursor:default}
 .dout{white-space:pre-wrap;word-break:break-word;font-family:var(--mono);font-size:11px;margin:0;color:var(--text2)}
 .dout.bad{color:var(--c-block)}
+.runlog{max-height:220px;overflow:auto;background:var(--app);border:1px solid var(--line2);border-radius:6px;padding:6px 8px;margin:0 0 8px}
+.tag.run{background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
 @media (max-width:760px){
   .app{grid-template-columns:1fr}.sb{display:none}.main{margin:0;border-radius:0;border:0}
   .search{width:auto;flex:1}.crumb span,.crumb .p{display:none}.top{padding:0 16px}
@@ -279,7 +281,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 <div class="ov" id="ov">
   <div class="modal" role="dialog" aria-modal="true">
     <div class="mh" id="mh"></div>
-    <div class="mb"><div class="mmain"><div class="dtabs" id="tabs"></div><div class="doc" id="doc"></div></div><aside class="mside"><div id="dec"></div><div id="side"></div></aside></div>
+    <div class="mb"><div class="mmain"><div class="dtabs" id="tabs"></div><div class="doc" id="doc"></div></div><aside class="mside"><div id="dec"></div><div id="run"></div><div id="side"></div></aside></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -299,6 +301,10 @@ const I18N={
   median:"Median time",humanShare:"of the time waiting on you",avg:"avg",titleCol:"Title",today:"Today",yesterday:"Yesterday",nTickets:"{n} tickets",nTicket:"1 ticket",ago:{s:"just now",m:"{n} min ago",h:"{n} h ago",d:"{n} d ago"},min:"min",waiting:"Waiting on you",
   decide:"Your decision",approve:"Approve",approveOpen:"Approve opening",reject:"Reject with comments",items:"Comments, one per line",target:"Send to",
   ansNeed:"Your answer (required)",ansOpt:"Answer or note (optional)",canDecide:"you can decide here",
+  runH:"Headless session",running:"running",runBlocked:"needs approval",runFailed:"failed",runDone:"stopped at the next gate",stop:"Stop",
+  runBlockedHint:"A command needed your approval. Continue in a terminal with /mark:continue {id}, or allow the command in .claude/settings.json.",
+  "run.session":"Your open Claude session picks this up.","run.started":"Started a headless session to carry on.","run.terminal":"Say \"continue\" in your Claude session to carry on.",
+  "run.busy":"Another headless session is running; carry on with /mark:continue {id} in a terminal.","run.no-claude":"`claude` was not found; carry on with /mark:continue {id} in a terminal.",
   needLogin:"Read-only in this window. Run `mark board` (or /mark:board) and decide in the window it opens.",offDecide:"Deciding on the board is off ([board] decide = false)."},
  "zh-CN":{board:"看板",timeline:"流转历史",human:"等我处理",kind:"类型",allTickets:"全部工单",readonly:"只读",live:"实时同步中",offline:"重新连接中…",all:"全部",active:"进行中",done:"已完成",search:"搜索工单",
   sWait:"等你处理",sAgent:"Agent 进行中",sDone:"已完成",sBugs:"未关闭 Bug",empty:"暂无工单",noTickets:"还没有工单。用这个命令建一张：",ticket:"工单",now:"现在",
@@ -312,6 +318,10 @@ const I18N={
   median:"中位耗时",humanShare:"时间花在等你",avg:"平均",titleCol:"标题",today:"今天",yesterday:"昨天",nTickets:"{n} 张",nTicket:"1 张",ago:{s:"刚刚",m:"{n} 分钟前",h:"{n} 小时前",d:"{n} 天前"},min:" 分钟",waiting:"等你处理",
   decide:"你的决定",approve:"通过",approveOpen:"批准开单",reject:"驳回并附意见",items:"意见，每行一条",target:"转到",
   ansNeed:"你的答复（必填）",ansOpt:"答复或备注（可选）",canDecide:"可在此处理",
+  runH:"后台会话",running:"运行中",runBlocked:"需要授权",runFailed:"失败",runDone:"已停在下一个关卡",stop:"停止",
+  runBlockedHint:"有条命令需要你授权。在终端里用 /mark:continue {id} 继续，或在 .claude/settings.json 里放行该命令。",
+  "run.session":"你开着的 Claude 会话会接着干。","run.started":"已启动一个后台会话接着干。","run.terminal":"在 Claude 会话里说一声\"继续\"即可接着干。",
+  "run.busy":"已有另一个后台会话在运行；请在终端用 /mark:continue {id} 继续。","run.no-claude":"没找到 `claude` 命令；请在终端用 /mark:continue {id} 继续。",
   needLogin:"此窗口只读。运行 `mark board`（或 /mark:board），在它打开的窗口里处理。",offDecide:"看板处理已关闭（[board] decide = false）。"}};
 const LABELS={
  en:{drafting:"Drafting","review-requirement":"Requirement review",designing:"Designing","review-design":"Design review",planning:"Planning","review-plan":"Plan review",developing:"Developing","failed-impl":"Rework","design-qa":"Design QA",testing:"Testing","pending-merge":"Pending merge","blocked-plan":"Blocked: plan","blocked-spec":"Blocked: design","blocked-unclear":"Needs answer",passed:"Passed",superseded:"Superseded"},
@@ -406,7 +416,7 @@ function card(t){const st=stageOf(t.status),i=PIPE.indexOf(st.k),done=st.k==="do
   return `<div class="card ${isHuman(t)?"wait":""}" tabindex="0" id="c-${esc(t.id)}" data-open="${esc(t.id)}">
   <div class="c1">${kindIcon(t.kind)}<span class="id">${short(t.id)}</span>${av(t.owner)}</div>
   <div class="ttl" title="${esc(t.desc||t.id)}">${esc(t.desc||t.id)}</div>
-  <div class="tags"><span class="tag">${icon(t.status,12)}${esc(label(t.status))}</span>${isHuman(t)?`<span class="tag wait">${tr("waiting")}</span>`:""}</div>
+  <div class="tags"><span class="tag">${icon(t.status,12)}${esc(label(t.status))}</span>${isHuman(t)?`<span class="tag wait">${tr("waiting")}</span>`:""}${runTag(t)}</div>
   <div class="cf"><span class="pipe">${pipe}</span>${t.files.length?`<span class="meta" title="${tr("docs")}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 2h5l3 3v9H4z"/><path d="M9 2v3h3"/></svg>${t.files.length}</span>`:""}<span class="time">${ago(last(t).at)}</span></div></div>`}
 function render(){
   document.querySelectorAll("[data-i]").forEach(e=>e.textContent=tr(e.dataset.i));
@@ -534,7 +544,19 @@ function modal(){
   doc(t,files);
   side(t);
   decBlk(t);
+  runBlk(t);
 }
+const RUNK={running:"running",blocked:"runBlocked",failed:"runFailed",done:"runDone"};
+function runOf(t){const r=data.run;return r&&r.ticket===t.id?r:null}
+function runTag(t){const r=runOf(t);return r&&(r.kind==="running"||r.kind==="blocked")?`<span class="tag ${r.kind==="running"?"run":"wait"}">${tr(RUNK[r.kind])}</span>`:""}
+function runBlk(t){const r=runOf(t),el=$("#run");if(!r){el.innerHTML="";return}
+  const log=el.querySelector(".runlog"),atEnd=!log||log.scrollTop+log.clientHeight>=log.scrollHeight-4;
+  el.innerHTML=`<div class="blk dec"><h5>${tr("runH")} · ${tr(RUNK[r.kind])} · ${fmt(r.started*1000)}</h5>
+   ${r.lines.length?`<pre class="dout runlog">${esc(r.lines.join("\n"))}</pre>`:""}
+   ${r.kind==="blocked"?`<pre class="dout bad">${esc((r.commands||[]).map(c=>"$ "+c).join("\n"))}</pre><p class="none">${esc(tr("runBlockedHint").replace("{id}",t.id))}</p>`:""}
+   ${r.kind==="failed"||r.kind==="done"?`<pre class="dout ${r.kind==="failed"?"bad":""}">${esc(r.text||"")}</pre>`:""}
+   ${r.kind==="running"&&data.decide==="on"?`<button class="btn" data-stop>${tr("stop")}</button>`:""}</div>`;
+  const nl=el.querySelector(".runlog");if(nl&&atEnd)nl.scrollTop=nl.scrollHeight}
 // The decision form is rebuilt only when the ticket's state changes, so a live refresh never eats what the human typed.
 let decKey="",decMsg=null;
 function decBlk(t){const w=t.wait,msg=decMsg&&decMsg.id===t.id?decMsg:null,key=JSON.stringify([t.id,t.status,w,data.decide]);
@@ -554,7 +576,7 @@ async function decide(verb){const t=data.tickets.find(x=>x.id===open.id);if(!t||
   if(verb==="reject")body.items=$("#dItems").value.split("\n").map(s=>s.trim()).filter(Boolean);
   document.querySelectorAll("[data-dec]").forEach(b=>b.disabled=true);
   let r;try{r=await (await fetch("/api/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}catch{r={ok:false,text:tr("loadFail")}}
-  decMsg={id:t.id,ok:!!r.ok,text:r.text||""};
+  decMsg={id:t.id,ok:!!r.ok,text:(r.text||"")+(r.note?"\n\n"+tr(r.note).replace("{id}",t.id):"")};
   if(r.ok)decKey="";  // the ticket moved: a fresh form (or none) when the board reloads
   else document.querySelectorAll("[data-dec]").forEach(b=>b.disabled=false);
   const out=$("#dec pre.dout");if(out){out.className="dout "+(r.ok?"":"bad");out.textContent=decMsg.text}
@@ -602,6 +624,7 @@ document.addEventListener("click",e=>{
   if(e.target.id==="follow"){follow=e.target.checked;gRows();return}
   const act=e.target.closest("[data-act]");if(act){const ov=$("#ov");if(act.dataset.act==="close")closeM();else{ov.classList.toggle(act.dataset.act==="full"?"full":"noside");if(act.dataset.act==="full")modal()}return}
   const dec=e.target.closest("[data-dec]");if(dec){decide(dec.dataset.dec);return}
+  if(e.target.closest("[data-stop]")){fetch("/api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(load);return}
   const tab=e.target.closest(".dtab");if(tab){open.tab=tab.dataset.tab;modal();return}
   const o=e.target.closest("[data-open]");if(o){openM(o.dataset.open,o.dataset.tab);return}
   if(e.target===$("#ov"))closeM();

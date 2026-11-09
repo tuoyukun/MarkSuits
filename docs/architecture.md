@@ -225,6 +225,7 @@ decision that can be computed is computed by the `mark` CLI and tested.
 | `/mark:reject <id> <text>` | splits comments into items, `mark reject`, dispatches the rework | next human gate or stop |
 | `/mark:status` | board summary | — |
 | `/mark:board` | `mark board`: opens the live web board, where the human can decide gates | — |
+| `/mark:continue` | carries a ticket on to its next gate; the board starts it headless after a decision | — |
 | `/mark:general <text>` | no-ticket docs/config change on a throwaway lane, then `mark general merge` | landed or a stop |
 
 Each skill injects `mark rules` (the shared orchestrator rulebook, `plugins/mark/rules/orchestrator.md`)
@@ -486,8 +487,23 @@ in the terminal); the finished background task wakes the session, which loops on
 `/mark:approve`. The wake message is not consent; the decision was already recorded. One waiter
 per ticket (`<state>/locks/<id>.wait.json`, pid): a new one replaces the old, which says "do
 nothing", so only one session wakes. A waiter whose parent shell is gone exits, so a live file
-means a live session (0.49's board uses that). With no session open nothing carries on yet: a
-headless runner is planned, see [board-two-way.md](board-two-way.md) (phase 0.49).
+means a live session.
+
+**Headless runner (v0.49).** After a board decision on a review or a blocked ticket with no live
+waiter (checked before deciding), the board starts `claude -p "/mark:continue <id>"
+--permission-mode <[board] permission_mode> --output-format stream-json --verbose` in the main
+checkout (`lib/mark/runner.py`), its own process group, without the parent session's markers
+(`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, ...). One runner per project: `<state>/locks/runner.json`
+`{pid, ticket, log, started}`; a second decision while one runs says so and leaves the ticket to
+the terminal. `/mark:continue` loops like `/mark:approve` with agents and `mark merge` in the
+foreground (a `-p` session ends background work when it exits) and never starts `mark wait`. The
+log is `<state>/locks/run-<id>-<time>.jsonl`; the board shows the commands and agents it ran, and
+from the last `result` event how it ended: `permission_denials` (the commands that needed
+approval), `is_error`, or a clean stop. The page's stop button sends SIGTERM to the group
+(`POST /api/stop`, cookie required). Opening approvals and moves back to `drafting` start
+nothing: they need the human in the conversation. `[board] run = "off"` only decides. The runner
+uses the `claude` on the board's PATH and the plugin as installed. Design and experiments:
+[board-two-way.md](board-two-way.md).
 
 ### Worktree provisioning (v0.11)
 

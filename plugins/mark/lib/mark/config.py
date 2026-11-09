@@ -131,6 +131,17 @@ class MarkConfig:
         return self._section("board").get("decide", True) is not False
 
     @property
+    def board_run(self) -> bool:
+        """`[board] run`: "auto" (default) starts a headless session to carry on after a board
+        decision when no session waits on the ticket; "off" only decides."""
+        return self._section("board").get("run", "auto") != "off"
+
+    @property
+    def board_permission_mode(self) -> str:
+        """`[board] permission_mode`: the headless session's `--permission-mode` (default "auto")."""
+        return str(self._section("board").get("permission_mode", "auto"))
+
+    @property
     def outputs(self) -> dict[str, list[str]]:
         """role -> files the role must leave in the ticket dir before it may stop. A project key
         replaces only that role's default; `[]` requires nothing."""

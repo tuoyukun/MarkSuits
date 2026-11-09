@@ -35,6 +35,7 @@ already answers in it).
    - `/mark:approve`, `/mark:reject`: keep looping until the next human gate or a stop.
    - `/mark:fix`: the bug chain has no review gates; keep looping until `passed` or a stop.
    - woken by `mark wait` reporting a move: as `/mark:approve` (see Waiting at a human gate).
+   - `/mark:continue <id>` (what the board starts after a decision): as its skill says.
 
 ## Recording outcomes
 
