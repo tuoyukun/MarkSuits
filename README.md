@@ -112,7 +112,10 @@ to them: the gates and each status move, with who made it and when. Full screen,
 
 ![A ticket: tech plan with a sequence diagram, gates and activity](docs/images/board-ticket-en.png)
 
-The history view shows how long each ticket spent in each stage.
+The history view has two tabs. Timeline puts every move on a real time axis you drag and zoom
+(hours to months); it lists only the tickets in view, so months of work stay readable. Durations
+starts each ticket at its own start, so you see how long each took, where the time went, and how
+much of it waited on you.
 
 ![Status history of every ticket on a timeline](docs/images/board-history-en.png)
 

@@ -430,7 +430,7 @@ leaves it to the human.
 ### Web board (v0.43)
 
 `mark board` (`lib/mark/board.py`, page `lib/mark/board.html`) serves a read-only board on
-127.0.0.1: tickets by stage, a history timeline, and per ticket a modal with every document,
+127.0.0.1: tickets by stage, a history view (a pan-and-zoom timeline, and per-ticket durations), and per ticket a modal with every document,
 the gates and the moves. It adds no state and no write path; its sources are the ones above:
 
 - **Status**: each main-checkout `status.md`.

@@ -1,7 +1,8 @@
 """Read-only web board: every ticket, its documents and its status history, live.
 
 `mark board` starts one server per project on 127.0.0.1, first free port from 6275 up,
-and records it in `<state>/locks/board.json` so a second call reuses it. The page
+and records it in `<state>/locks/board.json` so a second call reuses it (unless the
+plugin was updated since: then the old server is replaced). The page
 (`board.html`) reads three endpoints:
 
     /api/board                         snapshot of every ticket (JSON)
@@ -325,7 +326,7 @@ def serve(cfg: MarkConfig, start: int = DEFAULT_PORT) -> int:
     port = server.server_address[1]
     path = state_path(cfg)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"pid": os.getpid(), "port": port, "root": str(cfg.root)}) + "\n")
+    path.write_text(json.dumps({"pid": os.getpid(), "port": port, "root": str(cfg.root), "page": str(PAGE)}) + "\n")
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown).start())
     threading.Thread(target=board.watch, daemon=True).start()
     try:
@@ -367,10 +368,13 @@ def running(cfg: MarkConfig) -> int | None:
 
 
 def start(cfg: MarkConfig, port: int = DEFAULT_PORT, wait: float = 5.0) -> tuple[int | None, bool]:
-    """(port, reused): reuse this project's board, else start one in the background."""
+    """(port, reused): reuse this project's board, else start one in the background. A board
+    started from another plugin install serves that install's page, so it is replaced."""
     live = running(cfg)
     if live:
-        return live, True
+        if read_state(cfg).get("page") == str(PAGE):
+            return live, True
+        stop(cfg)
     state_path(cfg).unlink(missing_ok=True)
     log = cfg.state_dir / "locks" / "board.log"
     log.parent.mkdir(parents=True, exist_ok=True)
