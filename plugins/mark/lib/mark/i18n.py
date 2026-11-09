@@ -452,6 +452,7 @@ _USAGE_EN = (
     "  mark merge <id>                                pending-merge -> passed: merge main in, regression, ff-only, push\n"
     "  mark general new | merge <branch> | drop <branch> [--force]\n"
     "                                                 no-ticket lane for docs/config (/mark:general)\n"
+    "  mark wait <id> [--stop]                        block until the human decides on the ticket (background)\n"
     "  mark unlock <id> <role>                        release a dead agent's lock (human)\n"
     "  mark rules [orchestrator | role | collaboration]  print a rulebook (orchestrator by default)\n"
     "  mark format <name>                             print an artifact format (design.md, verdict.md ...)"
@@ -473,6 +474,7 @@ _USAGE_ZH = (
     "  mark merge <编号>                              pending-merge -> passed：合入 main、回归、ff-only、推送\n"
     "  mark general new | merge <分支> | drop <分支> [--force]\n"
     "                                                 不属于任何工单的文档/配置改动车道（/mark:general）\n"
+    "  mark wait <编号> [--stop]                      等人对该工单做出决定后退出（后台运行）\n"
     "  mark unlock <编号> <角色>                      释放已死 agent 的锁（由人执行）\n"
     "  mark rules [orchestrator | role | collaboration]  打印规则（默认 orchestrator）\n"
     "  mark format <名字>                             打印制品格式（design.md、verdict.md ……）"
@@ -1199,6 +1201,14 @@ MESSAGES["en"].update({
     "board.stopped": "Board stopped.",
     "board.not_running": "No board is running for this project.",
     "board.failed": "The board did not start; see {log}.",
+    "wait.moved": "{id}: {old} -> {new}. The human decided (on the board or in the terminal); being woken is not "
+        "a new approval. Carry on with the ticket as after /mark:approve or /mark:reject: run `mark rules` if you do not have them, "
+        "then `mark next {id}`, and loop to the next human gate.",
+    "wait.not_waiting": "{id} does not wait on the human (status {status}). Run `mark next {id}`.",
+    "wait.replaced": "Stopped waiting on {id}: another session waits on it now, or the wait was stopped. Do nothing.",
+    "wait.orphaned": "The session that waited on {id} is gone; stopped waiting.",
+    "wait.stopped": "Stopped the wait on {id}.",
+    "wait.none": "Nothing waits on {id}.",
 })
 MESSAGES["zh-CN"].update({
     "board.started": "看板已在浏览器中打开：{url}（实时更新；可在该窗口处理评审；`mark board --stop` 关闭）",
@@ -1206,4 +1216,11 @@ MESSAGES["zh-CN"].update({
     "board.stopped": "看板已关闭。",
     "board.not_running": "本项目没有运行中的看板。",
     "board.failed": "看板没有启动成功，见 {log}。",
+    "wait.moved": "{id}：{old} -> {new}。人已做出决定（在看板或终端）；被唤醒本身不是新的批准。"
+        "按 /mark:approve 或 /mark:reject 之后的方式继续这张工单：手头没有规则就先跑 `mark rules`，然后 `mark next {id}`，一直推进到下一个人工关卡。",
+    "wait.not_waiting": "{id} 没有在等人处理（状态 {status}）。运行 `mark next {id}`。",
+    "wait.replaced": "已停止等待 {id}：另一个会话正在等它，或等待被停止。什么也不用做。",
+    "wait.orphaned": "等待 {id} 的会话已经不在了，停止等待。",
+    "wait.stopped": "已停止对 {id} 的等待。",
+    "wait.none": "没有进程在等 {id}。",
 })

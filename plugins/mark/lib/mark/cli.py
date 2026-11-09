@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import board, brief, defaults, e2e, flow, general, merge, scaffold, states, tickets, updates, upgrade
+from . import board, brief, defaults, e2e, flow, general, merge, scaffold, states, tickets, updates, upgrade, wait
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -500,7 +500,22 @@ def cmd_board(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
     return 0
 
 
-COMMANDS = {"board": cmd_board, "format": cmd_format, "next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
+def cmd_wait(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark wait <id> [--stop]`: block until the human decides on the ticket (run it in the background)."""
+    opts, pos = _parse(args, set())
+    if opts is None or len(pos) != 1:
+        _say(cfg, err, "cli.usage")
+        return 2
+    ctx = flow.load(cfg, pos[0])
+    if opts.get("--stop"):
+        _say(cfg, out, "wait.stopped" if wait.stop(cfg, ctx.id) else "wait.none", id=ctx.id)
+        return 0
+    key, params = wait.run(cfg, ctx.id)
+    _say(cfg, out, key, **params)
+    return 0
+
+
+COMMANDS = {"board": cmd_board, "wait": cmd_wait, "format": cmd_format, "next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
             "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim, "merge": cmd_merge,
             "regress": cmd_regress, "general": cmd_general, "upgrade": cmd_upgrade, "journeys": cmd_journeys}
 

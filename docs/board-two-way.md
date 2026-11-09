@@ -1,6 +1,6 @@
 # Board two-way: deciding gates from the board
 
-Status: phase 0.47 (deciding) implemented; 0.48–0.49 proposed. Agreed: a new `/mark:continue`; the `[board]` switches
+Status: phases 0.47 (deciding) and 0.48 (`mark wait`) implemented; 0.49 proposed. Agreed: a new `/mark:continue`; the `[board]` switches
 default on; the token hole was fixed on its own (v0.46.1). Experiments below were run on
 2026-11-09 with Claude Code 2.1.319 on macOS.
 
@@ -91,7 +91,9 @@ targeted attack); the architecture doc says so.
 - It writes `<state>/locks/wait.json` (pid); the board uses it to see a live waiter.
 - `rules/orchestrator.md`: at a human gate, start `mark wait` in the background and end the
   turn; when woken, run `mark next` and loop to the next gate. Being woken is not consent.
-- One `mark wait` per session covers every ticket.
+- As built: one `mark wait <id>` per ticket (sessions work one ticket each), state in
+  `<state>/locks/<id>.wait.json`; a new waiter replaces the old, so only one session wakes. It
+  exits when its parent shell is gone.
 - An approval typed in the terminal also ends `mark wait`; the woken session finds the work
   already moving and does nothing.
 
@@ -142,7 +144,7 @@ permission_mode = "auto" # for the headless session
 |---|---|---|
 | 0.46.1 ✅ | nested `claude -p` token hole closed | — |
 | 0.47 ✅ | decide endpoint, secret, decision panel | No: say "continue" in the terminal |
-| 0.48 | `mark wait`, orchestrator rule change | Yes, while a terminal session is open |
+| 0.48 ✅ | `mark wait`, orchestrator rule change | Yes, while a terminal session is open |
 | 0.49 | headless runner, `/mark:continue`, run panel | Yes, with no session open |
 
 Each phase ships tests (rule 9): secret and Origin checks, token `source`, a bad target status

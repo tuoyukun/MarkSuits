@@ -104,7 +104,7 @@ answered a few questions, and approved one design and one plan.
 It updates by itself as agents move tickets and write files, and needs nothing from the project
 beyond what Mark already keeps. A ticket that waits on you has a decision panel: approve, reject
 with comments, or answer a blocked ticket. Only the window `/mark:board` opened can decide (the
-agent cannot); after deciding, say "continue" in the terminal. `[board] decide = false` keeps the
+agent cannot). If the ticket's Claude session is still open, it picks the work up by itself. `[board] decide = false` keeps the
 board read-only.
 
 ![Tickets grouped by status, with what waits on you](docs/images/board-en.png)

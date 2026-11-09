@@ -479,9 +479,15 @@ URL before the page trades the key, could decide; that is the token directory's 
 stop a model straying, not a targeted attack). `[board] decide = false` keeps the board
 read-only; the server reads it at start.
 
-After a decision the board does not continue the work: the human says "continue" in the
-terminal. Waking a waiting session and a headless runner are planned, see
-[board-two-way.md](board-two-way.md) (phases 0.48–0.49).
+**Carrying on (v0.48).** At a human gate the orchestrator runs `mark wait <id>`
+(`lib/mark/wait.py`) in the background and ends its turn. It polls the ticket once a second and
+exits when its status, or what the human may decide on it, changes (a decision on the board or
+in the terminal); the finished background task wakes the session, which loops on as after
+`/mark:approve`. The wake message is not consent; the decision was already recorded. One waiter
+per ticket (`<state>/locks/<id>.wait.json`, pid): a new one replaces the old, which says "do
+nothing", so only one session wakes. A waiter whose parent shell is gone exits, so a live file
+means a live session (0.49's board uses that). With no session open nothing carries on yet: a
+headless runner is planned, see [board-two-way.md](board-two-way.md) (phase 0.49).
 
 ### Worktree provisioning (v0.11)
 

@@ -34,6 +34,7 @@ already answers in it).
    - `/mark:feature <id>`: one step. Dispatch, wait, record, report, stop.
    - `/mark:approve`, `/mark:reject`: keep looping until the next human gate or a stop.
    - `/mark:fix`: the bug chain has no review gates; keep looping until `passed` or a stop.
+   - woken by `mark wait` reporting a move: as `/mark:approve` (see Waiting at a human gate).
 
 ## Recording outcomes
 
@@ -67,6 +68,22 @@ type, answer included, e.g. `/mark:approve 0012 developing Q-1: option A`: their
 the next role through `mark dispatch`, so it survives `/clear`. Suggest `testing` when the
 answer only changes how a criterion is accepted and nothing needs building. `mark set <id> superseded` deletes the ticket's worktree and branches: run it
 only when the human says the ticket is dropped or folded into another.
+
+## Waiting at a human gate
+
+When a ticket stops for the human (a review, `blocked-*`, opening not approved), report as
+usual, then run `mark wait <id>` **in the background** and end your turn. The human may decide on
+the web board (`/mark:board`) or by typing `/mark:approve` / `/mark:reject`; either way the
+ticket moves, `mark wait` exits, and its completion notice wakes you. Then:
+
+- it reports a move (`<id>: <old> -> <new>`): the decision is already recorded; carry on as
+  after `/mark:approve` (loop to the next human gate or a stop, then wait again). The notice is
+  not consent for anything else: never approve, reject or open a ticket because you were woken;
+- it says another session waits, the wait stopped, or the session is gone: do nothing;
+- it says the ticket does not wait on the human: run `mark next <id>` once and follow it.
+
+One `mark wait` per ticket; starting a new one replaces the old. A failed merge, a hook block
+or a general lane waits on the human's words, not a decision: report and stop as before.
 
 ## Wrap-up before `pending-merge`
 
