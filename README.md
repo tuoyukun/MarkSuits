@@ -91,7 +91,7 @@ that break it*.
 | Accept or send back a review | `/mark:approve <id>`, `/mark:reject <id> <why>` | the chain continues, or the role reworks it |
 | Change docs or config | `/mark:general <what>` | edited on a throwaway branch, landed through the same regression |
 | See where things stand | `/mark:status` | every ticket, and what waits on you |
-| Watch it in a browser | `/mark:board` | a live, read-only board: tickets by status, each one's documents (preview, tech plan, verdict...) and status history |
+| Watch it in a browser | `/mark:board` | a live board: tickets by status, each one's documents (preview, tech plan, verdict...) and status history; approve or reject gates there |
 | Upgrade the project files | `/mark:upgrade` | 3-way merge of the new template, landed when you say so |
 
 On [`examples/todo`](examples/README.md#walkthrough), one bug and one feature went from request
@@ -100,9 +100,12 @@ answered a few questions, and approved one design and one plan.
 
 ## The board
 
-`/mark:board` opens a read-only board in your browser (on 127.0.0.1, first free port from 6275).
+`/mark:board` opens a board in your browser (on 127.0.0.1, first free port from 6275).
 It updates by itself as agents move tickets and write files, and needs nothing from the project
-beyond what Mark already keeps.
+beyond what Mark already keeps. A ticket that waits on you has a decision panel: approve, reject
+with comments, or answer a blocked ticket. Only the window `/mark:board` opened can decide (the
+agent cannot); after deciding, say "continue" in the terminal. `[board] decide = false` keeps the
+board read-only.
 
 ![Tickets grouped by status, with what waits on you](docs/images/board-en.png)
 

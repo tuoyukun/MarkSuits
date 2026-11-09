@@ -4,13 +4,14 @@ from __future__ import annotations
 import http.client
 import io
 import json
+import re
 import socket
 import threading
 import unittest
 
 from tests._support import add_ticket, add_worktree, make_repo, sh, status_text
 
-from mark import board, cli
+from mark import board, cli, flow, human, reviews
 from mark.config import load_config
 
 
@@ -163,6 +164,138 @@ class ServerTest(unittest.TestCase):
         c.close()
 
 
+class DecideTest(unittest.TestCase):
+    """Deciding on the board: only the browser `mark board` opened may, and it runs the CLI's checks."""
+
+    def setUp(self):
+        self.root = make_repo()
+        add_ticket(self.root, "feature", "0001-a", "review-plan", gates=("ticket-approved",))
+        add_ticket(self.root, "feature", "0002-b", "blocked-unclear", gates=("ticket-approved",))
+        add_ticket(self.root, "feature", "0003-c", "drafting")
+        self.cfg = load_config(self.root)
+        self.server = board.bind(free_port())
+        self.board = board.Board(self.cfg)
+        self.server.RequestHandlerClass = board.make_handler(self.board)
+        self.server.daemon_threads = True
+        self.port = self.server.server_address[1]
+        self.origin = f"http://127.0.0.1:{self.port}"
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def tearDown(self):
+        self.board.stop.set()
+        self.server.shutdown()
+        self.server.server_close()
+
+    def post(self, path, data, origin=None, cookie=""):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        headers = {"Host": f"127.0.0.1:{self.port}", "Content-Type": "application/json"}
+        if origin is not False:
+            headers["Origin"] = origin or self.origin
+        if cookie:
+            headers["Cookie"] = cookie
+        c.request("POST", path, body=json.dumps(data), headers=headers)
+        r = c.getresponse()
+        return r.status, json.loads(r.read() or b"{}"), r.getheader("Set-Cookie") or ""
+
+    def login(self):
+        self.board.open_browser(self.port)
+        code, _, cookie = self.post("/api/login", {"k": self.board.keys[-1]})
+        self.assertEqual(code, 200)
+        self.assertIn("HttpOnly", cookie)
+        return cookie.split(";")[0]
+
+    def status(self, tid):
+        return flow.load(load_config(self.root), tid).ticket.status
+
+    def no_tokens_left(self):
+        d = human.token_dir(self.cfg)
+        self.assertEqual(list(d.iterdir()) if d.is_dir() else [], [])
+
+    def test_snapshot_says_what_waits_on_the_human(self):
+        waits = {t["id"]: t["wait"] for t in board.snapshot(self.cfg, board.History(self.cfg))["tickets"]}
+        self.assertEqual(waits["0001-a"], {"kind": "review"})
+        self.assertEqual(waits["0002-b"]["kind"], "blocked")
+        self.assertTrue(waits["0002-b"]["answer"])
+        self.assertIn(waits["0002-b"]["default"], waits["0002-b"]["targets"])
+        self.assertEqual(waits["0003-c"], {"kind": "opening"})
+
+    def test_without_the_cookie_nothing_is_decided(self):
+        code, _, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "approve"})
+        self.assertEqual(code, 403)
+        self.assertEqual(self.status("0001-a"), "review-plan")
+        self.assertEqual(self.post("/api/login", {"k": "guess"})[0], 403)
+        self.no_tokens_left()
+
+    def test_a_key_works_once_and_only_from_the_board_page(self):
+        self.board.open_browser(self.port)
+        key = self.board.keys[-1]
+        self.assertEqual(self.post("/api/login", {"k": key}, origin="http://evil.example")[0], 403)
+        self.assertEqual(self.post("/api/login", {"k": key})[0], 200)
+        self.assertEqual(self.post("/api/login", {"k": key})[0], 403)
+
+    def test_another_origin_cannot_use_the_cookie(self):
+        cookie = self.login()
+        code, _, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "approve"},
+                               origin="http://evil.example", cookie=cookie)
+        self.assertEqual(code, 403)
+        self.assertEqual(self.status("0001-a"), "review-plan")
+
+    def test_mode_in_the_snapshot(self):
+        get = lambda cookie="": json.loads(self._get("/api/board", cookie))["decide"]
+        self.assertEqual(get(), "login")
+        self.assertEqual(get(self.login()), "on")
+
+    def _get(self, path, cookie=""):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request("GET", path, headers={"Host": f"127.0.0.1:{self.port}", "Cookie": cookie})
+        return c.getresponse().read()
+
+    def test_approve_moves_the_ticket_writes_the_gate_and_commits(self):
+        code, res, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "approve"}, cookie=self.login())
+        self.assertEqual(code, 200, res)
+        self.assertEqual(self.status("0001-a"), "developing")
+        self.assertTrue((self.root / ".mark" / "gates" / "0001-a.plan-approved").is_file())
+        self.assertIn("0001-a: approved review-plan -> developing", sh(self.root, "git", "log", "-1", "--format=%s"))
+        self.no_tokens_left()
+
+    def test_reject_records_each_line_as_an_item(self):
+        code, res, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "reject", "items": ["too big", "split it"]},
+                                 cookie=self.login())
+        self.assertEqual(code, 200, res)
+        self.assertEqual(self.status("0001-a"), "planning")
+        review = (self.root / ".mark" / "features" / "0001-a" / reviews.filename("plan")).read_text(encoding="utf-8")
+        self.assertIn("too big", review)
+        self.assertIn("split it", review)
+
+    def test_a_refusal_comes_back_and_leaves_no_token(self):
+        cookie = self.login()
+        code, res, _ = self.post("/api/decide", {"ticket": "0002-b", "verb": "approve", "to": "planning"}, cookie=cookie)
+        self.assertEqual(code, 409)
+        self.assertTrue(res["text"])
+        self.assertEqual(self.status("0002-b"), "blocked-unclear")
+        self.no_tokens_left()
+        code, res, _ = self.post("/api/decide", {"ticket": "0002-b", "verb": "approve", "to": "planning",
+                                                 "answer": "Use the email as the key."}, cookie=cookie)
+        self.assertEqual(code, 200, res)
+        self.assertEqual(self.status("0002-b"), "planning")
+        self.assertIn("Use the email as the key.", res["text"])
+
+    def test_bad_requests_are_refused(self):
+        cookie = self.login()
+        for body in ({"ticket": "../x", "verb": "approve"}, {"ticket": "0001-a", "verb": "merge"},
+                     {"ticket": "0001-a", "verb": "reject", "items": "one"}):
+            self.assertEqual(self.post("/api/decide", body, cookie=cookie)[0], 409, body)
+        self.assertEqual(self.status("0001-a"), "review-plan")
+
+    def test_board_decide_off(self):
+        cfg_path = self.root / ".mark" / "config.toml"
+        cfg_path.write_text(cfg_path.read_text(encoding="utf-8") + "\n[board]\ndecide = false\n", encoding="utf-8")
+        self.board.cfg = load_config(self.root)
+        code, _, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "approve"}, cookie=self.login())
+        self.assertEqual(code, 403)
+        self.assertEqual(self.status("0001-a"), "review-plan")
+
+
 class PortsTest(unittest.TestCase):
     def test_bind_skips_a_busy_port(self):
         with socket.socket() as busy:
@@ -187,7 +320,8 @@ class CliTest(unittest.TestCase):
             out2 = io.StringIO()
             self.assertEqual(cli.main(["board", "--port", port], cwd=root, out=out2, err=err), 0)
             self.assertIn("already running", out2.getvalue())
-            self.assertEqual(out.getvalue().split()[1], out2.getvalue().split()[-1])
+            url = re.compile(r"http://127\.0\.0\.1:\d+")
+            self.assertEqual(url.search(out.getvalue())[0], url.search(out2.getvalue())[0])
         finally:
             out3 = io.StringIO()
             cli.main(["board", "--stop"], cwd=root, out=out3, err=err)

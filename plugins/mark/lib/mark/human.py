@@ -65,11 +65,17 @@ def record(cfg: MarkConfig, prompt: str, now: float | None = None) -> Path | Non
     verb, arg, rest = parsed
     if verb in ("feature", "fix") and _TICKET_REF_RE.match(arg):
         return None  # resuming an existing ticket opens nothing
+    return grant(cfg, verb, arg, rest, rest_text(prompt), now=now)
+
+
+def grant(cfg: MarkConfig, verb: str, arg: str, rest: list[str], text: str, source: str = "prompt",
+          now: float | None = None) -> Path:
+    """Write one token. `source` says who saw the human decide: the prompt hook or the board."""
     now = time.time() if now is None else now
     d = token_dir(cfg)
     d.mkdir(parents=True, exist_ok=True)
     path = d / f"{verb}-{int(now * 1000)}-{os.getpid()}.json"
-    path.write_text(json.dumps({"verb": verb, "arg": arg, "rest": rest, "text": rest_text(prompt), "at": now},
+    path.write_text(json.dumps({"verb": verb, "arg": arg, "rest": rest, "text": text, "at": now, "source": source},
                                ensure_ascii=False) + "\n", encoding="utf-8")
     return path
 

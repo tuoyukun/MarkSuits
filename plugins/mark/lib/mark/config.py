@@ -126,6 +126,11 @@ class MarkConfig:
         return self._section("gates").get("rework_review", False) is True
 
     @property
+    def board_decide(self) -> bool:
+        """`[board] decide`: true (default) lets the human approve and reject on the web board."""
+        return self._section("board").get("decide", True) is not False
+
+    @property
     def outputs(self) -> dict[str, list[str]]:
         """role -> files the role must leave in the ticket dir before it may stop. A project key
         replaces only that role's default; `[]` requires nothing."""

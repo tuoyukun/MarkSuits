@@ -1194,15 +1194,15 @@ MESSAGES["zh-CN"].update({
 })
 
 MESSAGES["en"].update({
-    "board.started": "Board: {url}  (read-only, updates live; `mark board --stop` stops it)",
-    "board.reused": "Board already running: {url}",
+    "board.started": "Board opened in your browser: {url}  (updates live; decide gates in that window; `mark board --stop` stops it)",
+    "board.reused": "Board already running, opened again in your browser: {url}",
     "board.stopped": "Board stopped.",
     "board.not_running": "No board is running for this project.",
     "board.failed": "The board did not start; see {log}.",
 })
 MESSAGES["zh-CN"].update({
-    "board.started": "看板：{url}（只读，实时更新；`mark board --stop` 关闭）",
-    "board.reused": "看板已在运行：{url}",
+    "board.started": "看板已在浏览器中打开：{url}（实时更新；可在该窗口处理评审；`mark board --stop` 关闭）",
+    "board.reused": "看板已在运行，已在浏览器中再次打开：{url}",
     "board.stopped": "看板已关闭。",
     "board.not_running": "本项目没有运行中的看板。",
     "board.failed": "看板没有启动成功，见 {log}。",

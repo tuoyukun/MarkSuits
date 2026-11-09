@@ -232,6 +232,14 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .toast{position:fixed;right:20px;bottom:20px;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow-lg);padding:10px 14px;border-radius:10px;font-size:12.5px;transform:translateY(20px);opacity:0;transition:.25s;z-index:30;pointer-events:none}
 .toast.show{transform:none;opacity:1}
 .toast .id{font-family:var(--mono);color:var(--mute)}
+.dec label{display:block;font-size:12px;color:var(--mute);margin:0 0 4px}
+.dec select,.dec textarea{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:0 0 8px}
+.dec textarea{resize:vertical}
+.btn{font:inherit;font-size:12.5px;font-weight:500;padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--text);cursor:pointer;margin:0 0 12px}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+.dout{white-space:pre-wrap;word-break:break-word;font-family:var(--mono);font-size:11px;margin:0;color:var(--text2)}
+.dout.bad{color:var(--c-block)}
 @media (max-width:760px){
   .app{grid-template-columns:1fr}.sb{display:none}.main{margin:0;border-radius:0;border:0}
   .search{width:auto;flex:1}.crumb span,.crumb .p{display:none}.top{padding:0 16px}
@@ -255,7 +263,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
     <button class="nav kf" data-k="general"><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="3" fill="#8a8f98"/><path d="M5.5 8h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>General</button>
     <div class="sbfoot">
       <span class="live" id="live"><i></i><span id="liveText"></span></span>
-      <span>127.0.0.1:<code id="port"></code> · <span data-i="readonly"></span></span>
+      <span>127.0.0.1:<code id="port"></code> · <span id="mode"></span></span>
     </div>
   </aside>
   <div class="main">
@@ -271,7 +279,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 <div class="ov" id="ov">
   <div class="modal" role="dialog" aria-modal="true">
     <div class="mh" id="mh"></div>
-    <div class="mb"><div class="mmain"><div class="dtabs" id="tabs"></div><div class="doc" id="doc"></div></div><aside class="mside" id="side"></aside></div>
+    <div class="mb"><div class="mmain"><div class="dtabs" id="tabs"></div><div class="doc" id="doc"></div></div><aside class="mside"><div id="dec"></div><div id="side"></div></aside></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -288,7 +296,10 @@ const I18N={
   loadFail:"Could not load this file.",docs:"Documents",less:"Show less",showAll:"Show all {n}",days:" d",
   tlGantt:"Timeline",tlDur:"Durations",zHour:"Hour",zDay:"Day",zWeek:"Week",zMonth:"Month",toNow:"Jump to now",follow:"Only tickets in view",panHint:"Drag to pan · ⌘/Ctrl + scroll to zoom",
   hatch:"Striped: waiting on you",noneInView:"No tickets in this stretch. Drag or zoom out.",durHint:"Each bar starts at its own ticket's start: how long it took and where the time went.",
-  median:"Median time",humanShare:"of the time waiting on you",avg:"avg",titleCol:"Title",today:"Today",yesterday:"Yesterday",nTickets:"{n} tickets",nTicket:"1 ticket",ago:{s:"just now",m:"{n} min ago",h:"{n} h ago",d:"{n} d ago"},min:"min",waiting:"Waiting on you"},
+  median:"Median time",humanShare:"of the time waiting on you",avg:"avg",titleCol:"Title",today:"Today",yesterday:"Yesterday",nTickets:"{n} tickets",nTicket:"1 ticket",ago:{s:"just now",m:"{n} min ago",h:"{n} h ago",d:"{n} d ago"},min:"min",waiting:"Waiting on you",
+  decide:"Your decision",approve:"Approve",approveOpen:"Approve opening",reject:"Reject with comments",items:"Comments, one per line",target:"Send to",
+  ansNeed:"Your answer (required)",ansOpt:"Answer or note (optional)",canDecide:"you can decide here",
+  needLogin:"Read-only in this window. Run `mark board` (or /mark:board) and decide in the window it opens.",offDecide:"Deciding on the board is off ([board] decide = false)."},
  "zh-CN":{board:"看板",timeline:"流转历史",human:"等我处理",kind:"类型",allTickets:"全部工单",readonly:"只读",live:"实时同步中",offline:"重新连接中…",all:"全部",active:"进行中",done:"已完成",search:"搜索工单",
   sWait:"等你处理",sAgent:"Agent 进行中",sDone:"已完成",sBugs:"未关闭 Bug",empty:"暂无工单",noTickets:"还没有工单。用这个命令建一张：",ticket:"工单",now:"现在",
   props:"属性",status:"状态",owner:"负责",type:"类型",branch:"分支",worktree:"工作区",created:"创建",elapsed:"耗时",moves:"次流转",hours:" 小时",
@@ -298,7 +309,10 @@ const I18N={
   loadFail:"文件加载失败。",docs:"文档",less:"收起",showAll:"显示全部 {n} 张",days:" 天",
   tlGantt:"时间轴",tlDur:"耗时",zHour:"小时",zDay:"天",zWeek:"周",zMonth:"月",toNow:"回到现在",follow:"只列出视口内的工单",panHint:"拖拽平移 · ⌘/Ctrl + 滚轮缩放",
   hatch:"斜纹 = 等你",noneInView:"这段时间没有工单，拖动或缩小看看",durHint:"每张单从它自己的开始时间算起：用了多久、时间花在哪个阶段。",
-  median:"中位耗时",humanShare:"时间花在等你",avg:"平均",titleCol:"标题",today:"今天",yesterday:"昨天",nTickets:"{n} 张",nTicket:"1 张",ago:{s:"刚刚",m:"{n} 分钟前",h:"{n} 小时前",d:"{n} 天前"},min:" 分钟",waiting:"等你处理"}};
+  median:"中位耗时",humanShare:"时间花在等你",avg:"平均",titleCol:"标题",today:"今天",yesterday:"昨天",nTickets:"{n} 张",nTicket:"1 张",ago:{s:"刚刚",m:"{n} 分钟前",h:"{n} 小时前",d:"{n} 天前"},min:" 分钟",waiting:"等你处理",
+  decide:"你的决定",approve:"通过",approveOpen:"批准开单",reject:"驳回并附意见",items:"意见，每行一条",target:"转到",
+  ansNeed:"你的答复（必填）",ansOpt:"答复或备注（可选）",canDecide:"可在此处理",
+  needLogin:"此窗口只读。运行 `mark board`（或 /mark:board），在它打开的窗口里处理。",offDecide:"看板处理已关闭（[board] decide = false）。"}};
 const LABELS={
  en:{drafting:"Drafting","review-requirement":"Requirement review",designing:"Designing","review-design":"Design review",planning:"Planning","review-plan":"Plan review",developing:"Developing","failed-impl":"Rework","design-qa":"Design QA",testing:"Testing","pending-merge":"Pending merge","blocked-plan":"Blocked: plan","blocked-spec":"Blocked: design","blocked-unclear":"Needs answer",passed:"Passed",superseded:"Superseded"},
  "zh-CN":{drafting:"起草需求","review-requirement":"需求评审",designing:"设计中","review-design":"设计评审",planning:"方案中","review-plan":"方案评审",developing:"开发中","failed-impl":"返工中","design-qa":"设计验收",testing:"测试中","pending-merge":"待合并","blocked-plan":"方案阻塞","blocked-spec":"设计阻塞","blocked-unclear":"需澄清",passed:"已完成",superseded:"已并入他单"}};
@@ -397,7 +411,7 @@ function card(t){const st=stageOf(t.status),i=PIPE.indexOf(st.k),done=st.k==="do
 function render(){
   document.querySelectorAll("[data-i]").forEach(e=>e.textContent=tr(e.dataset.i));
   $("#q").placeholder=tr("search");$("#pname").textContent=data.project;$("#crumbP").textContent=data.project;$("#psub").textContent=`Mark · ${data.branch}`;
-  $("#port").textContent=location.port;document.title=`${data.project} · Mark`;
+  $("#port").textContent=location.port;$("#mode").textContent=tr(data.decide==="on"?"canDecide":"readonly");document.title=`${data.project} · Mark`;
   $("#nAll").textContent=data.tickets.length;const nh=data.tickets.filter(isHuman).length;$("#nHuman").textContent=nh;$("#nHuman").classList.toggle("zero",!nh);
   $("#vt").textContent=tr(view);
   const all=data.tickets.filter(t=>kind==="all"||t.kind===kind),v=visible();
@@ -507,7 +521,7 @@ const sortFiles=fs=>fs.slice().sort((a,b)=>{const i=x=>{const k=DOC_ORDER.indexO
 function openM(id,tab){const t=data.tickets.find(x=>x.id===id);if(!t)return;
   const newest=t.files.slice().sort((a,b)=>b.mtime-a.mtime)[0];
   open={id,tab:tab||(newest?newest.name:"__hist")};docKey="";const ov=$("#ov");ov.classList.add("on");ov.classList.remove("full","noside");modal();$("#mh .ib:last-child")?.focus()}
-function closeM(){open=null;docKey="";$("#ov").classList.remove("on");$("#doc").innerHTML=""}
+function closeM(){open=null;docKey="";decKey="";decMsg=null;$("#dec").innerHTML="";$("#ov").classList.remove("on");$("#doc").innerHTML=""}
 function modal(){
   const t=data.tickets.find(x=>x.id===open.id);if(!t){closeM();return}
   const ov=$("#ov"),files=sortFiles(t.files);
@@ -519,6 +533,33 @@ function modal(){
   $("#tabs").innerHTML=files.map(f=>`<button class="dtab ${open.tab===f.name?"on":""}" data-tab="${esc(f.name)}">${esc(f.name)}${f.draft?`<span class="wt">${tr("draft")}</span>`:""}</button>`).join("")+`<button class="dtab ${open.tab==="__hist"?"on":""}" data-tab="__hist">${tr("history")}</button>`;
   doc(t,files);
   side(t);
+  decBlk(t);
+}
+// The decision form is rebuilt only when the ticket's state changes, so a live refresh never eats what the human typed.
+let decKey="",decMsg=null;
+function decBlk(t){const w=t.wait,msg=decMsg&&decMsg.id===t.id?decMsg:null,key=JSON.stringify([t.id,t.status,w,data.decide]);
+  if(key===decKey)return;decKey=key;
+  const out=msg?`<pre class="dout ${msg.ok?"":"bad"}">${esc(msg.text)}</pre>`:"";
+  if(!w){$("#dec").innerHTML=out?`<div class="blk dec">${out}</div>`:"";return}
+  if(data.decide==="off"){$("#dec").innerHTML=`<div class="blk"><h5>${tr("decide")}</h5><div class="none">${tr("offDecide")}</div></div>`;return}
+  if(data.decide!=="on"){$("#dec").innerHTML=`<div class="blk"><h5>${tr("decide")}</h5><div class="none">${esc(tr("needLogin"))}</div>${out}</div>`;return}
+  const to=w.kind==="blocked"?`<label for="dTo">${tr("target")}</label><select id="dTo">${w.targets.map(s=>`<option value="${esc(s)}"${s===w.default?" selected":""}>${esc(label(s))}</option>`).join("")}</select>
+    <textarea id="dAns" rows="3" placeholder="${tr(w.answer?"ansNeed":"ansOpt")}"></textarea>`:"";
+  const rej=w.kind==="review"?`<textarea id="dItems" rows="4" placeholder="${tr("items")}"></textarea><button class="btn" data-dec="reject">${tr("reject")}</button>`:"";
+  $("#dec").innerHTML=`<div class="blk dec"><h5>${tr("decide")}</h5>${to}<button class="btn pri" data-dec="approve">${tr(w.kind==="opening"?"approveOpen":"approve")}</button>${rej}${out}</div>`}
+async function decide(verb){const t=data.tickets.find(x=>x.id===open.id);if(!t||!t.wait)return;
+  const body={ticket:t.id,verb};
+  if(verb==="approve"&&$("#dTo")){body.to=$("#dTo").value;body.answer=$("#dAns").value.trim();
+    if(t.wait.answer&&!body.answer){$("#dAns").focus();$("#dAns").placeholder=tr("ansNeed");return}}
+  if(verb==="reject")body.items=$("#dItems").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  document.querySelectorAll("[data-dec]").forEach(b=>b.disabled=true);
+  let r;try{r=await (await fetch("/api/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}catch{r={ok:false,text:tr("loadFail")}}
+  decMsg={id:t.id,ok:!!r.ok,text:r.text||""};
+  if(r.ok)decKey="";  // the ticket moved: a fresh form (or none) when the board reloads
+  else document.querySelectorAll("[data-dec]").forEach(b=>b.disabled=false);
+  const out=$("#dec pre.dout");if(out){out.className="dout "+(r.ok?"":"bad");out.textContent=decMsg.text}
+  else $("#dec .blk")?.insertAdjacentHTML("beforeend",`<pre class="dout ${r.ok?"":"bad"}">${esc(decMsg.text)}</pre>`);
+  load();
 }
 async function doc(t,files){
   const el=$("#doc"),f=files.find(x=>x.name===open.tab);
@@ -560,6 +601,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-more]")){allDone=!allDone;render();return}
   if(e.target.id==="follow"){follow=e.target.checked;gRows();return}
   const act=e.target.closest("[data-act]");if(act){const ov=$("#ov");if(act.dataset.act==="close")closeM();else{ov.classList.toggle(act.dataset.act==="full"?"full":"noside");if(act.dataset.act==="full")modal()}return}
+  const dec=e.target.closest("[data-dec]");if(dec){decide(dec.dataset.dec);return}
   const tab=e.target.closest(".dtab");if(tab){open.tab=tab.dataset.tab;modal();return}
   const o=e.target.closest("[data-open]");if(o){openM(o.dataset.open,o.dataset.tab);return}
   if(e.target===$("#ov"))closeM();
@@ -584,7 +626,10 @@ function connect(){
   es.onerror=()=>{live.classList.add("off");$("#liveText").textContent=tr("offline")}; // EventSource retries by itself
 }
 setInterval(()=>{if(data&&!open)render()},60000); // keep "x min ago" fresh
-load().then(connect);
+// The window `mark board` opened carries a one-time key (#k=): trade it for the session cookie, then drop it.
+async function login(){const m=location.hash.match(/^#k=([\w-]+)/);if(!m)return;history.replaceState(null,"",location.pathname+location.search);
+  try{await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k:m[1]})})}catch{}}
+login().then(load).then(connect);
 </script>
 </body>
 </html>

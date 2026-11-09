@@ -1,6 +1,7 @@
 """Test helpers: make the plugin's `lib/` importable and build fake projects."""
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -8,6 +9,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGIN_ROOT = REPO_ROOT / "plugins" / "mark"
 sys.path.insert(0, str(PLUGIN_ROOT / "lib"))
+os.environ["MARK_BOARD_NO_BROWSER"] = "1"  # boards the tests start must not open a browser
 
 MINIMAL_CONFIG = 'mark_schema = 1\nlocale = "zh-CN"\n'
 

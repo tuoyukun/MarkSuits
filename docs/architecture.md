@@ -224,7 +224,7 @@ decision that can be computed is computed by the `mark` CLI and tested.
 | `/mark:approve <id>` | `mark approve`, then continues | next human gate or stop |
 | `/mark:reject <id> <text>` | splits comments into items, `mark reject`, dispatches the rework | next human gate or stop |
 | `/mark:status` | board summary | — |
-| `/mark:board` | `mark board`: the URL of the live web board | — |
+| `/mark:board` | `mark board`: opens the live web board, where the human can decide gates | — |
 | `/mark:general <text>` | no-ticket docs/config change on a throwaway lane, then `mark general merge` | landed or a stop |
 
 Each skill injects `mark rules` (the shared orchestrator rulebook, `plugins/mark/rules/orchestrator.md`)
@@ -435,9 +435,10 @@ leaves it to the human.
 
 ### Web board (v0.43)
 
-`mark board` (`lib/mark/board.py`, page `lib/mark/board.html`) serves a read-only board on
+`mark board` (`lib/mark/board.py`, page `lib/mark/board.html`) serves a board on
 127.0.0.1: tickets by stage, a history view (a pan-and-zoom timeline, and per-ticket durations), and per ticket a modal with every document,
-the gates and the moves. It adds no state and no write path; its sources are the ones above:
+the gates and the moves. It adds no state; its one write path is the human's decision (below).
+Its sources are the ones above:
 
 - **Status**: each main-checkout `status.md`.
 - **History**: `git log -p -U0` of the status files on main. Every commit that sets `status:` is
@@ -458,6 +459,29 @@ a port with any listener is skipped before binding. The server records `pid` and
 child runs in its own session so it outlives the Bash call that started it. Requests whose Host
 is not `127.0.0.1`/`localhost` are refused (DNS rebinding). Markdown renders with a small built-in
 renderer; mermaid fences load mermaid from jsDelivr and stay code blocks offline.
+
+**Deciding (v0.47).** A ticket that waits on the human (opening not approved, `review-*`,
+`blocked-*`) gets a decision panel in its modal: approve; reject with one comment per line; for
+a blocked ticket, a target status (`flow.approve_targets`) and an answer. `POST /api/decide`
+writes a token like the prompt hook's (`"source": "board"`), runs `mark approve|reject` in the
+server process (same checks, gate, commit, push) and deletes the token whether or not the CLI
+accepted it, so a refusal leaves nothing a later command could use. The CLI's output goes back
+to the page as is.
+
+Only the human's browser may decide. The server keeps a random session secret in memory, never
+written or printed. It opens the browser itself (on start, and when `mark board` calls
+`POST /api/open` on a live board) with a one-time key in the URL fragment; the page trades it
+for an `HttpOnly; SameSite=Strict` cookie named per port and drops the fragment. `/api/login` and
+`/api/decide` also need `Origin` = the board and a JSON body. The model can run `mark board` and
+curl the API but sees neither key nor secret; a board opened by hand is read-only. Residual: a
+model that deliberately reads the browser's cookie store, or races `ps` for the `open` call's
+URL before the page trades the key, could decide; that is the token directory's level (guards
+stop a model straying, not a targeted attack). `[board] decide = false` keeps the board
+read-only; the server reads it at start.
+
+After a decision the board does not continue the work: the human says "continue" in the
+terminal. Waking a waiting session and a headless runner are planned, see
+[board-two-way.md](board-two-way.md) (phases 0.48–0.49).
 
 ### Worktree provisioning (v0.11)
 

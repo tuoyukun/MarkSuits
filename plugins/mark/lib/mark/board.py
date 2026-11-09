@@ -1,4 +1,4 @@
-"""Read-only web board: every ticket, its documents and its status history, live.
+"""Web board: every ticket, its documents and its status history, live; the human decides gates on it.
 
 `mark board` starts one server per project on 127.0.0.1, first free port from 6275 up,
 and records it in `<state>/locks/board.json` so a second call reuses it (unless the
@@ -8,6 +8,13 @@ plugin was updated since: then the old server is replaced). The page
     /api/board                         snapshot of every ticket (JSON)
     /events                            server-sent events: a number that grows on every change
     /f/<features|bugs>/<id>/<main|worktree>/<path>   a file from the ticket dir
+    POST /api/open                     open the board in the human's browser (what `mark board` calls)
+    POST /api/login                    trade a one-time key from that URL for the session cookie
+    POST /api/decide                   approve or reject, with the cookie
+
+Deciding: the server holds a random session secret in memory only. It opens the browser itself
+with a one-time key in the URL (`#k=`); the page trades it for an HttpOnly cookie. The model can
+run `mark board` and curl the API but never sees a key or the secret, so it cannot decide.
 
 Sources: the main checkout's ticket dirs (status, requirement, reviews, log), the
 ticket's worktree (role artifacts before they merge), `<state>/gates/<id>.*`, and
@@ -16,19 +23,24 @@ ticket's worktree (role artifacts before they merge), `<state>/gates/<id>.*`, an
 from __future__ import annotations
 
 import datetime as _dt
+import io
 import json
 import mimetypes
 import os
+import secrets
 import signal
 import subprocess
 import sys
 import threading
 import time
+import urllib.request
+import webbrowser
+from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import general, states, tickets
+from . import flow, general, human, states, tickets
 from .config import MarkConfig
 from .gitutil import git, worktrees
 from .ports import in_use
@@ -38,6 +50,9 @@ PORT_TRIES = 100
 POLL_SECONDS = 1.0
 PING_SECONDS = 15
 STATE_FILE = "board.json"
+KEYS_KEPT = 10  # one-time keys not yet traded; older ones lapse
+BODY_MAX = 65536
+NO_BROWSER_ENV = "MARK_BOARD_NO_BROWSER"  # tests: never open a browser
 PAGE = Path(__file__).with_name("board.html")
 SOURCES = ("main", "worktree")
 
@@ -155,9 +170,26 @@ def snapshot(cfg: MarkConfig, history: History) -> dict[str, object]:
         items.append({**tk.as_dict(), "dir": states.KIND_DIRS[tk.kind], "side": tk.side,
                       "branch": cfg.branch_for(tk.kind, tk.id),
                       "worktree": cfg.worktree_for(tk.kind, tk.id) if dirs["worktree"].is_dir() else "",
-                      "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist})
+                      "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist, "wait": waits_on(cfg, tk)})
     return {"project": cfg.root.name, "locale": cfg.locale, "branch": cfg.main_branch,
             "tickets": items + general_lanes(cfg)}
+
+
+def waits_on(cfg: MarkConfig, tk: tickets.Ticket) -> dict[str, object] | None:
+    """What the human can decide on this ticket from the board, or None."""
+    if tk.side in ("terminal", "unknown"):
+        return None
+    ctx = flow.Ctx(cfg, tk)
+    if not ctx.has_gate(flow.TICKET_GATE):
+        return {"kind": "opening"}
+    if tk.status not in flow.APPROVE:
+        return None
+    if flow.APPROVE[tk.status][0]:
+        return {"kind": "review"}
+    targets = flow.approve_targets(ctx)
+    default = flow.APPROVE[tk.status][2]
+    return {"kind": "blocked", "targets": targets, "answer": tk.status == "blocked-unclear",
+            "default": default if default in targets else (targets[0] if targets else "")}
 
 
 def general_lanes(cfg: MarkConfig) -> list[dict[str, object]]:
@@ -219,10 +251,64 @@ def resolve_file(cfg: MarkConfig, parts: list[str]) -> Path | None:
     return target if target.is_relative_to(base) and target.is_file() else None
 
 
+def decide(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
+    """Approve or reject for the human, through the same CLI code as `/mark:approve` and
+    `/mark:reject`: a token for this decision, then `mark approve|reject`. Returns (ok, output)."""
+    from . import cli  # cli imports this module
+
+    ticket, verb, to = req.get("ticket"), req.get("verb"), req.get("to") or None
+    answer, items = req.get("answer") or "", req.get("items") or []
+    known = any(ticket in tickets.ticket_dirs(cfg, k) for k in states.KINDS) if isinstance(ticket, str) else False
+    if not known or verb not in ("approve", "reject") or not (to is None or isinstance(to, str)) \
+            or not isinstance(answer, str) or not (isinstance(items, list) and all(isinstance(i, str) for i in items)):
+        return False, "bad request"
+    if verb == "approve":
+        argv = ["approve", ticket] + (["--to", to] if to else [])
+        rest, text = [to] if to else [], f"{to or ''} {answer}".strip()[:human.TEXT_MAX]
+    else:
+        argv = ["reject", ticket] + [a for i in items for a in ("--item", i)] + (["--to", to] if to else [])
+        rest, text = [], ""
+    token = human.grant(cfg, verb, ticket, rest, text, source="board")
+    out = io.StringIO()
+    try:
+        code = cli.main(argv, cwd=cfg.root, out=out, err=out)
+    finally:
+        token.unlink(missing_ok=True)  # a refused decision leaves nothing a later command could use
+    return code == 0, out.getvalue().strip()
+
+
 class Board:
     def __init__(self, cfg: MarkConfig):
         self.cfg, self.history = cfg, History(cfg)
         self.version, self.cond, self.stop = 0, threading.Condition(), threading.Event()
+        self.secret, self.keys, self.lock = secrets.token_urlsafe(32), [], threading.Lock()
+
+    def open_browser(self, port: int) -> None:
+        key = secrets.token_urlsafe(24)
+        with self.lock:
+            self.keys = self.keys[-(KEYS_KEPT - 1):] + [key]
+        if os.environ.get(NO_BROWSER_ENV) != "1":
+            webbrowser.open(f"http://127.0.0.1:{port}/#k={key}")
+
+    def redeem(self, key: object) -> bool:
+        with self.lock:
+            if isinstance(key, str) and key in self.keys:
+                self.keys.remove(key)
+                return True
+        return False
+
+    def authorized(self, cookie_header: str | None, port: int) -> bool:
+        try:
+            morsel = SimpleCookie(cookie_header or "").get(cookie_name(port))
+        except CookieError:
+            return False
+        return morsel is not None and secrets.compare_digest(morsel.value, self.secret)
+
+    def mode(self, cookie_header: str | None, port: int) -> str:
+        """"on": this browser may decide; "login": it may not yet; "off": `[board] decide = false`."""
+        if not self.cfg.board_decide:
+            return "off"
+        return "on" if self.authorized(cookie_header, port) else "login"
 
     def watch(self) -> None:
         last = signature(self.cfg)
@@ -235,30 +321,82 @@ class Board:
                     self.cond.notify_all()
 
 
+def cookie_name(port: int) -> str:
+    return f"mark_board_{port}"  # cookies ignore the port: two projects' boards must not share one
+
+
 def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args) -> None:
             pass
 
-        def _send(self, code: int, body: bytes, ctype: str) -> None:
+        def _send(self, code: int, body: bytes, ctype: str, cookie: str = "") -> None:
             self.send_response(code)
+            if cookie:
+                self.send_header("Set-Cookie", cookie)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(body)
 
-        def do_GET(self) -> None:
+        def _json(self, code: int, data: dict, cookie: str = "") -> None:
+            self._send(code, json.dumps(data, ensure_ascii=False).encode(), "application/json; charset=utf-8", cookie)
+
+        def _local(self) -> bool:
             host = (self.headers.get("Host") or "").rsplit(":", 1)[0]
-            if host not in ("127.0.0.1", "localhost"):  # DNS rebinding: another site must not read the board
+            if host not in ("127.0.0.1", "localhost"):  # DNS rebinding: another site must not reach the board
                 self._send(403, b"forbidden", "text/plain")
+                return False
+            return True
+
+        def do_POST(self) -> None:
+            try:
+                raw = self.rfile.read(min(int(self.headers.get("Content-Length") or 0), BODY_MAX))
+            except ValueError:
+                raw = b""
+            if not self._local():
+                return
+            port = self.server.server_address[1]
+            path, origin = self.path.split("?", 1)[0], self.headers.get("Origin")
+            same = origin in (f"http://127.0.0.1:{port}", f"http://localhost:{port}")
+            if path == "/api/open" and (origin is None or same):  # no Origin: `mark board`, not a web page
+                board.open_browser(port)
+                self._json(200, {"ok": True})
+                return
+            try:
+                body = json.loads(raw or b"{}")
+            except ValueError:
+                body = None
+            ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip()
+            if not same or ctype != "application/json" or not isinstance(body, dict):
+                self._json(403, {"ok": False, "text": "forbidden"})
+            elif path == "/api/login":
+                if board.redeem(body.get("k")):
+                    self._json(200, {"ok": True},
+                               f"{cookie_name(port)}={board.secret}; HttpOnly; SameSite=Strict; Path=/")
+                else:
+                    self._json(403, {"ok": False, "text": "expired key"})
+            elif path == "/api/decide":
+                if board.mode(self.headers.get("Cookie"), port) != "on":
+                    self._json(403, {"ok": False, "text": "read-only"})
+                    return
+                with board.lock:  # one decision at a time
+                    ok, text = decide(board.cfg, body)
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
+            else:
+                self._json(404, {"ok": False, "text": "not found"})
+
+        def do_GET(self) -> None:
+            if not self._local():
                 return
             path = self.path.split("?", 1)[0]
             if path == "/":
                 self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
             elif path == "/api/board":
-                body = json.dumps(snapshot(board.cfg, board.history), ensure_ascii=False).encode()
-                self._send(200, body, "application/json; charset=utf-8")
+                port = self.server.server_address[1]
+                self._json(200, {**snapshot(board.cfg, board.history),
+                                 "decide": board.mode(self.headers.get("Cookie"), port)})
             elif path == "/events":
                 self._events()
             elif path.startswith("/f/"):
@@ -329,6 +467,7 @@ def serve(cfg: MarkConfig, start: int = DEFAULT_PORT) -> int:
     path.write_text(json.dumps({"pid": os.getpid(), "port": port, "root": str(cfg.root), "page": str(PAGE)}) + "\n")
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown).start())
     threading.Thread(target=board.watch, daemon=True).start()
+    board.open_browser(port)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -390,6 +529,17 @@ def start(cfg: MarkConfig, port: int = DEFAULT_PORT, wait: float = 5.0) -> tuple
             return st.get("port"), False
         time.sleep(0.1)
     return None, False
+
+
+def reopen(port: int) -> bool:
+    """Ask a live board to open itself in the human's browser again."""
+    req = urllib.request.Request(f"http://127.0.0.1:{port}/api/open", data=b"{}", method="POST",
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status == 200
+    except OSError:
+        return False
 
 
 def stop(cfg: MarkConfig) -> bool:
