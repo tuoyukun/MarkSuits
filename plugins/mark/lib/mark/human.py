@@ -51,6 +51,13 @@ def rest_text(prompt: str) -> str:
     return (prompt or "")[m.start(3):].strip()[:TEXT_MAX] if m else ""
 
 
+def attended(environ=os.environ) -> bool:
+    """False in a `claude -p` session (Claude Code sets CLAUDE_CODE_SESSION_ATTENDED=0 there, even
+    under `env -i`): its prompt comes from a program, possibly the model itself, not a person typing.
+    Unset (older Claude Code, other surfaces) counts as attended."""
+    return environ.get("CLAUDE_CODE_SESSION_ATTENDED") != "0"
+
+
 def record(cfg: MarkConfig, prompt: str, now: float | None = None) -> Path | None:
     parsed = parse_prompt(prompt)
     if parsed is None:

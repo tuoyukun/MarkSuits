@@ -1485,6 +1485,32 @@ class GuardTest(unittest.TestCase):
                                                     "content": "{}"}})
         self.assertEqual(code, 2)
 
+    def test_unattended_prompt_records_no_token(self):
+        tokens = self.root / ".mark" / "locks" / "human"
+        typed = {"hook_event_name": "UserPromptSubmit", "cwd": str(self.root), "prompt": "/mark:approve 0001"}
+        self.assertEqual(hook("user-prompt", typed, env={"CLAUDE_CODE_SESSION_ATTENDED": "0"})[0], 0)
+        self.assertEqual(list(tokens.glob("approve-*")) if tokens.is_dir() else [], [])
+        hook("user-prompt", typed, env={"CLAUDE_CODE_SESSION_ATTENDED": "1"})
+        self.assertEqual(len(list(tokens.glob("approve-*"))), 1)
+        for p in tokens.glob("approve-*"):
+            p.unlink()
+
+    def test_attended_unset_counts_as_human(self):
+        self.assertTrue(human.attended({}))
+        self.assertTrue(human.attended({"CLAUDE_CODE_SESSION_ATTENDED": "1"}))
+        self.assertFalse(human.attended({"CLAUDE_CODE_SESSION_ATTENDED": "0"}))
+
+    def test_nobody_starts_claude(self):
+        for cmd in ('claude -p "/mark:approve 0001"', "~/.local/bin/claude -p x", "env -i claude -p x",
+                    "npx @anthropic-ai/claude-code -p x", "script -q /dev/null claude '/mark:approve 0001'",
+                    'bash -c "claude -p x"', "echo $(claude -p x)", "cd /tmp && claude", "eval 'claude -p x'",
+                    'sh -c "true && claude -p x"'):
+            self.assertEqual(self.bash(cmd)[0], 2, cmd)
+            self.assertEqual(self.bash(cmd, "coder-impl")[0], 2, cmd)
+        for cmd in ("cat CLAUDE.md", "ls .claude", "mark next 0001", 'mark commit 0001 -m "claude notes"',
+                    "claude-like --help"):
+            self.assertEqual(self.bash(cmd)[0], 0, cmd)
+
 
 if __name__ == "__main__":
     unittest.main()

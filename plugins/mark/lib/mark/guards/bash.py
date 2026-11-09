@@ -295,4 +295,37 @@ def mark_guard(env: Env) -> str | None:
     return None
 
 
-PRE_BASH = [mark_guard, git_guard, shell_write_guard]
+CLAUDE_NAMES = frozenset({"claude", "claude-code"})
+_SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh", "fish"})
+
+
+def runs_claude(command: str, depth: int = 0) -> bool:
+    """Whether the command starts the Claude Code CLI: any word naming it (`claude`, a path to it,
+    `npx @anthropic-ai/claude-code`, `script -q /dev/null claude`, `$(claude ...)`), also inside
+    `sh -c` / `eval` strings. A plain mention like `grep claude` counts too; better a refused
+    search than a missed call."""
+    for segment in _segments(command):
+        try:
+            words = shlex.split(segment)
+        except ValueError:
+            continue
+        for i, word in enumerate(words):
+            if os.path.basename(word.lstrip("$(`")).rstrip(")`") in CLAUDE_NAMES:
+                return True
+            inner = (i > 0 and words[i - 1] == "-c" and os.path.basename(words[0]) in _SHELLS) \
+                or (words[0] == "eval" and i > 0)
+            if inner and depth < 3 and runs_claude(word, depth + 1):
+                return True
+    return False
+
+
+def claude_guard(env: Env) -> str | None:
+    """A nested `claude -p "/mark:approve 0012"` would fire UserPromptSubmit in a session the model
+    started. `human.attended` already refuses tokens there; this also keeps the model from running
+    a Claude session (e.g. an interactive one under a pseudo-terminal) it was not asked to."""
+    if runs_claude(str(env.tool_input.get("command") or "")):
+        return env.t("guard.bash.claude_cli")
+    return None
+
+
+PRE_BASH = [claude_guard, mark_guard, git_guard, shell_write_guard]

@@ -75,6 +75,7 @@ roles = ["coder-impl"]
 GIT_ENV = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com",
            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.com",
            "PYTHONDONTWRITEBYTECODE": "1"}
+GIT_ENV.pop("CLAUDE_CODE_SESSION_ATTENDED", None)  # tests may run inside a `claude -p` session
 # CLI tests run git in-process (mark set / approve commit on main).
 os.environ.update({k: v for k, v in GIT_ENV.items() if k.startswith("GIT_")})
 
@@ -128,9 +129,9 @@ def add_origin(root: Path) -> Path:
     return bare
 
 
-def hook(group: str, payload: dict) -> tuple[int, str]:
+def hook(group: str, payload: dict, env: dict | None = None) -> tuple[int, str]:
     p = subprocess.run([sys.executable, str(HOOK), group], input=json.dumps(payload),
-                       capture_output=True, text=True, env=GIT_ENV)
+                       capture_output=True, text=True, env={**GIT_ENV, **(env or {})})
     return p.returncode, p.stderr
 
 

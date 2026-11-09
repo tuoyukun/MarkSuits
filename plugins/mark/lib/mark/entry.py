@@ -65,7 +65,8 @@ def handler_for(group: str):
                 locks.bind(env)
                 return
             if group == "user-prompt":
-                human.record(env.cfg, str(ctx.payload.get("prompt") or ""))
+                if human.attended():
+                    human.record(env.cfg, str(ctx.payload.get("prompt") or ""))
                 return
             message = first_block(env, GROUPS[group])
         except Exception:  # noqa: BLE001 - fail open, but say so
