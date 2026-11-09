@@ -557,7 +557,7 @@ name is an error. Other files are copied verbatim, which keeps the prompts' `{{p
 | `requirement.md`, `fix-plan.md` | `<!-- mark:ac -->` + `AC-N` | tester, coder-impl self-check; `mark set … review-requirement` |
 | `requirement.md` | `<!-- mark:open-questions -->` (only `none` / `无`), `<!-- mark:decisions -->` + `DEC-N` | `mark set … review-requirement`; designer, coder-plan |
 | `design.md` | `<!-- mark:states -->` + `S-N` | coder-impl, tester, design QA |
-| `preview.html` | none: the designer's preview built into one offline file (gitignored); `mark set`/`mark next` give its path at `review-design` | human design review |
+| `preview.html` | none: the designer's preview built into one offline file, only this ticket's `S-N`, committed with the ticket so it survives the merge (v0.45); `mark set`/`mark next` give its path at `review-design`, the board shows it | human design review |
 | `tech-plan.md` | `<!-- mark:tasks -->` + `T-N`, `SD-N` | coder-impl |
 | `handoff.md` | `<!-- mark:ac-table -->`, `<!-- mark:blocked -->` | tester, designer |
 | `design-qa.md` | `<!-- mark:qa-round N -->`, `<!-- mark:qa passed\|blocked -->`, `D-N` | engine (`mark set testing`, triggers) |

@@ -45,7 +45,8 @@ states: the design is approved; you only check the real app against it.
    is a state nobody will build or test.
 2. **The preview renders every `S-N`.** One preview entry per component, one mock-props case
    per state, labelled with its `S-N`. The count in the preview equals the count in
-   `design.md`.
+   `design.md`: this ticket's states only, never earlier tickets' (a preview app shared
+   across tickets builds this file filtered to this ticket).
 3. **It works offline.** Every component is fully usable with mock props and no network:
    drag really drags, selection really selects. An empty shell cannot be reviewed.
 4. **The human reviews `preview.html`, not `design.md`.** Build the preview into one
@@ -55,7 +56,8 @@ states: the design is approved; you only check the real app against it.
    toolchain in your scratchpad while the project has none; a mobile app: its web build, or
    simulator screenshots of every `S-N` inlined when it has none, as `CLAUDE.md` says);
    never a hand-drawn mockup.
-   Rebuild it after every change. It is gitignored; never commit it.
+   Rebuild it after every change and commit it with `design.md`: it stays in the ticket as
+   the record of the design the human approved.
 5. **Declare what you assume of the container** in `design.md` under "Integration contract":
    props that must keep a stable identity, CSS the container must provide (overflow,
    positioning, size), z-index ranges you use. Write "none" for an empty item; never drop
