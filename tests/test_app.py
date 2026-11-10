@@ -77,8 +77,11 @@ class BuildTest(Base):
         self.assertTrue((self.dest / "Contents" / "old").exists())
 
     def test_a_build_swaps_the_app_in(self):
+        cmds = []
         def swiftc(cmd, **_):
-            Path(cmd[cmd.index("-o") + 1]).write_text("binary")
+            cmds.append(cmd)
+            if "--iconset" not in cmd:  # swiftc and iconutil both write their -o
+                Path(cmd[cmd.index("-o") + 1]).write_text("binary")
             return done()
         with mock.patch("shutil.which", return_value="/usr/bin/swiftc"):
             self.assertEqual(app.build_app("1.2.3", self.dest, launcher=Path("/l/mark"), run=swiftc), (True, ""))
@@ -87,6 +90,19 @@ class BuildTest(Base):
         self.assertEqual((info["CFBundleShortVersionString"], info["MarkCLI"], info["MarkApp"]),
                          ("1.2.3", "/l/mark", str(self.dest / "Contents" / "MacOS" / "Mark")))
         self.assertEqual([p.name for p in self.dest.parent.iterdir()], ["Mark.app"])  # no temp dir left
+        self.assertEqual([c[1] for c in cmds[1:]], ["--iconset", "-c"])  # the binary draws the icon, iconutil packs it
+        self.assertEqual(info["CFBundleIconFile"], "Mark")
+        self.assertTrue((self.dest / "Contents" / "Resources" / "Mark.icns").exists())
+
+    def test_no_icon_still_builds(self):
+        def run(cmd, **_):
+            if cmd[0] == "/usr/bin/swiftc":
+                Path(cmd[cmd.index("-o") + 1]).write_text("binary")
+                return done()
+            raise FileNotFoundError(cmd[0])
+        with mock.patch("shutil.which", return_value="/usr/bin/swiftc"):
+            self.assertEqual(app.build_app("1.2.3", self.dest, run=run), (True, ""))
+        self.assertTrue((self.dest / "Contents" / "MacOS" / "Mark").exists())
 
 
 class UpdateTest(Base):

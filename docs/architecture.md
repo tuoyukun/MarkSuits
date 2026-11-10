@@ -762,7 +762,8 @@ covers init's checks and the existing-project cases; `tests/test_upgrade.py` cov
   `mark app install` writes `~/.local/bin/mark` (`macos/launcher.py`, on the installing Python:
   it runs the `installPath` of the user-scope plugin from `installed_plugins.json`) and compiles
   `macos/Mark.swift` into `~/Applications/Mark.app` (built beside it, then swapped in, so a
-  failed build keeps the old app). The app runs `mark board --serve` as its child with
+  failed build keeps the old app). Its icon, in the menu bar and in Finder, is the board's logo, drawn
+  in Swift; the build runs `Mark --iconset` and `iconutil` for `Resources/Mark.icns` (best effort). The app runs `mark board --serve` as its child with
   `MARK_SERVICE=app`: `board.json` records that, so a session's `mark board` reuses that board,
   `--stop` refuses, and the board exits when the app dies. Launch at login is a per-user
   LaunchAgent. Once a day the app runs `mark app update` (marketplace update + `claude plugin

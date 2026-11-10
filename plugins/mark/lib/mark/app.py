@@ -62,7 +62,7 @@ def info_plist(version: str, launcher: Path, binary: Path) -> bytes:
     return plistlib.dumps({
         "CFBundleIdentifier": BUNDLE_ID, "CFBundleName": "Mark", "CFBundleExecutable": "Mark",
         "CFBundlePackageType": "APPL", "CFBundleShortVersionString": version, "LSUIElement": True,
-        "LSMinimumSystemVersion": "13.0", "MarkCLI": str(launcher), "MarkApp": str(binary)})
+        "CFBundleIconFile": "Mark", "LSMinimumSystemVersion": "13.0", "MarkCLI": str(launcher), "MarkApp": str(binary)})
 
 
 def build_app(version: str, dest: Path | None = None, launcher: Path | None = None, run=subprocess.run) -> tuple[bool, str]:
@@ -80,6 +80,7 @@ def build_app(version: str, dest: Path | None = None, launcher: Path | None = No
                   capture_output=True, text=True)
         if res.returncode != 0:
             return False, (res.stderr or res.stdout or "swiftc failed").strip()[-2000:]
+        build_icon(new / "Contents", Path(tmp) / "Mark.iconset", run)
         (new / "Contents" / "Info.plist").write_bytes(
             info_plist(version, launcher or launcher_path(), dest / "Contents" / "MacOS" / "Mark"))
         old = Path(tmp) / "old.app"
@@ -87,6 +88,18 @@ def build_app(version: str, dest: Path | None = None, launcher: Path | None = No
             dest.rename(old)
         new.rename(dest)
     return True, ""
+
+
+def build_icon(contents: Path, iconset: Path, run=subprocess.run) -> bool:
+    """Draw the app icon with the just-built binary (`Mark --iconset`) and pack it with iconutil.
+    Best effort: an app without an icon still runs."""
+    (contents / "Resources").mkdir(exist_ok=True)
+    try:
+        return (run([str(contents / "MacOS" / "Mark"), "--iconset", str(iconset)], capture_output=True).returncode == 0
+                and run(["iconutil", "-c", "icns", "-o", str(contents / "Resources" / "Mark.icns"), str(iconset)],
+                        capture_output=True).returncode == 0)
+    except OSError:
+        return False
 
 
 def update(run=subprocess.run) -> tuple[str, dict]:

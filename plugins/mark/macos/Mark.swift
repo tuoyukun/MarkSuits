@@ -46,6 +46,43 @@ func markVersionNow() -> String {
         .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 }
 
+/// The board's logo: a dark rounded square with a white "M". Template (menu bar): the M is cut out.
+func logo(_ side: CGFloat, template: Bool) -> NSImage {
+    NSImage(size: NSSize(width: side, height: side), flipped: false) { r in
+        let box = template ? r : r.insetBy(dx: side * 0.1, dy: side * 0.1)  // app icons keep the usual margin
+        (template ? NSColor.black : NSColor(srgbRed: 0x1b / 255, green: 0x1b / 255, blue: 0x1f / 255, alpha: 1)).setFill()
+        NSBezierPath(roundedRect: box, xRadius: box.width * 0.225, yRadius: box.width * 0.225).fill()
+        if template { NSGraphicsContext.current?.compositingOperation = .destinationOut }
+        let font = NSFont.systemFont(ofSize: box.height * 0.56, weight: .bold)
+        let m = NSAttributedString(string: "M", attributes: [.font: font, .foregroundColor: NSColor.white])
+        // centre the capital itself, not its line box (which includes the descender)
+        m.draw(at: NSPoint(x: box.midX - m.size().width / 2, y: box.midY - font.capHeight / 2 + font.descender))
+        return true
+    }
+}
+
+/// `Mark --iconset <dir>`: the app icon as PNGs for iconutil (`mark app install` runs it at build time).
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--iconset" {
+    let dir = URL(fileURLWithPath: CommandLine.arguments[2])
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    for pt in [16, 32, 128, 256, 512] {
+        for scale in [1, 2] {
+            let px = pt * scale
+            let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px, bitsPerSample: 8,
+                                       samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                       colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+            logo(CGFloat(px), template: false).draw(in: NSRect(x: 0, y: 0, width: px, height: px))
+            NSGraphicsContext.restoreGraphicsState()
+            let name = "icon_\(pt)x\(pt)\(scale == 2 ? "@2x" : "").png"
+            guard (try? rep.representation(using: .png, properties: [:])?.write(to: dir.appendingPathComponent(name))) != nil
+            else { exit(1) }
+        }
+    }
+    exit(0)
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     var board: Process?
@@ -62,8 +99,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)  // one Mark per user
             return
         }
-        item.button?.image = NSImage(systemSymbolName: "checklist", accessibilityDescription: "Mark")
+        item.button?.image = logo(16, template: true)
         item.button?.image?.isTemplate = true
+        item.button?.image?.accessibilityDescription = "Mark"
         item.button?.imagePosition = .imageLeading
         let menu = NSMenu()
         menu.addItem(withTitle: "Open", action: #selector(open), keyEquivalent: "o")

@@ -404,6 +404,8 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
 .cin{border-top:1px solid var(--line);padding:10px 14px;flex:none}
 .cin textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical;margin:0 0 8px}
 .crow{display:flex;align-items:center;gap:8px}.crow .btn{margin:0}
+.spin{width:12px;height:12px;border:1.5px solid var(--faint);border-top-color:var(--text2);border-radius:50%;animation:spin .8s linear infinite;flex:none}.spin[hidden]{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
 @media (max-width:760px){
   .app{grid-template-columns:1fr}.sb{display:none}.main{margin:0;border-radius:0;border:0}
   .search{width:auto;flex:1}.crumb span,.crumb .p{display:none}.top{padding:0 16px}.col{flex-basis:260px;width:260px}
@@ -819,7 +821,7 @@ function wizView(){
   if($("#wview")?.dataset.id!==wiz){
     $("#content").innerHTML=`<div class="wview" id="wview" data-id="${esc(wiz)}"><div class="wbar"><a class="btn" href="/">← ${tr("allProjects")}</a><b id="wName"></b><code class="pp" id="wDir"></code><span class="grow"></span><span id="wOpen"></span></div>
      <div class="chat"><div class="msgs" id="msgs"></div><div class="cin">${data.decide==="on"?`<textarea id="cText" rows="3" placeholder="${tr("chatPh")}"></textarea>
-      <div class="crow"><span class="none" id="cState"></span><span class="grow"></span><code class="none" id="cModel"></code><button class="btn" data-cstop hidden>${tr("stop")}</button><button class="btn pri" data-send>${tr("send")}</button></div>`
+      <div class="crow"><span class="none" id="cState"></span><span class="grow"></span><code class="none" id="cModel"></code><span class="spin" data-cspin hidden></span><button class="btn" data-cstop hidden>${tr("stop")}</button><button class="btn pri" data-send>${tr("send")}</button></div>`
       :`<div class="none">${esc(tr("needLogin"))}</div>`}</div></div></div>`;chatKey=""}
   chatLoad({id:wiz,wiz:true})}
 function wizOpen(){const last=projs.filter(p=>!p.error).at(-1),d=$("#wnDir");
@@ -1034,7 +1036,7 @@ async function doc(t,files){
   if(open.tab==="__chat"){const key=`${t.id}|__chat`;
     if(key!==docKey){docKey=key;chatKey="";
       el.innerHTML=`<div class="chat"><div class="msgs" id="msgs"></div><div class="cin">${data.decide==="on"?`<textarea id="cText" rows="3" placeholder="${tr("chatPh")}"></textarea>
-       <div class="crow"><span class="none" id="cState"></span><span class="grow"></span><code class="none" id="cModel"></code><button class="btn" data-cstop hidden>${tr("stop")}</button><button class="btn pri" data-send>${tr("send")}</button></div>`
+       <div class="crow"><span class="none" id="cState"></span><span class="grow"></span><code class="none" id="cModel"></code><span class="spin" data-cspin hidden></span><button class="btn" data-cstop hidden>${tr("stop")}</button><button class="btn pri" data-send>${tr("send")}</button></div>`
        :`<div class="none">${esc(tr(data.decide==="off"?"offDecide":"needLogin"))}</div>`}</div></div>`}
     chatLoad(t);return}
   const key=f?`${t.id}|${f.name}|${f.src}|${f.mtime}`:`${t.id}|__hist|${t.history.length}|${last(t).at}`;
@@ -1065,7 +1067,7 @@ async function chatLoad(t){
     +(c.ask&&$("#cText")?askForm(c.ask):"");
   if(atEnd||c.running)box.scrollTop=box.scrollHeight;
   if($("#cModel"))$("#cModel").textContent=c.model||"";
-  const send=$("[data-send]"),stop=$("[data-cstop]");if(send)send.disabled=c.running;if(stop)stop.hidden=!c.running;
+  const send=$("[data-send]"),stop=$("[data-cstop]");if(send)send.disabled=c.running;if(stop)stop.hidden=!c.running;const spin=$("[data-cspin]");if(spin)spin.hidden=!c.running;
   mermaid(box)}
 // Claude's questions (`mark ask`) as a form; the answers go back as an ordinary chat message
 function askForm(a){return `<div class="blk dec ask">${a.questions.map((q,i)=>`<div class="dq">${q.header?`<i>${esc(q.header)}</i>`:""}${esc(q.question)}</div>
