@@ -9,7 +9,7 @@ from unittest import mock
 
 from tests._support import fresh_home
 
-from mark import board, deps
+from mark import board, deps, model
 
 
 def done(code=0, out=""):
@@ -31,6 +31,7 @@ GOOD = {"python3 -c": done(out="3.13.1\n"), "xcode-select -p": done(out="/Librar
 
 class ChecksTest(unittest.TestCase):
     def setUp(self):
+        fresh_home(self)
         for p in (mock.patch("mark.runner.find_claude", return_value="/x/claude"),
                   mock.patch("mark.app.plugin_entry", return_value=("mark@marksuits", {"scope": "user", "version": "0.61.0"})),
                   mock.patch("mark.app.app_path", return_value=mock.Mock(is_dir=lambda: True))):
@@ -50,8 +51,21 @@ class ChecksTest(unittest.TestCase):
 
     def test_what_fails(self):
         got = self.by_id({**GOOD, "python3 -c": done(out="3.9.6\n"), "claude auth": done(1)})
-        self.assertEqual((got["python"]["ok"], got["python"]["fix"], got["login"]["ok"], got["login"]["fix"]),
+        self.assertEqual((got["python"]["ok"], got["python"]["fix"], got["model"]["ok"], got["model"]["fix"]),
                          (False, False, False, False))
+
+    def test_a_model_of_its_own_needs_no_sign_in(self):
+        signed_out = {**GOOD, "claude auth": done(1)}
+        self.assertFalse(self.by_id(signed_out)["model"]["ok"])
+        ok, _ = model.save(None, {"name": "DeepSeek", "provider": "custom", "model": "deepseek-chat",
+                                  "base_url": "https://api.deepseek.com/anthropic", "api_key": "k"})
+        self.assertTrue(ok)
+        got = self.by_id(signed_out)["model"]
+        self.assertEqual((got["ok"], got["detail"]), (True, "DeepSeek"))
+
+    def test_signed_in_shows_how(self):
+        got = self.by_id({**GOOD, "claude auth": done(out='{"loggedIn": true, "authMethod": "claude.ai"}')})
+        self.assertEqual((got["model"]["ok"], got["model"]["detail"]), (True, "claude.ai"))
 
     def test_no_command_line_tools_never_runs_the_git_stub(self):
         answers = {**GOOD, "xcode-select -p": done(2)}
@@ -63,7 +77,7 @@ class ChecksTest(unittest.TestCase):
                 mock.patch("mark.app.plugin_entry", return_value=("mark@marksuits", {"scope": "project", "version": "1"})):
             got = self.by_id(GOOD)
         self.assertEqual([(c["id"], c["fix"]) for c in got.values() if not c["ok"]],
-                         [("claude", True), ("login", False), ("plugin", False)])  # the plugin waits for claude
+                         [("claude", True), ("model", False), ("plugin", False)])  # the plugin waits for claude
 
 
 class FixTest(unittest.TestCase):
@@ -76,9 +90,9 @@ class FixTest(unittest.TestCase):
         with mock.patch("mark.runner.find_claude", return_value="/a b/claude"):
             self.assertEqual(deps.fix_command("claude"), ["bash", "-c", deps.INSTALL_CLAUDE])
             self.assertIn("'/a b/claude' plugin install mark@marksuits --scope user", deps.fix_command("plugin")[2])
-        for bad in ("login", "python", "rm -rf /", None, ["claude"]):
+        for bad in ("model", "python", "rm -rf /", None, ["claude"]):
             self.assertIsNone(deps.fix_command(bad), bad)
-        self.assertEqual(deps.start("login"), (False, "bad request"))
+        self.assertEqual(deps.start("model"), (False, "bad request"))
 
     def test_one_at_a_time_and_output_kept(self):
         cmd = [sys.executable, "-c", "import time; print('hello'); time.sleep(0.5)"]

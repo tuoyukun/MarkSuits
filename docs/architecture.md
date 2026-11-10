@@ -730,7 +730,9 @@ covers init's checks and the existing-project cases; `tests/test_upgrade.py` cov
   Users only receive an update when the version string changes.
 - One-line install (v0.60): `install.sh` at the repo root checks git and Python 3.11+, installs
   Claude Code with its own installer if missing, adds the marketplace and the user-scope plugin,
-  then on macOS runs `<plugin>/bin/mark app install`. Every step is safe to rerun.
+  then on macOS runs `<plugin>/bin/mark app install`, waits for the app's board and opens it
+  (`mark board`). Every step is safe to rerun. `uninstall.sh` quits the app and removes it, its
+  LaunchAgent, the launcher (only if it is ours) and the plugin; `~/.mark` only with `--purge`.
 - Menu bar app (v0.60, `lib/mark/app.py`): the plugin is the only copy of Mark's code.
   `mark app install` writes `~/.local/bin/mark` (`macos/launcher.py`, on the installing Python:
   it runs the `installPath` of the user-scope plugin from `installed_plugins.json`) and compiles
@@ -746,8 +748,8 @@ covers init's checks and the existing-project cases; `tests/test_upgrade.py` cov
   formula of v0.59 is gone: two installs of the same code drifted apart.
 - Setup checks (v0.61, `lib/mark/deps.py`): the home page asks `/api/deps` for what this machine
   lacks: python3 >= 3.11 (hooks run it), git (on macOS only after `xcode-select -p` succeeds:
-  without the command line tools `/usr/bin/git` is a stub that opens a dialog), claude, signed in
-  (`claude auth status` exits 0), the user-scope plugin, and on macOS the menu bar app (optional).
+  without the command line tools `/usr/bin/git` is a stub that opens a dialog), claude, a model (the active
+  profile is a custom endpoint, or `claude auth status` exits 0), the user-scope plugin, and on macOS the menu bar app (optional).
   `POST /api/deps/fix {id}` (cookie, same origin) runs that check's fixed command in the
   background, one at a time, output in `MARK_HOME/deps.log`: Claude's own installer, the
   marketplace + plugin install, `xcode-select --install`, `mark app install`. Python and sign-in

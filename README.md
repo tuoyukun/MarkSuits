@@ -22,29 +22,56 @@ flowchart LR
 
 ## Quickstart
 
-One line installs Claude Code (if missing), the Mark plugin for your user and, on macOS, the
-menu bar app; run it again to repair or update:
+**1. Install.** One line installs Claude Code (if missing), the Mark plugin for your user and, on
+macOS, the menu bar app. When it finishes, the board opens in your browser.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tuoyukun/MarkSuits/main/install.sh | bash
 ```
 
-Or add the plugin yourself, for example for a whole team (`.claude/settings.json`):
+**2. Finish the setup on the board.** If this computer still lacks something, the panel at the
+top of the home page says what, and installs what it can with one click. Board sessions need a
+model to run on: sign in to Claude (`claude auth login` in a terminal), or click **Add a model**
+to use another one with its own API key (DeepSeek or any Anthropic-compatible service).
+
+![The home page on a new computer: what Mark still needs, with one-click installs](docs/images/board-home-en.png)
+
+**3. Add a project.**
+
+- **New project**: pick a directory (a new one, or an existing repository without Mark) and say
+  what you are building. Claude runs `/mark:init` there with you in a chat: it proposes the
+  setup (stack, modules, tests), you confirm or correct it, and the project joins the board.
+- **Add existing project**: a repository that already uses Mark; paste its path.
+
+**4. Start work.** Open the project and click **+ New ticket**. Talk the requirement through with
+Claude in the ticket's chat; when the requirement, the design and the plan are ready, approve
+them on the board. The rest runs on its own up to the merge. Prefer the terminal? In Claude
+Code inside the repository, `/mark:feature <what>` does the same.
+
+**5. Come back later.** Click the Mark icon in the menu bar, then **Open**; or run `mark board`.
+
+To try Mark without touching your own code, run an example in a sandbox:
+[examples/README.md](examples/README.md).
+
+### Other ways to install
+
+For a whole team, install the plugin at project scope (it goes into the committed
+`.claude/settings.json`), then run `/mark:init` in Claude Code inside the repository:
 
 ```bash
 claude plugin marketplace add tuoyukun/MarkSuits --scope project
 claude plugin install mark@marksuits --scope project
 ```
 
-Then, in Claude Code inside your repository:
+### Uninstall
 
-```text
-/mark:init                                        # read the repo, propose a setup, write it on your OK
-/mark:feature Add a "Clear completed" button      # requirement → design → plan → code → test → merge
+```bash
+curl -fsSL https://raw.githubusercontent.com/tuoyukun/MarkSuits/main/uninstall.sh | bash
 ```
 
-To try it without touching your own code, run an example in a sandbox:
-[examples/README.md](examples/README.md).
+It quits Mark and removes the menu bar app, its login item, the `mark` command and the plugin.
+It keeps Claude Code, your projects (code and `.mark/`) and `~/.mark` (the project list, model
+profiles with their API keys, board logs); add `-s -- --purge` after `bash` to remove `~/.mark` too.
 
 ## Why Mark
 
@@ -121,11 +148,7 @@ board read-only.
 One board serves all your projects: `/mark:board` in a project opens its page and adds it to the
 home page (`/`), which lists every project and what waits on you there. **+ New project** on the
 home page sets up a new one: give a directory and say what you are building, and Claude runs
-`/mark:init` there, proposing the setup for you to confirm in the chat. When this computer lacks
-something Mark needs (Claude Code, signing in, the plugin, git, Python 3.11+), the home page says
-what, and installs what it can with one click.
-
-![The home page on a new computer: what Mark still needs, with one-click installs](docs/images/board-home-en.png)
+`/mark:init` there, proposing the setup for you to confirm in the chat.
 
 You can also open a ticket on the board (**+ New ticket**) and talk it through with Claude in the
 ticket's **Discussion** tab until the requirement (or bug report) is agreed. Each message runs one

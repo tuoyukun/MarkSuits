@@ -40,14 +40,22 @@ data = json.loads((base / "plugins" / "installed_plugins.json").read_text())["pl
 print(([e for e in data if e.get("scope") == "user"] or data)[0]["installPath"])')
 [ -f "$ROOT/bin/mark" ] || die "the plugin did not install (no $ROOT/bin/mark)."
 
+MARK_DIR=${MARK_HOME:-$HOME/.mark}
 if [ "$(uname)" = "Darwin" ]; then
   say "Building the Mark menu bar app"
   "$PY" "$ROOT/bin/mark" app install
-else
-  say "Run \`$ROOT/bin/mark board\` (or /mark:board in Claude Code) to open the board."
+  # the app runs the board; open that one, not a second board the app would stop when it starts
+  for _ in $(seq 1 30); do grep -q '"service"' "$MARK_DIR/board.json" 2>/dev/null && break; sleep 0.5; done
 fi
 
-if ! claude auth status >/dev/null 2>&1; then
-  say "Last step: sign in to Claude in a terminal:  claude auth login"
-fi
-say "Done. In a project, run /mark:init in Claude Code, or use New project on the board."
+say "Opening the board"
+"$PY" "$ROOT/bin/mark" board || true
+cat <<EOF
+
+Done. On the board:
+  - if the panel at the top lists anything, finish it there (a model to run on, ...)
+  - New project: pick a directory and say what you are building; Claude sets Mark up with you
+  - Add existing project: a repository that already uses Mark
+Open the board again any time: the Mark menu bar icon > Open, or run: mark board
+Uninstall: curl -fsSL https://raw.githubusercontent.com/tuoyukun/MarkSuits/main/uninstall.sh | bash
+EOF

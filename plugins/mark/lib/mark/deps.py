@@ -3,10 +3,12 @@
 The home page lists the checks that fail. A fix runs one of the commands in `fix_command`: the
 page sends only a check id, never a command or an argument. One fix runs at a time, in the
 background; its output goes to MARK_HOME/deps.log. Signing in to Claude needs a browser and a
-terminal, so the page shows that command instead of running it.
+terminal, so the page shows that command instead of running it; a model of its own (a custom
+endpoint picked in the board's model menu) needs no sign-in.
 """
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import subprocess
@@ -14,11 +16,11 @@ import sys
 import threading
 from pathlib import Path
 
-from . import app, home, runner
+from . import app, home, model, runner
 
 INSTALL_CLAUDE = "curl -fsSL https://claude.ai/install.sh | bash"
 MARKETPLACE = "tuoyukun/MarkSuits"
-BLOCKING = ("python", "git", "claude", "login", "plugin")  # a new project needs all of these
+BLOCKING = ("python", "git", "claude", "model", "plugin")  # a new project needs all of these
 
 _lock = threading.Lock()
 _job: dict = {}
@@ -60,8 +62,17 @@ def checks(run=_run, darwin: bool = sys.platform == "darwin") -> list[dict]:
     add("git", bool(git), git.removeprefix("git version "), fix=darwin)
     claude = runner.find_claude()
     add("claude", bool(claude), _first_line(run([claude, "--version"])).split(" ")[0] if claude else "", fix=True)
-    res = run([claude, "auth", "status"]) if claude else None
-    add("login", bool(res and res.returncode == 0))
+    s = model.store(None)
+    active = next(p for p in s["profiles"] if p["name"] == s["active"])
+    if active.get("provider") == "custom":
+        add("model", True, active["name"])
+    else:  # the CLI's own login: claude.ai, an API key, a cloud provider
+        res = run([claude, "auth", "status"]) if claude else None
+        try:
+            method = str(json.loads(res.stdout).get("authMethod") or "") if res and res.returncode == 0 else ""
+        except (ValueError, AttributeError):
+            method = ""
+        add("model", bool(res and res.returncode == 0), method)
     found = app.plugin_entry()
     user = bool(found and found[1].get("scope") == "user")
     add("plugin", user, str(found[1].get("version") or "") if user else "", fix=bool(claude))

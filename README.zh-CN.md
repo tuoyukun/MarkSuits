@@ -21,27 +21,51 @@ flowchart LR
 
 ## 快速开始
 
-一行命令安装 Claude Code（没装的话）、用户级的 Mark 插件，在 macOS 上还有菜单栏应用；再跑一次就是修复或更新：
+**1. 安装。** 一行命令安装 Claude Code（没装的话）、用户级的 Mark 插件，在 macOS 上还有菜单栏应用。装完后
+看板会自动在浏览器里打开。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tuoyukun/MarkSuits/main/install.sh | bash
 ```
 
-也可以自己装插件，比如给整个团队装（写进 `.claude/settings.json`）：
+**2. 在看板上完成配置。** 这台电脑还缺什么，首页顶部的面板会列出来，能装的点一下就能装好。看板里的会话需要
+一个可用的模型：登录 Claude（在终端里运行 `claude auth login`），或者点 **添加模型**，用一个自带 API key 的
+其他模型（DeepSeek 等兼容 Anthropic 接口的服务）。
+
+![新电脑上的首页：Mark 还缺什么，能装的一键安装](docs/images/board-home-zh-CN.png)
+
+**3. 添加项目。**
+
+- **新建项目**：选一个目录（新目录，或者还没用 Mark 的已有仓库），说说要做什么。Claude 会在那里和你一起运行
+  `/mark:init`：先提出配置方案（技术栈、模块、测试），你在对话里确认或修改，完成后项目出现在看板上。
+- **添加已有项目**：已经用上 Mark 的仓库，粘贴它的路径即可。
+
+**4. 开始干活。** 打开项目，点 **+ 新建工单**，在工单的对话里和 Claude 把需求聊清楚；需求、设计、方案准备好时
+在看板上批准，之后一路自动跑到合并。习惯用终端？在仓库里打开 Claude Code，`/mark:feature <要做什么>` 效果一样。
+
+**5. 以后再打开。** 点菜单栏的 Mark 图标，选 **Open**；或者运行 `mark board`。
+
+不想动自己的代码，可以先在沙箱里跑示例：[examples/README.md](examples/README.md)。
+
+### 其他安装方式
+
+给整个团队用时，把插件装在项目级（写进提交到仓库的 `.claude/settings.json`），然后在仓库里的 Claude Code 中
+运行 `/mark:init`：
 
 ```bash
 claude plugin marketplace add tuoyukun/MarkSuits --scope project
 claude plugin install mark@marksuits --scope project
 ```
 
-然后在仓库里打开 Claude Code：
+### 卸载
 
-```text
-/mark:init                                        # 读仓库、给出配置草案，你确认后写入
-/mark:feature 加一个"清除已完成"按钮               # 需求 → 设计 → 方案 → 代码 → 测试 → 合并
+```bash
+curl -fsSL https://raw.githubusercontent.com/tuoyukun/MarkSuits/main/uninstall.sh | bash
 ```
 
-不想动自己的代码，可以先在沙箱里跑示例：[examples/README.md](examples/README.md)。
+它会退出 Mark，删除菜单栏应用、开机启动项、`mark` 命令和插件。保留 Claude Code、你的项目（代码和 `.mark/`）
+以及 `~/.mark`（项目列表、含 API key 的模型配置、看板日志）；在 `bash` 后面加 `-s -- --purge` 会连 `~/.mark`
+一起删掉。
 
 ## 为什么用 Mark
 
@@ -108,10 +132,7 @@ agent 时间、约 6 美元 token。人只输入了两条需求，回答了几�
 
 所有项目共用一个看板：在项目里运行 `/mark:board` 会打开这个项目的页面，并把它加到首页（`/`）；首页列出所有项目
 以及各自等你处理的事。首页的 **+ 新建项目** 用来新建项目：填一个目录、说说要做什么，Claude 就在那里运行
-`/mark:init`，先给出配置方案，你在对话里确认。这台电脑缺少 Mark 需要的东西（Claude Code、登录、插件、git、
-Python 3.11+）时，首页会列出来，能装的点一下就能装好。
-
-![新电脑上的首页：Mark 还缺什么，能装的一键安装](docs/images/board-home-zh-CN.png)
+`/mark:init`，先给出配置方案，你在对话里确认。
 
 也可以直接在看板上建单（**+ 新建工单**），在工单的**讨论**标签页里和 Claude 来回讨论，直到需求（或 bug
 描述）定稿。每条消息在同一个对话里跑一轮后台 Claude，需求文件边聊边在看板上更新。之后怎么走和在终端里用

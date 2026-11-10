@@ -127,8 +127,13 @@ class CliTest(unittest.TestCase):
         for args in (["app"], ["app", "build"], ["app", "install", "--bad"]):
             self.assertEqual(cli.main(args, out=io.StringIO(), err=io.StringIO()), 2, args)
 
-    def test_install_sh_parses(self):
-        self.assertEqual(subprocess.run(["bash", "-n", str(ROOT / "install.sh")]).returncode, 0)
+    def test_scripts_parse(self):
+        for name in ("install.sh", "uninstall.sh"):
+            self.assertEqual(subprocess.run(["bash", "-n", str(ROOT / name)]).returncode, 0, name)
+
+    def test_uninstall_knows_the_launcher(self):
+        # uninstall.sh deletes ~/.local/bin/mark only when it is ours
+        self.assertIn("Mark plugin", (ROOT / "plugins/mark/macos/launcher.py").read_text())
 
 
 if __name__ == "__main__":
