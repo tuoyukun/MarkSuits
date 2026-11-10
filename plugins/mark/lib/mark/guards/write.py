@@ -36,6 +36,8 @@ def cli_only_globs(state: str) -> list[str]:
     return [
         ".mark/.base/**",                      # pristine template copies
         f"{state}/locks/human/**",             # proof of human commands
+        f"{state}/locks/model.json",           # the board's model setting (`model.py`): where sessions send
+        f"{state}/locks/chat-*.model.json",    # their prompts, so only the human sets it, on the board
         f"{state}/gates/**",
         f"{state}/features/*/{STATUS_FILE}",
         f"{state}/bugs/*/{STATUS_FILE}",

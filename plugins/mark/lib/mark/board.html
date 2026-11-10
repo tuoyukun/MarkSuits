@@ -254,6 +254,8 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .ask{align-self:flex-start;width:min(560px,100%);box-sizing:border-box;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.ask .dq{margin-top:10px}.ask .dq:first-of-type{margin-top:0}.ask .dq i{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--mute);margin-right:6px}
 .nmodal{width:min(560px,94vw);height:auto;max-height:90vh}
 .nmodal .pad{padding:16px 18px;overflow:auto}
+.mbtn{all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--text2);min-width:0}
+.mbtn:hover{color:var(--text)}.mbtn code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chat{flex:1;display:flex;flex-direction:column;min-height:0}
 .msgs{flex:1;overflow:auto;padding:20px 28px;display:flex;flex-direction:column;gap:10px}
 .msg{max-width:760px;border-radius:10px;padding:10px 14px;font-size:13.5px;line-height:1.6;word-wrap:break-word}
@@ -287,6 +289,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
     <button class="nav kf" data-k="bug"><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="3" fill="#eb5757"/><circle cx="8" cy="8" r="1.8" fill="#fff"/></svg>Bug</button>
     <button class="nav kf" data-k="general"><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="3" fill="#8a8f98"/><path d="M5.5 8h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>General</button>
     <div class="sbfoot">
+      <button class="mbtn" data-model title=""><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="3.5" width="9" height="9" rx="2"/><path d="M6 1.5v2M10 1.5v2M6 12.5v2M10 12.5v2M1.5 6h2M1.5 10h2M12.5 6h2M12.5 10h2"/></svg><span data-i="modelH"></span> <code id="mLabel"></code></button>
       <span class="live" id="live"><i></i><span id="liveText"></span></span>
       <span>127.0.0.1:<code id="port"></code> · <span id="mode"></span></span>
     </div>
@@ -319,6 +322,20 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
     </div>
   </div>
 </div>
+<div class="ov" id="mv">
+  <div class="modal nmodal dec" role="dialog" aria-modal="true">
+    <div class="mh"><span class="t" data-i="modelH"></span><span class="grow"></span><button class="ib" data-mclose><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
+    <div class="pad">
+      <p class="none" data-i="modelHint"></p>
+      <label for="mProv" data-i="provider"></label><select id="mProv"><option value="anthropic">Anthropic (Claude Code login)</option><option value="custom" data-i="provCustom"></option></select>
+      <label for="mModel" data-i="modelName"></label><input id="mModel" list="mModels" autocomplete="off"><datalist id="mModels"><option value="opus"><option value="sonnet"><option value="haiku"><option value="fable"></datalist>
+      <div id="mCustom"><button class="btn" data-preset type="button" data-i="presetDs"></button>
+        <label for="mUrl">Base URL</label><input id="mUrl" placeholder="https://api.deepseek.com/anthropic" autocomplete="off">
+        <label for="mKey">API key</label><input id="mKey" type="password" autocomplete="off"></div>
+      <button class="btn pri" data-msave data-i="save"></button><pre class="dout bad" id="mOut"></pre>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <div class="tip" id="tip"></div>
 <script>
@@ -344,6 +361,9 @@ const I18N={
   newT:"New ticket",newText:"What to build or fix. The first line becomes the title; Claude reads it all and asks about the gaps.",newSlug:"Short name for the id (optional, a-z 0-9 -)",create:"Open and start talking",
   chat:"Discussion",chatPh:"Reply to Claude…",send:"Send",thinking:"Claude is working…",chatEmpty:"No discussion yet. Send a message to start one.",
   askSend:"Send answers",askOther:"Your own answer (optional)",askNone:"Answer at least one question.",
+  modelH:"Model",modelHint:"Board sessions (new tickets, carrying on after a decision) run Claude Code on this model. A change applies to sessions started from now on; a running session, and a ticket's ongoing discussion, keep their model.",
+  provider:"Provider",provCustom:"Anthropic-compatible endpoint (DeepSeek …)",modelName:"Model (alias such as opus, or a full name)",presetDs:"Fill in DeepSeek",
+  keySaved:"Saved; leave empty to keep it",save:"Save",saved:"Model saved: {m}. New sessions use it.",
   "chat.busy":"Claude is already working on this ticket; wait for its reply.","chat.no-claude":"`claude` was not found, so nobody can reply. Continue in a terminal."},
  "zh-CN":{board:"看板",timeline:"流转历史",human:"等我处理",kind:"类型",allTickets:"全部工单",readonly:"只读",live:"实时同步中",offline:"重新连接中…",all:"全部",active:"进行中",done:"已完成",search:"搜索工单",
   sWait:"等你处理",sAgent:"Agent 进行中",sDone:"已完成",sBugs:"未关闭 Bug",empty:"暂无工单",noTickets:"还没有工单。用这个命令建一张：",ticket:"工单",now:"现在",
@@ -365,6 +385,9 @@ const I18N={
   newT:"新建工单",newText:"要做什么或修什么。第一行作为标题；Claude 会读完全部内容，再就缺的地方提问。",newSlug:"编号里的短名（可选，a-z 0-9 -）",create:"创建并开始讨论",
   chat:"讨论",chatPh:"回复 Claude…",send:"发送",thinking:"Claude 处理中…",chatEmpty:"还没有讨论。发一条消息开始。",
   askSend:"发送回答",askOther:"自己填写（可选）",askNone:"至少回答一个问题。",
+  modelH:"模型",modelHint:"看板发起的会话（新建工单、审批后续跑）用这个模型跑 Claude Code。修改只影响之后启动的会话；正在跑的会话、工单里进行中的讨论都保持原模型。",
+  provider:"提供方",provCustom:"Anthropic 兼容端点（DeepSeek 等）",modelName:"模型（opus 这类别名，或完整名称）",presetDs:"填入 DeepSeek",
+  keySaved:"已保存；留空则不变",save:"保存",saved:"模型已保存：{m}。新会话将使用它。",
   "chat.busy":"Claude 正在处理这张工单，等它回复后再发。","chat.no-claude":"没找到 `claude` 命令，没人能回复。请到终端里继续。"}};
 const LABELS={
  en:{drafting:"Drafting","review-requirement":"Requirement review",designing:"Designing","review-design":"Design review",planning:"Planning","review-plan":"Plan review",developing:"Developing","failed-impl":"Rework","design-qa":"Design QA",testing:"Testing","pending-merge":"Pending merge","blocked-plan":"Blocked: plan","blocked-spec":"Blocked: design","blocked-unclear":"Needs answer",passed:"Passed",superseded:"Superseded"},
@@ -464,7 +487,7 @@ function card(t){const st=stageOf(t.status),i=PIPE.indexOf(st.k),done=st.k==="do
 function render(){
   document.querySelectorAll("[data-i]").forEach(e=>e.textContent=tr(e.dataset.i));
   $("#q").placeholder=tr("search");$("#pname").textContent=data.project;$("#crumbP").textContent=data.project;$("#psub").textContent=`Mark · ${data.branch}`;
-  $("#port").textContent=location.port;$("#mode").textContent=tr(data.decide==="on"?"canDecide":"readonly");$("#newBtn").hidden=data.decide!=="on";document.title=`${data.project} · Mark`;
+  $("#port").textContent=location.port;$("#mode").textContent=tr(data.decide==="on"?"canDecide":"readonly");$("#newBtn").hidden=data.decide!=="on";$("#mLabel").textContent=data.model.label;document.title=`${data.project} · Mark`;
   $("#nAll").textContent=data.tickets.length;const nh=data.tickets.filter(isHuman).length;$("#nHuman").textContent=nh;$("#nHuman").classList.toggle("zero",!nh);
   $("#vt").textContent=tr(view);
   const all=data.tickets.filter(t=>kind==="all"||t.kind===kind),v=visible();
@@ -594,7 +617,7 @@ function runOf(t){const r=data.run;return r&&r.ticket===t.id?r:null}
 function runTag(t){const r=runOf(t);return r&&(r.kind==="running"||r.kind==="blocked")?`<span class="tag ${r.kind==="running"?"run":"wait"}">${tr(RUNK[r.kind])}</span>`:""}
 function runBlk(t){const r=runOf(t),el=$("#run");if(!r){el.innerHTML="";return}
   const log=el.querySelector(".runlog"),atEnd=!log||log.scrollTop+log.clientHeight>=log.scrollHeight-4;
-  el.innerHTML=`<div class="blk dec"><h5>${tr("runH")} · ${tr(RUNK[r.kind])} · ${fmt(r.started*1000)}</h5>
+  el.innerHTML=`<div class="blk dec"><h5>${tr("runH")} · ${tr(RUNK[r.kind])} · ${fmt(r.started*1000)}${r.model?` · <code>${esc(r.model)}</code>`:""}</h5>
    ${r.lines.length?`<pre class="dout runlog">${esc(r.lines.join("\n"))}</pre>`:""}
    ${r.kind==="blocked"?`<pre class="dout bad">${esc((r.commands||[]).map(c=>"$ "+c).join("\n"))}</pre><p class="none">${esc(tr("runBlockedHint").replace("{id}",t.id))}</p>`:""}
    ${r.kind==="failed"||r.kind==="done"?`<pre class="dout ${r.kind==="failed"?"bad":""}">${esc(r.text||"")}</pre>`:""}
@@ -647,7 +670,7 @@ async function doc(t,files){
   if(open.tab==="__chat"){const key=`${t.id}|__chat`;
     if(key!==docKey){docKey=key;chatKey="";
       el.innerHTML=`<div class="chat"><div class="msgs" id="msgs"></div><div class="cin">${data.decide==="on"?`<textarea id="cText" rows="3" placeholder="${tr("chatPh")}"></textarea>
-       <div class="crow"><span class="none" id="cState"></span><span class="grow"></span><button class="btn" data-cstop hidden>${tr("stop")}</button><button class="btn pri" data-send>${tr("send")}</button></div>`
+       <div class="crow"><span class="none" id="cState"></span><span class="grow"></span><code class="none" id="cModel"></code><button class="btn" data-cstop hidden>${tr("stop")}</button><button class="btn pri" data-send>${tr("send")}</button></div>`
        :`<div class="none">${esc(tr(data.decide==="off"?"offDecide":"needLogin"))}</div>`}</div></div>`}
     chatLoad(t);return}
   const key=f?`${t.id}|${f.name}|${f.src}|${f.mtime}`:`${t.id}|__hist|${t.history.length}|${last(t).at}`;
@@ -675,6 +698,7 @@ async function chatLoad(t){
   box.innerHTML=(o.length?o.map(x=>x.step?`<div class="steps">${esc(x.lines.join("\n"))}</div>`:x).join(""):`<div class="none">${tr("chatEmpty")}</div>`)
     +(c.running?`<div class="msg ai none">${tr("thinking")}</div>`:"")+(c.ask&&$("#cText")?askForm(c.ask):"");
   if(atEnd||c.running)box.scrollTop=box.scrollHeight;
+  if($("#cModel"))$("#cModel").textContent=c.model||"";
   const send=$("[data-send]"),stop=$("[data-cstop]");if(send)send.disabled=c.running;if(stop)stop.hidden=!c.running;
   mermaid(box)}
 // Claude's questions (`mark ask`) as a form; the answers go back as an ordinary chat message
@@ -692,6 +716,16 @@ async function chatSend(answers){const t=data.tickets.find(x=>x.id===open?.id),t
   $("#cState").textContent=r.ok?"":tr(r.text)||r.text;
   if(r.ok&&!answers)ta.value="";else if(!r.ok)$("[data-send]").disabled=false;
   chatKey="";chatLoad(t)}
+function modelOpen(){const m=data.model;$("#mOut").textContent="";$("#mProv").value=m.provider;$("#mModel").value=m.model;
+  $("#mUrl").value=m.base_url;$("#mKey").value="";$("#mKey").placeholder=m.has_key?tr("keySaved"):"";modelProv();
+  $("[data-msave]").disabled=data.decide!=="on";if(data.decide!=="on")$("#mOut").textContent=tr(data.decide==="off"?"offDecide":"needLogin");
+  $("#mv").classList.add("on")}
+function modelProv(){$("#mCustom").hidden=$("#mProv").value!=="custom"}
+async function modelSave(){const b=$("[data-msave]");b.disabled=true;
+  const body={provider:$("#mProv").value,model:$("#mModel").value.trim(),base_url:$("#mUrl").value.trim(),api_key:$("#mKey").value.trim()};
+  let r;try{r=await (await fetch("/api/model",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}catch{r={ok:false,text:tr("loadFail")}}
+  b.disabled=false;if(!r.ok){$("#mOut").textContent=r.text||"";return}
+  $("#mv").classList.remove("on");await load();toast(esc(tr("saved").replace("{m}",data.model.label)))}
 function newOpen(){$("#nOut").textContent="";$("#nv").classList.add("on");$("#nText").focus()}
 function newClose(){$("#nv").classList.remove("on")}
 async function create(){const text=$("#nText").value;if(!text.trim()){$("#nText").focus();return}
@@ -729,6 +763,10 @@ document.addEventListener("click",e=>{
   const act=e.target.closest("[data-act]");if(act){const ov=$("#ov");if(act.dataset.act==="close")closeM();else{ov.classList.toggle(act.dataset.act==="full"?"full":"noside");if(act.dataset.act==="full")modal()}return}
   const dec=e.target.closest("[data-dec]");if(dec){decide(dec.dataset.dec);return}
   if(e.target.closest("[data-new]")){newOpen();return}
+  if(e.target.closest("[data-model]")){modelOpen();return}
+  if(e.target.closest("[data-mclose]")||e.target===$("#mv")){$("#mv").classList.remove("on");return}
+  if(e.target.closest("[data-msave]")){modelSave();return}
+  if(e.target.closest("[data-preset]")){$("#mUrl").value="https://api.deepseek.com/anthropic";$("#mModel").value="deepseek-chat";return}
   if(e.target.closest("[data-nclose]")||e.target===$("#nv")){newClose();return}
   if(e.target.closest("[data-create]")){create();return}
   if(e.target.closest("[data-send]")){chatSend();return}
@@ -740,14 +778,14 @@ document.addEventListener("click",e=>{
   if(e.target===$("#ov"))closeM();
 });
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){if($("#nv").classList.contains("on"))newClose();else if(document.activeElement===$("#q"))$("#q").blur();else if(open)closeM()}
+  if(e.key==="Escape"){if($("#mv").classList.contains("on"))$("#mv").classList.remove("on");else if($("#nv").classList.contains("on"))newClose();else if(document.activeElement===$("#q"))$("#q").blur();else if(open)closeM()}
   else if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)&&document.activeElement?.id==="cText"){e.preventDefault();chatSend()}
   else if(e.key==="Enter"&&document.activeElement?.dataset.open)openM(document.activeElement.dataset.open);
   else if(e.key==="/"&&!open&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||"")){e.preventDefault();$("#q").focus()}});
 document.querySelectorAll(".nav[data-v]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-v]").forEach(x=>x.classList.toggle("on",x===b));view=b.dataset.v;render()});
 document.querySelectorAll(".kf").forEach(b=>b.onclick=()=>{document.querySelectorAll(".kf").forEach(x=>x.classList.toggle("on",x===b));kind=b.dataset.k;render()});
 document.querySelectorAll("#seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#seg button").forEach(x=>x.classList.toggle("on",x===b));scope=b.dataset.k;render()});
-document.addEventListener("change",e=>{if(e.target.name==="dOpt"){$("#dPick").hidden=e.target.value==="other";$("#dPlain").hidden=e.target.value!=="other"}});
+document.addEventListener("change",e=>{if(e.target.id==="mProv")modelProv();if(e.target.name==="dOpt"){$("#dPick").hidden=e.target.value==="other";$("#dPlain").hidden=e.target.value!=="other"}});
 $("#q").oninput=e=>{q=e.target.value.toLowerCase();render()};
 const tip=$("#tip");
 document.addEventListener("mousemove",e=>{const el=e.target.closest("[data-tip]");if(!el||$("#gw.drag")){tip.style.display="none";return}

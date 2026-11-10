@@ -12,14 +12,15 @@ from unittest import mock
 
 from tests._support import add_ticket, make_repo
 
-from mark import chat, runner
+from mark import chat, model, runner
 from mark.config import load_config
 
 FAKE = """#!{py}
 import json, os, sys, time
 calls = os.environ["FAKE_ARGS"]
 with open(calls, "a") as fh:
-    fh.write(json.dumps({{"argv": sys.argv[1:], "stdin": sys.stdin.read(), "nested": os.environ.get("CLAUDECODE")}}) + "\\n")
+    fh.write(json.dumps({{"argv": sys.argv[1:], "stdin": sys.stdin.read(), "nested": os.environ.get("CLAUDECODE"),
+                         "base": os.environ.get("ANTHROPIC_BASE_URL")}}) + "\\n")
 mode = os.environ.get("FAKE_CLAUDE", "reply")
 print(json.dumps({{"type": "system", "subtype": "init", "session_id": "s-1"}}), flush=True)
 if mode == "die":
@@ -66,6 +67,25 @@ class ChatTest(unittest.TestCase):
         second = self.turn("ISO dates.")
         self.assertEqual(second["stdin"], "ISO dates.")
         self.assertEqual(second["argv"][second["argv"].index("--resume") + 1], "s-1")
+
+    def test_a_chat_keeps_the_model_it_started_with(self):
+        first = self.turn("Due dates.")
+        self.assertIn("--model=opus", first["argv"])
+        model.save(self.cfg, {"provider": "custom", "model": "deepseek-chat",
+                              "base_url": "https://api.deepseek.com/anthropic", "api_key": "k"})
+        second = self.turn("ISO dates.")  # resumes the conversation in progress
+        self.assertIn("--model=opus", second["argv"])
+        self.assertIsNone(second["base"])
+        self.assertEqual(chat.view(self.cfg, "0001-a")["model"], "opus")
+        add_ticket(self.root, "feature", "0002-b", "drafting", gates=("ticket-approved",))
+        os.environ["FAKE_CLAUDE"] = "reply"
+        self.assertEqual(chat.start(self.cfg, "feature", "0002-b", "Tags."), (True, ""))
+        deadline = time.monotonic() + 10
+        while chat.running(self.cfg, "0002-b") and time.monotonic() < deadline:
+            time.sleep(0.05)
+        new = [json.loads(line) for line in self.calls.read_text().splitlines()][-1]
+        self.assertIn("--model=deepseek-chat", new["argv"])
+        self.assertEqual(new["base"], "https://api.deepseek.com/anthropic")
 
     def test_the_view_is_the_conversation(self):
         self.turn("Due dates.")

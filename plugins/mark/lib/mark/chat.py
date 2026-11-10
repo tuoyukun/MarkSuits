@@ -28,7 +28,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import ask, runner, states
+from . import ask, model, runner, states
 from .config import MarkConfig
 
 TEXT_MAX = 20000
@@ -95,9 +95,28 @@ def session(cfg: MarkConfig, ticket_id: str) -> str | None:
     return sid
 
 
-def command(cfg: MarkConfig, sid: str | None, claude: str) -> list[str]:
+def settings_path(cfg: MarkConfig, ticket_id: str) -> Path:
+    return cfg.state_dir / "locks" / f"chat-{ticket_id}.model.json"
+
+
+def settings(cfg: MarkConfig, ticket_id: str, resuming: bool) -> dict:
+    """The model this turn runs on: a resumed conversation keeps the one it started with, a new one
+    takes the board's current setting and pins it."""
+    if resuming:
+        try:
+            data = json.loads(settings_path(cfg, ticket_id).read_text())
+            if model.valid(data):
+                return data
+        except (OSError, ValueError):
+            pass  # a chat from before models were set: pin the current one
+    data = model.load(cfg)
+    model.write_private(settings_path(cfg, ticket_id), data)
+    return data
+
+
+def command(cfg: MarkConfig, sid: str | None, claude: str, extra: list[str] = ()) -> list[str]:
     return [claude, "-p", *(["--resume", sid] if sid else []), "--append-system-prompt", BOARD_NOTE,
-            "--permission-mode", cfg.board_permission_mode, "--output-format", "stream-json", "--verbose"]
+            "--permission-mode", cfg.board_permission_mode, *extra, "--output-format", "stream-json", "--verbose"]
 
 
 def prompt(kind: str, ticket_id: str, text: str, first: bool) -> str:
@@ -118,10 +137,12 @@ def start(cfg: MarkConfig, kind: str, ticket_id: str, text: str, claude: str | N
     ask.clear(cfg, ticket_id)  # the human answered (or moved on): the form belonged to the last turn
     log = log_path(cfg, ticket_id)
     log.parent.mkdir(parents=True, exist_ok=True)
+    pinned = settings(cfg, ticket_id, sid is not None)
+    extra, env = model.launch(pinned, runner.clean_env())
     with open(log, "a", encoding="utf-8") as fh:
         fh.write(json.dumps({"type": "human", "text": text, "at": time.time()}, ensure_ascii=False) + "\n")
     with open(log, "ab") as fh:
-        proc = subprocess.Popen(command(cfg, sid, claude), cwd=cfg.root, env=runner.clean_env(),
+        proc = subprocess.Popen(command(cfg, sid, claude, extra), cwd=cfg.root, env=env,
                                 stdin=subprocess.PIPE, stdout=fh, stderr=subprocess.STDOUT,
                                 start_new_session=True)  # its own group: stop ends what it started too
     state_path(cfg, ticket_id).write_text(json.dumps({"pid": proc.pid, "started": time.time()}) + "\n")
@@ -171,4 +192,8 @@ def view(cfg: MarkConfig, ticket_id: str) -> dict[str, object]:
     live = running(cfg, ticket_id) is not None
     if pending and not live:
         msgs.append({"who": "error", "text": "the turn ended without a reply"})
-    return {"running": live, "messages": msgs, "ask": None if live else ask.load(cfg, ticket_id)}
+    try:
+        pinned = model.label(json.loads(settings_path(cfg, ticket_id).read_text()))
+    except (OSError, ValueError, KeyError, IndexError, TypeError):
+        pinned = ""
+    return {"running": live, "messages": msgs, "ask": None if live else ask.load(cfg, ticket_id), "model": pinned}

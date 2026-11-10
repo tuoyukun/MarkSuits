@@ -12,7 +12,7 @@ from unittest import mock
 
 from tests._support import add_ticket, make_repo
 
-from mark import board, runner
+from mark import board, model, runner
 from mark.config import load_config
 
 FAKE = """#!{py}
@@ -66,6 +66,14 @@ class RunnerTest(unittest.TestCase):
         args = json.loads(self.args.read_text())
         self.assertEqual(args["argv"][:4], ["-p", "/mark:continue 0001-a", "--permission-mode", "auto"])
         self.assertIsNone(args["nested"])  # not a session nested in the one that started the board
+
+    def test_a_run_uses_the_model_set_when_it_starts(self):
+        self.assertEqual(self.run_once()["model"], "opus")
+        self.assertIn("--model=opus", json.loads(self.args.read_text())["argv"])
+        model.save(self.cfg, {"provider": "anthropic", "model": "sonnet"})
+        v = self.run_once()
+        self.assertIn("--model=sonnet", json.loads(self.args.read_text())["argv"])
+        self.assertEqual(v["model"], "sonnet")
 
     def test_denials_and_errors(self):
         v = self.run_once("blocked")

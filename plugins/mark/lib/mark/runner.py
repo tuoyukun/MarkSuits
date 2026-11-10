@@ -19,6 +19,7 @@ import threading
 import time
 from pathlib import Path
 
+from . import model
 from .config import MarkConfig
 
 STATE_FILE = "runner.json"
@@ -61,9 +62,9 @@ def clean_env(environ=os.environ) -> dict[str, str]:
     return {k: v for k, v in environ.items() if k not in SESSION_MARKERS}  # keeps auth such as CLAUDE_CODE_OAUTH_TOKEN
 
 
-def command(cfg: MarkConfig, ticket_id: str, claude: str) -> list[str]:
+def command(cfg: MarkConfig, ticket_id: str, claude: str, extra: list[str] = ()) -> list[str]:
     return [claude, "-p", f"/mark:continue {ticket_id}", "--permission-mode", cfg.board_permission_mode,
-            "--output-format", "stream-json", "--verbose"]
+            *extra, "--output-format", "stream-json", "--verbose"]
 
 
 def start(cfg: MarkConfig, ticket_id: str, claude: str | None = None) -> tuple[bool, str]:
@@ -77,12 +78,14 @@ def start(cfg: MarkConfig, ticket_id: str, claude: str | None = None) -> tuple[b
     locks.mkdir(parents=True, exist_ok=True)
     stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     log = locks / f"run-{ticket_id}-{stamp}.jsonl"
+    settings = model.load(cfg)  # read at start: a later change on the board waits for the next session
+    extra, env = model.launch(settings, clean_env())
     with open(log, "w") as fh:
-        proc = subprocess.Popen(command(cfg, ticket_id, claude), cwd=cfg.root, env=clean_env(),
+        proc = subprocess.Popen(command(cfg, ticket_id, claude, extra), cwd=cfg.root, env=env,
                                 stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT,
                                 start_new_session=True)  # its own group: stop ends the agents it started too
     state_path(cfg).write_text(json.dumps({"pid": proc.pid, "ticket": ticket_id, "log": log.name,
-                                           "started": time.time()}) + "\n")
+                                           "started": time.time(), "model": model.label(settings)}) + "\n")
     threading.Thread(target=proc.wait, daemon=True).start()  # reap it, so a finished run reads as dead
     return True, ""
 
@@ -157,5 +160,5 @@ def view(cfg: MarkConfig) -> dict[str, object] | None:
             lines += _describe(event)
             if event.get("type") == "result":
                 result = event
-    return {"ticket": st.get("ticket"), "started": st.get("started"), "log": st.get("log"),
+    return {"ticket": st.get("ticket"), "started": st.get("started"), "log": st.get("log"), "model": st.get("model"),
             "lines": lines[-LINES_KEPT:], **outcome(result, _alive(st.get("pid")))}

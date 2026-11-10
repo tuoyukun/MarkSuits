@@ -336,13 +336,24 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(len(tickets.ticket_dirs(self.cfg, "feature")), 3)  # nothing was claimed
         self.no_tokens_left()
 
+    def test_the_model_is_set_with_the_cookie_and_its_key_never_shown(self):
+        body = {"provider": "custom", "model": "deepseek-chat", "base_url": "https://api.deepseek.com/anthropic",
+                "api_key": "sk-secret"}
+        self.assertEqual(self.post("/api/model", body)[0], 403)
+        cookie = self.login()
+        self.assertEqual(self.post("/api/model", {**body, "base_url": "nope"}, cookie=cookie)[0], 409)
+        self.assertEqual(self.post("/api/model", body, cookie=cookie)[0], 200)
+        raw = self._get("/api/board").decode()
+        self.assertNotIn("sk-secret", raw)
+        self.assertEqual(json.loads(raw)["model"]["label"], "deepseek-chat @ api.deepseek.com")
+
     def test_a_busy_chat_comes_back(self):
         with mock.patch.object(board.chat, "start", return_value=(False, "busy")):
             code, res, _ = self.post("/api/chat", {"ticket": "0003-c", "text": "hi"}, cookie=self.login())
         self.assertEqual((code, res["text"]), (409, "chat.busy"))
 
     def test_the_chat_view_and_stop(self):
-        self.assertEqual(json.loads(self._get("/api/chat/0003-c")), {"running": False, "messages": [], "ask": None})
+        self.assertEqual(json.loads(self._get("/api/chat/0003-c")), {"running": False, "messages": [], "ask": None, "model": ""})
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
         c.request("GET", "/api/chat/nope", headers={"Host": f"127.0.0.1:{self.port}"})
         self.assertEqual(c.getresponse().status, 404)

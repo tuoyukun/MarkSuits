@@ -1485,6 +1485,15 @@ class GuardTest(unittest.TestCase):
                                                     "content": "{}"}})
         self.assertEqual(code, 2)
 
+    def test_nobody_sets_the_board_model(self):
+        self.assertEqual(self.bash("echo '{}' > .mark/locks/model.json")[0], 2)
+        self.assertEqual(self.bash("cp x .mark/locks/chat-0001.model.json")[0], 2)
+        code, _ = hook("pre-write", {"hook_event_name": "PreToolUse", "tool_name": "Write",
+                                     "cwd": str(self.root),
+                                     "tool_input": {"file_path": str(self.root / ".mark/locks/model.json"),
+                                                    "content": "{}"}})
+        self.assertEqual(code, 2)
+
     def test_unattended_prompt_records_no_token(self):
         tokens = self.root / ".mark" / "locks" / "human"
         typed = {"hook_event_name": "UserPromptSubmit", "cwd": str(self.root), "prompt": "/mark:approve 0001"}

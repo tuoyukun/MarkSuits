@@ -14,6 +14,7 @@ plugin was updated since: then the old server is replaced). The page
     POST /api/stop                     stop the headless session, or with {"ticket"} its chat turn (with the cookie)
     POST /api/new                      open a ticket and start talking it through (with the cookie)
     POST /api/chat                     send the next message in a ticket's chat (with the cookie)
+    POST /api/model                    set the model new headless sessions use (`model.py`, with the cookie)
     /api/chat/<id>                     a ticket's chat (`chat.py`)
 
 Deciding: the server holds a random session secret in memory only. It opens the browser itself
@@ -44,7 +45,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import chat, flow, general, human, propose, runner, states, tickets
+from . import chat, flow, general, human, model, propose, runner, states, tickets
 from .config import MarkConfig
 from .gitutil import git, worktrees
 from .i18n import t
@@ -177,7 +178,7 @@ def snapshot(cfg: MarkConfig, history: History) -> dict[str, object]:
                       "worktree": cfg.worktree_for(tk.kind, tk.id) if dirs["worktree"].is_dir() else "",
                       "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist, "wait": waits_on(cfg, tk)})
     return {"project": cfg.root.name, "locale": cfg.locale, "branch": cfg.main_branch,
-            "tickets": items + general_lanes(cfg), "run": runner.view(cfg)}
+            "tickets": items + general_lanes(cfg), "run": runner.view(cfg), "model": model.public(model.load(cfg))}
 
 
 def waits_on(cfg: MarkConfig, tk: tickets.Ticket) -> dict[str, object] | None:
@@ -452,12 +453,16 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                     ok, text = decide(board.cfg, body)
                     note = carry_on(board.cfg, tid, before[1] if before else None, had_waiter) if ok else ""
                 self._json(200 if ok else 409, {"ok": ok, "text": text, "note": note})
-            elif path in ("/api/stop", "/api/new", "/api/chat"):
+            elif path in ("/api/stop", "/api/new", "/api/chat", "/api/model"):
                 if board.mode(self.headers.get("Cookie"), port) != "on":
                     self._json(403, {"ok": False, "text": "read-only"})
                 elif path == "/api/stop":
                     tid = body.get("ticket")
                     self._json(200, {"ok": chat.stop(board.cfg, tid) if isinstance(tid, str) else runner.stop(board.cfg)})
+                elif path == "/api/model":
+                    with board.lock:
+                        ok, text = model.save(board.cfg, body)
+                    self._json(200 if ok else 409, {"ok": ok, "text": text})
                 elif path == "/api/new":
                     with board.lock:
                         ok, text, tid = new_ticket(board.cfg, body)
