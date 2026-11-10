@@ -94,6 +94,19 @@ class WizardTest(unittest.TestCase):
         self.assertEqual(home.find(pid), target)
         self.assertEqual(wizard.cards(), [])
 
+    def test_removing_its_project_keeps_it_removed(self):
+        target = self.parent / "shop"
+        _, _, wid = wizard.start({"dir": str(target), "text": "A shop."})
+        self.wait(wid)
+        (target / ".mark").mkdir()
+        (target / ".mark" / "config.toml").write_text('mark_schema = 1\n')
+        pid = wizard.view(wid)["project"]
+        self.assertTrue(home.remove(pid))
+        wizard.forget(target)
+        wizard.cards()  # what the home page calls on every load
+        self.assertEqual(home.projects(), [])
+        self.assertTrue(target.is_dir())
+
     def test_discard_forgets_the_wizard_but_never_the_directory(self):
         target = self.parent / "shop"
         _, _, wid = wizard.start({"dir": str(target), "text": "A shop."})

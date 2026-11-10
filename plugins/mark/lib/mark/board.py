@@ -638,7 +638,10 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 ok, text, pid = add_project(body)
                 self._json(200 if ok else 409, {"ok": ok, "text": text, "id": pid})
             elif path == "/api/projects/remove":
+                root = home.find(body.get("id"))
                 ok = home.remove(body.get("id"))
+                if ok:
+                    wizard.forget(root)
                 self._json(200 if ok else 409, {"ok": ok, "text": "" if ok else "bad request"})
             elif path == "/api/deps/fix":
                 ok, text = deps.start(body.get("id"))

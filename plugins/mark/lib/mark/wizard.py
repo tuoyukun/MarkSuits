@@ -143,6 +143,13 @@ def discard(wid: str) -> bool:
     return True
 
 
+def forget(root: Path) -> None:
+    """Discard the finished wizards for `root`, so the home page stops re-registering it."""
+    for wid, data in all_wizards():
+        if Path(data["dir"]).resolve() == root.resolve():
+            discard(wid)
+
+
 def project(s: Spot) -> str:
     """The board id once the directory is a Mark project (registering it), else ""."""
     return home.add(s.root) if (s.root / ".mark" / "config.toml").is_file() else ""
