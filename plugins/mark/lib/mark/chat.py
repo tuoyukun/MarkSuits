@@ -13,6 +13,9 @@ types can be read as a command-line option.
 A turn is unattended (`CLAUDE_CODE_SESSION_ATTENDED=0`): nothing typed here counts as a human
 command, and the human decides gates with the board's buttons. `mark wait` is refused in such a
 session (`guards.bash.wait_guard`), so a turn ends when the session needs the human.
+
+`claude -p` has no AskUserQuestion, so the note tells the session to put choice questions through
+`mark ask` (`ask.py`); the board shows them as a form and the answers come back as a message.
 """
 from __future__ import annotations
 
@@ -25,7 +28,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import runner, states
+from . import ask, runner, states
 from .config import MarkConfig
 
 TEXT_MAX = 20000
@@ -34,7 +37,18 @@ BOARD_NOTE = (
     "terminal. They read your "
     "reply there and answer in their next message. They approve or reject gates with the board's "
     "buttons: point them there, not to /mark:approve or /mark:reject. When you need the human, "
-    "end your turn; never start `mark wait`."
+    "end your turn; never start `mark wait`.\n"
+    "AskUserQuestion does not exist here. To ask questions with choices (yes/no, pick one, pick "
+    "several), pipe the JSON AskUserQuestion takes into `mark ask <ticket-id>` with a heredoc in one "
+    "Bash call, then end your turn with a one-line reply; the board shows the questions as a form and "
+    "the answers arrive as the human's next message:\n"
+    "  mark ask <ticket-id> <<'EOF'\n"
+    "  {\"questions\": [{\"question\": \"<one line>?\", \"header\": \"<12 chars>\", \"multiSelect\": false,\n"
+    "    \"options\": [{\"label\": \"<short>\", \"description\": \"<what it means>\"}, ...]}]}\n"
+    "  EOF\n"
+    "1-4 questions, 2-4 options each; the human can always type their own answer, so add no \"Other\" "
+    "option. If the heredoc is refused, write the JSON to a file and run `mark ask <ticket-id> <file>`. "
+    "Ask open questions as plain text."
 )
 
 
@@ -101,6 +115,7 @@ def start(cfg: MarkConfig, kind: str, ticket_id: str, text: str, claude: str | N
     if not claude:
         return False, "no-claude"
     sid = session(cfg, ticket_id)
+    ask.clear(cfg, ticket_id)  # the human answered (or moved on): the form belonged to the last turn
     log = log_path(cfg, ticket_id)
     log.parent.mkdir(parents=True, exist_ok=True)
     with open(log, "a", encoding="utf-8") as fh:
@@ -156,4 +171,4 @@ def view(cfg: MarkConfig, ticket_id: str) -> dict[str, object]:
     live = running(cfg, ticket_id) is not None
     if pending and not live:
         msgs.append({"who": "error", "text": "the turn ended without a reply"})
-    return {"running": live, "messages": msgs}
+    return {"running": live, "messages": msgs, "ask": None if live else ask.load(cfg, ticket_id)}

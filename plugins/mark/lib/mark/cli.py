@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import board, brief, defaults, e2e, flow, general, merge, propose, scaffold, states, tickets, updates, upgrade, wait
+from . import ask, board, brief, defaults, e2e, flow, general, merge, propose, scaffold, states, tickets, updates, upgrade, wait
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -522,6 +522,16 @@ def cmd_propose(cfg: MarkConfig, args: list[str], inp: TextIO, out: TextIO, err:
     return 0
 
 
+def cmd_ask(cfg: MarkConfig, args: list[str], inp: TextIO, out: TextIO, err: TextIO) -> int:
+    """`mark ask <id> [file]` with JSON on stdin or in the file: choice questions for the board chat."""
+    if len(args) not in (1, 2):
+        _say(cfg, err, "cli.usage")
+        return 2
+    key, params = ask.save(cfg, flow.load(cfg, args[0]).id, inp, args[1] if len(args) == 2 else None)
+    _say(cfg, out, key, **params)
+    return 0
+
+
 def cmd_wait(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     """`mark wait <id> [--stop]`: block until the human decides on the ticket (run it in the background)."""
     opts, pos = _parse(args, set())
@@ -560,9 +570,9 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
     command, rest = argv[0], argv[1:]
     if command == "status":
         return cmd_status(cfg, rest, out)
-    if command == "propose":
+    if command in ("propose", "ask"):
         try:
-            return cmd_propose(cfg, rest, inp or sys.stdin, out, err)
+            return (cmd_propose if command == "propose" else cmd_ask)(cfg, rest, inp or sys.stdin, out, err)
         except flow.FlowError as exc:
             return _fail(cfg, err, exc)
     if command in COMMANDS:

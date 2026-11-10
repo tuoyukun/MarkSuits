@@ -538,6 +538,20 @@ choices, the recommended one selected, with an optional note (required when the 
 answer or comments the gate needs); "Other…" brings back the plain form. A choice posts the same
 `/api/decide` body the plain form would, so the human's click is still the decision.
 
+**Choice questions in the chat (v0.53).** A chat turn is `claude -p`, which has no
+AskUserQuestion (checked live: the tool is not in a `-p` session's tool list), so Claude used to
+list its yes/no, pick-one and pick-several questions as text. `chat.BOARD_NOTE` now tells the
+session to pipe the JSON AskUserQuestion takes into `mark ask <id>` (a heredoc; or `mark ask <id>
+<file>`, since modes other than `auto` refuse a heredoc with quoted braces) and end its turn.
+`lib/mark/ask.py` keeps the questions that have a text and at least two options (at most four
+questions of four options) and saves them as `<state>/locks/ask-<id>.json`; bad input saves
+nothing, says to ask in text instead, and exits 0. `GET /api/chat/<id>` adds them as `ask` while
+no turn runs, and the board shows a form under the chat: radio buttons or checkboxes, each with a
+free-text answer. Sending it posts the answers as an ordinary chat message (`question → a, b`), so
+it carries no more authority than typing; the next message deletes the file. Role agents may not
+run it (`MARK_WRITES`). In live runs Claude used it 6/6 times with valid JSON and resumed well on
+the answers.
+
 ### Worktree provisioning (v0.11)
 
 `git worktree add` brings only tracked files: no dependencies, no `.env`, no local config, so

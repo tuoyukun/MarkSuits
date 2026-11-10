@@ -251,6 +251,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .dec .dopt input{width:auto;margin:3px 0 0;flex:none}
 .dopt b{font-weight:500;font-size:12.5px}.dopt small{display:block;color:var(--mute);font-size:11.5px;margin-top:2px}
 .dopt .rec{font-size:10.5px;color:var(--brand);margin-left:6px}.dopt .go{font-family:var(--mono);font-size:10.5px;color:var(--mute);margin-left:6px}
+.ask{align-self:flex-start;width:min(560px,100%);box-sizing:border-box;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.ask .dq{margin-top:10px}.ask .dq:first-of-type{margin-top:0}.ask .dq i{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--mute);margin-right:6px}
 .nmodal{width:min(560px,94vw);height:auto;max-height:90vh}
 .nmodal .pad{padding:16px 18px;overflow:auto}
 .chat{flex:1;display:flex;flex-direction:column;min-height:0}
@@ -342,6 +343,7 @@ const I18N={
   needLogin:"Read-only in this window. Run `mark board` (or /mark:board) and decide in the window it opens.",offDecide:"Deciding on the board is off ([board] decide = false).",
   newT:"New ticket",newText:"What to build or fix. The first line becomes the title; Claude reads it all and asks about the gaps.",newSlug:"Short name for the id (optional, a-z 0-9 -)",create:"Open and start talking",
   chat:"Discussion",chatPh:"Reply to Claude…",send:"Send",thinking:"Claude is working…",chatEmpty:"No discussion yet. Send a message to start one.",
+  askSend:"Send answers",askOther:"Your own answer (optional)",askNone:"Answer at least one question.",
   "chat.busy":"Claude is already working on this ticket; wait for its reply.","chat.no-claude":"`claude` was not found, so nobody can reply. Continue in a terminal."},
  "zh-CN":{board:"看板",timeline:"流转历史",human:"等我处理",kind:"类型",allTickets:"全部工单",readonly:"只读",live:"实时同步中",offline:"重新连接中…",all:"全部",active:"进行中",done:"已完成",search:"搜索工单",
   sWait:"等你处理",sAgent:"Agent 进行中",sDone:"已完成",sBugs:"未关闭 Bug",empty:"暂无工单",noTickets:"还没有工单。用这个命令建一张：",ticket:"工单",now:"现在",
@@ -362,6 +364,7 @@ const I18N={
   needLogin:"此窗口只读。运行 `mark board`（或 /mark:board），在它打开的窗口里处理。",offDecide:"看板处理已关闭（[board] decide = false）。",
   newT:"新建工单",newText:"要做什么或修什么。第一行作为标题；Claude 会读完全部内容，再就缺的地方提问。",newSlug:"编号里的短名（可选，a-z 0-9 -）",create:"创建并开始讨论",
   chat:"讨论",chatPh:"回复 Claude…",send:"发送",thinking:"Claude 处理中…",chatEmpty:"还没有讨论。发一条消息开始。",
+  askSend:"发送回答",askOther:"自己填写（可选）",askNone:"至少回答一个问题。",
   "chat.busy":"Claude 正在处理这张工单，等它回复后再发。","chat.no-claude":"没找到 `claude` 命令，没人能回复。请到终端里继续。"}};
 const LABELS={
  en:{drafting:"Drafting","review-requirement":"Requirement review",designing:"Designing","review-design":"Design review",planning:"Planning","review-plan":"Plan review",developing:"Developing","failed-impl":"Rework","design-qa":"Design QA",testing:"Testing","pending-merge":"Pending merge","blocked-plan":"Blocked: plan","blocked-spec":"Blocked: design","blocked-unclear":"Needs answer",passed:"Passed",superseded:"Superseded"},
@@ -670,15 +673,24 @@ async function chatLoad(t){
     if(m.who==="step"){if(o.at(-1)?.step)o.at(-1).lines.push(m.text);else o.push({step:true,lines:[m.text]});continue}
     o.push(m.who==="human"?`<div class="msg me">${esc(m.text)}</div>`:m.who==="claude"?`<div class="msg ai md">${md(m.text)}</div>`:`<div class="msg err">${esc(m.text)}</div>`)}
   box.innerHTML=(o.length?o.map(x=>x.step?`<div class="steps">${esc(x.lines.join("\n"))}</div>`:x).join(""):`<div class="none">${tr("chatEmpty")}</div>`)
-    +(c.running?`<div class="msg ai none">${tr("thinking")}</div>`:"");
+    +(c.running?`<div class="msg ai none">${tr("thinking")}</div>`:"")+(c.ask&&$("#cText")?askForm(c.ask):"");
   if(atEnd||c.running)box.scrollTop=box.scrollHeight;
   const send=$("[data-send]"),stop=$("[data-cstop]");if(send)send.disabled=c.running;if(stop)stop.hidden=!c.running;
   mermaid(box)}
-async function chatSend(){const t=data.tickets.find(x=>x.id===open?.id),ta=$("#cText");if(!t||!ta||!ta.value.trim())return;
+// Claude's questions (`mark ask`) as a form; the answers go back as an ordinary chat message
+function askForm(a){return `<div class="blk dec ask">${a.questions.map((q,i)=>`<div class="dq">${q.header?`<i>${esc(q.header)}</i>`:""}${esc(q.question)}</div>
+  ${q.options.map(o=>`<label class="dopt"><input type="${q.multiSelect?"checkbox":"radio"}" name="aq${i}" value="${esc(o.label)}"><span><b>${esc(o.label)}</b>${o.description?`<small>${esc(o.description)}</small>`:""}</span></label>`).join("")}
+  <input id="aqo${i}" placeholder="${tr("askOther")}">`).join("")}<button class="btn pri" data-asksend>${tr("askSend")}</button></div>`}
+function askText(a){return a.questions.map((q,i)=>{const v=[...document.querySelectorAll(`[name=aq${i}]:checked`)].map(x=>x.value),own=$(`#aqo${i}`)?.value.trim();
+  if(own)v.push(own);return v.length?`${q.question} → ${v.join(", ")}`:""}).filter(Boolean).join("\n")}
+async function askSend(){const a=JSON.parse(chatKey||"{}").ask;if(!a)return;const text=askText(a);
+  if(!text){$("#cState").textContent=tr("askNone");return}
+  return chatSend(text)}
+async function chatSend(answers){const t=data.tickets.find(x=>x.id===open?.id),ta=$("#cText"),text=answers||ta?.value;if(!t||!ta||!text?.trim())return;
   $("[data-send]").disabled=true;
-  let r;try{r=await (await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:t.id,text:ta.value})})).json()}catch{r={ok:false,text:"loadFail"}}
+  let r;try{r=await (await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:t.id,text})})).json()}catch{r={ok:false,text:"loadFail"}}
   $("#cState").textContent=r.ok?"":tr(r.text)||r.text;
-  if(r.ok)ta.value="";else $("[data-send]").disabled=false;
+  if(r.ok&&!answers)ta.value="";else if(!r.ok)$("[data-send]").disabled=false;
   chatKey="";chatLoad(t)}
 function newOpen(){$("#nOut").textContent="";$("#nv").classList.add("on");$("#nText").focus()}
 function newClose(){$("#nv").classList.remove("on")}
@@ -720,6 +732,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-nclose]")||e.target===$("#nv")){newClose();return}
   if(e.target.closest("[data-create]")){create();return}
   if(e.target.closest("[data-send]")){chatSend();return}
+  if(e.target.closest("[data-asksend]")){askSend();return}
   if(e.target.closest("[data-cstop]")){fetch("/api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:open.id})}).then(load);return}
   if(e.target.closest("[data-stop]")){fetch("/api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(load);return}
   const tab=e.target.closest(".dtab");if(tab){open.tab=tab.dataset.tab;modal();return}

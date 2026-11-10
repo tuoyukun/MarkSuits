@@ -342,7 +342,7 @@ class DecideTest(unittest.TestCase):
         self.assertEqual((code, res["text"]), (409, "chat.busy"))
 
     def test_the_chat_view_and_stop(self):
-        self.assertEqual(json.loads(self._get("/api/chat/0003-c")), {"running": False, "messages": []})
+        self.assertEqual(json.loads(self._get("/api/chat/0003-c")), {"running": False, "messages": [], "ask": None})
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
         c.request("GET", "/api/chat/nope", headers={"Host": f"127.0.0.1:{self.port}"})
         self.assertEqual(c.getresponse().status, 404)
