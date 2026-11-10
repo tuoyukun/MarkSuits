@@ -283,6 +283,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .pform .crow{margin-top:4px}
 .nmodal .none{color:var(--text2);margin:0 0 14px;font-size:12.5px;line-height:1.55}
 .nmodal .dout{margin-top:8px}
+.wdir{display:flex;gap:6px;align-items:center}.wdir input{flex:1;min-width:0}.wdir .btn{flex:none}
 .at-home .po,body:not(.at-home) .ho{display:none!important}
 .sb{min-height:0;overflow-y:auto}
 a.ws{color:inherit;text-decoration:none;border-radius:6px;padding:6px 8px;margin:0 0 10px}
@@ -478,8 +479,9 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
     <div class="mh"><span class="t" data-i="newProj"></span><span class="grow"></span><button class="ib" data-wclose aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
     <div class="pad">
       <p class="whint" data-i="wHint"></p>
-      <label for="wnDir" data-i="wDirL"></label><input id="wnDir" autocomplete="off" spellcheck="false">
-      <label for="wnText" data-i="wTextL"></label><textarea id="wnText" rows="6"></textarea>
+      <label for="wnDir" data-i="wDirL"></label><div class="wdir"><input id="wnDir" autocomplete="off" spellcheck="false"><button class="btn" data-wpick hidden data-i="wPick"></button></div>
+      <label data-i="wProfL"></label><div id="wnProf"></div>
+      <label for="wnText" data-i="wTextL"></label><textarea id="wnText" rows="4"></textarea>
       <button class="btn pri" data-wcreate data-i="wCreate"></button><pre class="dout bad" id="wnOut"></pre>
     </div>
   </div>
@@ -502,7 +504,13 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
 <script>
 "use strict";
 const I18N={
- en:{dep_python:"Python 3.11 or newer",depH_python:"Mark's hooks run python3. Install it, for example:",dep_git:"git",depH_git:"The Xcode command line tools provide git.",dep_claude:"Claude Code",depH_claude:"Board sessions run claude. Its own installer keeps it up to date.",dep_model:"A model to run on",depH_model:"Sign in to Claude in a terminal, or add another model with its own API key (DeepSeek and other Anthropic-compatible services). Sign in:",depAddModel:"Add a model",dep_plugin:"Mark plugin for your user",depH_plugin:"Claude sessions load Mark from it.",dep_app:"Menu bar app",depH_app:"Keeps the board running without a terminal and updates Mark once a day.",depT:"Finish setting up this computer",depBlock:"New projects need the items marked below.",depOpt:"Optional. ",depFix:"Install",depRunning:"Installing…",depRecheck:"Check again",depHide:"Not now",depCopy:"Copy",depRun:"Running:",depFail:"Failed (exit {c}):",depDone:"Done:",depNeed:"Finish the setup at the top of the page first.",depAppAsk:"The menu bar app takes over the board: this page reconnects, then use Open in its menu to sign in again. Install it?",copiedCmd:"Command copied","deps.busy":"Another install is running; wait for it to finish.",newProj:"New project",wHint:"Claude runs /mark:init in this directory: it proposes how to set the project up, you confirm or correct it in the chat.",wDirL:"Directory (full path; created if missing)",wTextL:"What are you building, and on what stack?",wCreate:"Start",wSetting:"Setting up",wOpen:"Open the board",wDiscard:"Discard",
+ en:{dep_python:"Python 3.11 or newer",depH_python:"Mark's hooks run python3. Install it, for example:",dep_git:"git",depH_git:"The Xcode command line tools provide git.",dep_claude:"Claude Code",depH_claude:"Board sessions run claude. Its own installer keeps it up to date.",dep_model:"A model to run on",depH_model:"Sign in to Claude in a terminal, or add another model with its own API key (DeepSeek and other Anthropic-compatible services). Sign in:",depAddModel:"Add a model",dep_plugin:"Mark plugin for your user",depH_plugin:"Claude sessions load Mark from it.",dep_app:"Menu bar app",depH_app:"Keeps the board running without a terminal and updates Mark once a day.",depT:"Finish setting up this computer",depBlock:"New projects need the items marked below.",depOpt:"Optional. ",depFix:"Install",depRunning:"Installing…",depRecheck:"Check again",depHide:"Not now",depCopy:"Copy",depRun:"Running:",depFail:"Failed (exit {c}):",depDone:"Done:",depNeed:"Finish the setup at the top of the page first.",depAppAsk:"The menu bar app takes over the board: this page reconnects, then use Open in its menu to sign in again. Install it?",copiedCmd:"Command copied","deps.busy":"Another install is running; wait for it to finish.",newProj:"New project",wHint:"Claude runs /mark:init in this directory: it proposes how to set the project up, you confirm or correct it in the chat.",wDirL:"Directory (full path; created if missing)",wTextL:"What you are building, and on what stack (optional)",wPick:"Choose…",wProfL:"Kind of project",
+  wProf_:"Not sure: let Claude suggest",wProfD_:"Describe it below; Claude proposes a profile.",
+  "wProf_web-fullstack":"Web app with a backend","wProfD_web-fullstack":"Browser frontend and a backend service in one repository; browser end-to-end tests.",
+  "wProf_web-frontend":"Web frontend only","wProfD_web-frontend":"A static site, or an app on third-party APIs or localStorage; browser end-to-end tests.",
+  wProf_service:"Backend service or API","wProfD_service":"No UI of its own; end-to-end tests call the running service.",
+  "wProf_mobile-fullstack":"Mobile app with a backend","wProfD_mobile-fullstack":"React Native, Flutter or native, plus its backend; Maestro tests on a simulator.",
+  wProf_mobile:"Mobile app only","wProfD_mobile":"Data on the device or third-party APIs; Maestro tests on a simulator.",wCreate:"Start",wSetting:"Setting up",wOpen:"Open the board",wDiscard:"Discard",
   "home.isMark":"Already a Mark project: add it on the home page instead.","home.noParent":"The parent directory does not exist.","home.notDir":"That path is a file, not a directory.",
   projects:"Projects",allProjects:"All projects",addProj:"Add existing project",add:"Add project",remove:"Remove from list",pRunning:"A session is running",
   addHint:"A repository where Mark is already set up (it has .mark/config.toml). Any directory inside it works too.",aDirL:"Project directory (full path)",hTip:"Running this in a Mark project also adds it here:",
@@ -529,14 +537,20 @@ const I18N={
   "run.busy":"Another headless session is running; carry on with /mark:continue {id} in a terminal.","run.no-claude":"`claude` was not found; carry on with /mark:continue {id} in a terminal.",
   needLogin:"Read-only in this window. Run `mark board` (or /mark:board) and decide in the window it opens.",offDecide:"Deciding on the board is off ([board] decide = false).",
   newT:"New ticket",newText:"What to build or fix. The first line becomes the title; Claude reads it all and asks about the gaps.",newSlug:"Short name for the id (optional, a-z 0-9 -)",create:"Open and start talking",
-  chat:"Discussion",chatPh:"Reply to Claude…",send:"Send",thinking:"Claude is working…",chatEmpty:"No discussion yet. Send a message to start one.",
+  chat:"Discussion",chatPh:"Reply to Claude…",send:"Send",chatEmpty:"No discussion yet. Send a message to start one.",
   askSend:"Send answers",askOther:"Your own answer (optional)",askNone:"Answer at least one question.",
   modelH:"Model",modelHint:"Board sessions (new tickets, carrying on after a decision) run Claude Code on the selected model. Click one to switch. A change applies to sessions started from now on; a running session, and a ticket's ongoing discussion, keep their model.",
   provider:"Provider",provCustom:"Anthropic-compatible endpoint (DeepSeek …)",modelName:"Model (alias such as opus, or a full name)",presetDs:"Fill in DeepSeek",
   keySaved:"Saved; leave empty to keep it",save:"Save",saved:"Model: {m}. New sessions use it.",
   addProfile:"Add a model",profName:"Name (optional, shown in the list)",cancel:"Cancel",edit:"Edit",del:"Delete",delAsk:"Delete the model \"{m}\"?",
   "chat.busy":"Claude is already working on this ticket; wait for its reply.","chat.no-claude":"`claude` was not found, so nobody can reply. Continue in a terminal."},
- "zh-CN":{dep_python:"Python 3.11 或更新版本",depH_python:"Mark 的 hooks 用 python3 运行。安装方式举例：",dep_git:"git",depH_git:"git 由 Xcode 命令行工具提供。",dep_claude:"Claude Code",depH_claude:"看板里的会话要运行 claude。用它的官方安装器安装，之后会自动更新。",dep_model:"可用的模型",depH_model:"在终端里登录 Claude，或添加一个自带 API key 的其他模型（DeepSeek 等兼容 Anthropic 接口的服务）。登录命令：",depAddModel:"添加模型",dep_plugin:"用户级 Mark 插件",depH_plugin:"Claude 会话从这里加载 Mark。",dep_app:"菜单栏应用",depH_app:"不开终端也能让看板一直运行，并每天更新一次 Mark。",depT:"这台电脑还差几步",depBlock:"新建项目需要先完成标记的几项。",depOpt:"可选。",depFix:"安装",depRunning:"安装中…",depRecheck:"重新检查",depHide:"暂不",depCopy:"复制",depRun:"正在运行：",depFail:"失败（退出码 {c}）：",depDone:"已完成：",depNeed:"请先完成页面顶部的环境配置。",depAppAsk:"菜单栏应用会接管看板：本页会自动重连，之后点它菜单里的 Open 重新登录。现在安装？",copiedCmd:"已复制命令","deps.busy":"另一个安装正在进行，请等它完成。",newProj:"新建项目",wHint:"Claude 会在这个目录里运行 /mark:init：先提出项目的配置方案，你在对话里确认或修改。",wDirL:"目录（完整路径，不存在会自动创建）",wTextL:"你要做什么？用什么技术栈？",wCreate:"开始",wSetting:"配置中",wOpen:"打开看板",wDiscard:"丢弃",
+ "zh-CN":{dep_python:"Python 3.11 或更新版本",depH_python:"Mark 的 hooks 用 python3 运行。安装方式举例：",dep_git:"git",depH_git:"git 由 Xcode 命令行工具提供。",dep_claude:"Claude Code",depH_claude:"看板里的会话要运行 claude。用它的官方安装器安装，之后会自动更新。",dep_model:"可用的模型",depH_model:"在终端里登录 Claude，或添加一个自带 API key 的其他模型（DeepSeek 等兼容 Anthropic 接口的服务）。登录命令：",depAddModel:"添加模型",dep_plugin:"用户级 Mark 插件",depH_plugin:"Claude 会话从这里加载 Mark。",dep_app:"菜单栏应用",depH_app:"不开终端也能让看板一直运行，并每天更新一次 Mark。",depT:"这台电脑还差几步",depBlock:"新建项目需要先完成标记的几项。",depOpt:"可选。",depFix:"安装",depRunning:"安装中…",depRecheck:"重新检查",depHide:"暂不",depCopy:"复制",depRun:"正在运行：",depFail:"失败（退出码 {c}）：",depDone:"已完成：",depNeed:"请先完成页面顶部的环境配置。",depAppAsk:"菜单栏应用会接管看板：本页会自动重连，之后点它菜单里的 Open 重新登录。现在安装？",copiedCmd:"已复制命令","deps.busy":"另一个安装正在进行，请等它完成。",newProj:"新建项目",wHint:"Claude 会在这个目录里运行 /mark:init：先提出项目的配置方案，你在对话里确认或修改。",wDirL:"目录（完整路径，不存在会自动创建）",wTextL:"你要做什么、用什么技术栈（可选）",wPick:"选择…",wProfL:"项目类型",
+  wProf_:"不确定：让 Claude 建议",wProfD_:"在下面描述一下，Claude 会推荐一种类型。",
+  "wProf_web-fullstack":"带后端的 Web 应用","wProfD_web-fullstack":"浏览器前端加后端服务，在同一个仓库；浏览器端到端测试。",
+  "wProf_web-frontend":"纯 Web 前端","wProfD_web-frontend":"静态站点，或基于第三方 API、localStorage 的应用；浏览器端到端测试。",
+  wProf_service:"后端服务或 API","wProfD_service":"没有自己的界面；端到端测试调用运行中的服务。",
+  "wProf_mobile-fullstack":"带后端的移动应用","wProfD_mobile-fullstack":"React Native、Flutter 或原生，加上它的后端；在模拟器上跑 Maestro 测试。",
+  wProf_mobile:"纯移动应用","wProfD_mobile":"数据在设备上或来自第三方 API；在模拟器上跑 Maestro 测试。",wCreate:"开始",wSetting:"配置中",wOpen:"打开看板",wDiscard:"丢弃",
   "home.isMark":"这已经是 Mark 项目了，请在首页添加。","home.noParent":"上级目录不存在。","home.notDir":"这个路径是文件，不是目录。",
   projects:"项目",allProjects:"所有项目",addProj:"添加已有项目",add:"添加项目",remove:"从列表移除",pRunning:"有会话在运行",
   addHint:"已经配置过 Mark 的仓库（里面有 .mark/config.toml）。填仓库里的任意子目录也可以。",aDirL:"项目目录（完整路径）",hTip:"在 Mark 项目里运行这个命令，也会把项目加到这里：",
@@ -563,7 +577,7 @@ const I18N={
   "run.busy":"已有另一个后台会话在运行；请在终端用 /mark:continue {id} 继续。","run.no-claude":"没找到 `claude` 命令；请在终端用 /mark:continue {id} 继续。",
   needLogin:"此窗口只读。运行 `mark board`（或 /mark:board），在它打开的窗口里处理。",offDecide:"看板处理已关闭（[board] decide = false）。",
   newT:"新建工单",newText:"要做什么或修什么。第一行作为标题；Claude 会读完全部内容，再就缺的地方提问。",newSlug:"编号里的短名（可选，a-z 0-9 -）",create:"创建并开始讨论",
-  chat:"讨论",chatPh:"回复 Claude…",send:"发送",thinking:"Claude 处理中…",chatEmpty:"还没有讨论。发一条消息开始。",
+  chat:"讨论",chatPh:"回复 Claude…",send:"发送",chatEmpty:"还没有讨论。发一条消息开始。",
   askSend:"发送回答",askOther:"自己填写（可选）",askNone:"至少回答一个问题。",
   modelH:"模型",modelHint:"看板发起的会话（新建工单、审批后续跑）用选中的模型跑 Claude Code，点一下即可切换。修改只影响之后启动的会话；正在跑的会话、工单里进行中的讨论都保持原模型。",
   provider:"提供方",provCustom:"Anthropic 兼容端点（DeepSeek 等）",modelName:"模型（opus 这类别名，或完整名称）",presetDs:"填入 DeepSeek",
@@ -759,13 +773,18 @@ function wizView(){
       :`<div class="none">${esc(tr("needLogin"))}</div>`}</div></div></div>`;chatKey=""}
   chatLoad({id:wiz,wiz:true})}
 function wizOpen(){const last=projs.filter(p=>!p.error).at(-1),d=$("#wnDir");
-  if(!d.value)d.value=last?last.path.replace(/[^/]+$/,""):"~/";$("#wnOut").textContent="";$("#wv").classList.add("on");d.focus();d.setSelectionRange(d.value.length,d.value.length)}
-async function wizCreate(){const text=$("#wnText").value;if(!text.trim()){$("#wnText").focus();return}
+  if(!d.value)d.value=last?last.path.replace(/[^/]+$/,""):"~/";$("#wnOut").textContent="";$("[data-wpick]").hidden=!data.pick;
+  if(!$("#wnProf").innerHTML)$("#wnProf").innerHTML=PROFILES.map(p=>`<label class="dopt"><input type="radio" name="wprof" value="${p}"${p?"":" checked"}><span><b>${tr("wProf_"+p)}</b><small>${tr("wProfD_"+p)}</small></span></label>`).join("");
+  $("#wv").classList.add("on");d.focus();d.setSelectionRange(d.value.length,d.value.length)}
+const PROFILES=["","web-fullstack","web-frontend","service","mobile-fullstack","mobile"];  // scaffold.PROFILES
+async function wizPick(b){b.disabled=true;let r;try{r=await (await fetch("/api/pickdir",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json()}catch{r={}}
+  b.disabled=false;if(r.ok)$("#wnDir").value=r.path}
+async function wizCreate(){const text=$("#wnText").value,profile=document.querySelector("[name=wprof]:checked")?.value||"";if(!text.trim()&&!profile){$("#wnText").focus();return}
   const b=$("[data-wcreate]");b.disabled=true;
-  let r;try{r=await (await fetch("/api/wizard",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dir:$("#wnDir").value,text})})).json()}catch{r={ok:false,text:"loadFail"}}
+  let r;try{r=await (await fetch("/api/wizard",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dir:$("#wnDir").value,profile,text})})).json()}catch{r={ok:false,text:"loadFail"}}
   b.disabled=false;
   if(!r.ok){$("#wnOut").textContent=tr(r.text)??r.text;if(!r.id)return}
-  $("#wnText").value="";$("#wnDir").value="";$("#wv").classList.remove("on");location.hash="w="+r.id}
+  $("#wnText").value="";$("#wnDir").value="";$("[name=wprof]").checked=true;$("#wv").classList.remove("on");location.hash="w="+r.id}
 async function homePost(path,body){
   let r;try{r=await (await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}catch{r={ok:false,text:"loadFail"}}
   if(!r.ok){const m=tr(r.text)??r.text;if($("#av").classList.contains("on"))$("#aOut").textContent=m;else toast(esc(m));return}
@@ -986,7 +1005,7 @@ async function chatLoad(t){
     if(m.who==="step"){if(o.at(-1)?.step)o.at(-1).lines.push(m.text);else o.push({step:true,lines:[m.text]});continue}
     o.push(m.who==="human"?`<div class="msg me">${esc(m.text)}</div>`:m.who==="claude"?`<div class="msg ai md">${md(m.text)}</div>`:`<div class="msg err">${esc(m.text)}</div>`)}
   box.innerHTML=(o.length?o.map(x=>x.step?`<div class="steps">${esc(x.lines.join("\n"))}</div>`:x).join(""):`<div class="none">${tr("chatEmpty")}</div>`)
-    +(c.running?`<div class="msg ai none">${tr("thinking")}</div>`:"")+(c.ask&&$("#cText")?askForm(c.ask):"");
+    +(c.ask&&$("#cText")?askForm(c.ask):"");
   if(atEnd||c.running)box.scrollTop=box.scrollHeight;
   if($("#cModel"))$("#cModel").textContent=c.model||"";
   const send=$("[data-send]"),stop=$("[data-cstop]");if(send)send.disabled=c.running;if(stop)stop.hidden=!c.running;
@@ -1076,6 +1095,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-drecheck]")){loadDeps();return}
   if(e.target.closest("[data-wclose]")||e.target===$("#wv")){$("#wv").classList.remove("on");return}
   if(e.target.closest("[data-wcreate]")){wizCreate();return}
+  {const b=e.target.closest("[data-wpick]");if(b){wizPick(b);return}}
   const wd=e.target.closest("[data-wdel]");if(wd){if(confirm(tr("wDiscard")+"?"))homePost(`/api/wizard/${wd.dataset.wdel}/discard`,{});return}
   if(e.target.closest("[data-model]")){modelOpen();return}
   if(e.target.closest("[data-mclose]")||e.target===$("#mv")){$("#mv").classList.remove("on");return}

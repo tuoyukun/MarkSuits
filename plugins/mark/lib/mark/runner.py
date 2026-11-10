@@ -25,6 +25,8 @@ from .config import MarkConfig
 STATE_FILE = "runner.json"
 WAIT_RE = re.compile(r"(^|[\s;&|/])mark\s+wait\b")
 TAIL_BYTES = 256 * 1024
+# stderr the CLI prints for a model name it does not know (DeepSeek and co.); it runs on it anyway
+HARMLESS = ("[claude-code:unrecognized_model]",)
 LINES_KEPT = 40
 SESSION_MARKERS = frozenset({"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_SSE_PORT"})
 
@@ -164,7 +166,7 @@ def view(cfg: MarkConfig) -> dict[str, object] | None:
         try:
             event = json.loads(line)
         except ValueError:
-            if line.strip():
+            if line.strip() and not line.startswith(HARMLESS):
                 lines.append(line.strip()[:300])  # stderr, e.g. a CLI error
             continue
         if isinstance(event, dict):

@@ -1,7 +1,7 @@
 """New-project wizard on the board's home page: `/mark:init`, talked through in the board chat.
 
-The human gives a directory (a full path; made if missing, its parent must exist) and says what
-they are building. The board runs the same headless chat turns as a ticket's (`chat.py`), in that
+The human gives a directory (a full path; made if missing, its parent must exist), may pick a
+profile (`scaffold.PROFILES`) and says what they are building. The board runs the same headless chat turns as a ticket's (`chat.py`), in that
 directory, the first one `/mark:init <their text>`: the skill proposes the answers and stops, the
 human confirms or corrects in the next message, then it runs `mark init` and fills in CLAUDE.md.
 Once `.mark/config.toml` is there the project is registered (`home.py`) and gets a board.
@@ -14,11 +14,13 @@ from __future__ import annotations
 import json
 import secrets
 import shutil
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import chat, home
+from . import chat, home, scaffold
 
 TICKET = "init"  # the chat's files are chat-init.*
 NOTE = (
@@ -82,14 +84,32 @@ def target(d: object) -> tuple[Path | None, str]:
     return path.resolve(), ""
 
 
+PICKABLE = sys.platform == "darwin"
+
+
+def pick_dir(run=subprocess.run) -> str:
+    """Ask for a folder with the Mac's own dialog (it can make one too): its path, or "" when cancelled
+    or not on macOS. `activate` brings the dialog in front of the browser."""
+    if not PICKABLE:
+        return ""
+    try:
+        res = run(["osascript", "-e", "activate", "-e", "POSIX path of (choose folder)"],
+                  capture_output=True, text=True, timeout=600, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return res.stdout.strip() if res.returncode == 0 else ""
+
+
 def start(req: dict) -> tuple[bool, str, str]:
     """Start a wizard: (ok, why not, wid). The same directory again continues its wizard."""
     path, why = target(req.get("dir"))
-    text = req.get("text")
+    text, profile = req.get("text") or "", req.get("profile") or ""
     if path is None:
         return False, why, ""
-    if not isinstance(text, str) or not text.strip() or len(text) > chat.TEXT_MAX:
+    if not isinstance(text, str) or len(text) > chat.TEXT_MAX or profile not in ("", *scaffold.PROFILES) \
+            or not (text.strip() or profile):
         return False, "bad request", ""
+    text = "\n\n".join(x for x in (f"Profile: {profile}" if profile else "", text.strip()) if x)
     wid = next((w for w, data in all_wizards() if data["dir"] == str(path)), None)
     if wid is None:
         wid = secrets.token_hex(5)

@@ -37,6 +37,8 @@ Speak the human's language.
    - Existing: read the manifests (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`,
      `Makefile`...), the CI config, the top-level layout and any existing `CLAUDE.md`.
    - New: ask the human what they are building and on what stack.
+   - The human already named one (`Profile: <name>` in their message): take it, unless what
+     you read plainly contradicts it; then say so and ask.
 
    If no profile fits (a CLI, a library, a data pipeline...), **stop**: say Mark does not support that kind of project yet, more profiles
    will follow, and write nothing.

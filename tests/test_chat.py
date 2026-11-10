@@ -96,6 +96,13 @@ class ChatTest(unittest.TestCase):
                                          {"who": "claude", "text": "Which date format?"},
                                          {"who": "step", "text": "$ mark next 0001-a"}])
 
+    def test_the_unknown_model_warning_is_not_an_error(self):
+        self.turn("Due dates.")
+        log = chat.log_path(self.cfg, "0001-a")
+        log.write_text('[claude-code:unrecognized_model] {"model":"deepseek-flash[1m]"}\nboom\n' + log.read_text())
+        errors = [m["text"] for m in chat.view(self.cfg, "0001-a")["messages"] if m["who"] == "error"]
+        self.assertEqual(errors, ["boom"])
+
     def test_a_turn_that_dies_says_so(self):
         self.turn("Due dates.", mode="die")
         self.assertEqual(chat.view(self.cfg, "0001-a")["messages"][-1]["who"], "error")

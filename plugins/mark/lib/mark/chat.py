@@ -175,6 +175,8 @@ def view(cfg: MarkConfig, ticket_id: str) -> dict[str, object]:
     pending = False  # a human message with no result after it yet
     for e in _events(cfg, ticket_id):
         if isinstance(e, str):
+            if e.startswith(runner.HARMLESS):
+                continue
             msgs.append({"who": "error", "text": e[:300]})
         elif e.get("type") == "human":
             msgs.append({"who": "human", "text": str(e.get("text") or "")})

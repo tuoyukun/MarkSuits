@@ -66,6 +66,23 @@ class WizardTest(unittest.TestCase):
         self.assertEqual([m["who"] for m in v["messages"]][:2], ["human", "claude"])
         self.assertEqual([c["id"] for c in wizard.cards()], [wid])
 
+    def test_a_picked_profile_leads_the_first_message(self):
+        for req in ({"profile": "nope", "text": "x"}, {"profile": 1, "text": "x"}, {"profile": "", "text": " "}):
+            self.assertEqual(wizard.start({"dir": str(self.parent / "a"), **req})[:2], (False, "bad request"), req)
+        _, _, wid = wizard.start({"dir": str(self.parent / "a"), "profile": "service"})
+        self.assertEqual(self.wait(wid)["stdin"], "/mark:init Profile: service")
+        _, _, wid = wizard.start({"dir": str(self.parent / "b"), "profile": "mobile", "text": " Flutter. "})
+        self.assertEqual(self.wait(wid)["stdin"], "/mark:init Profile: mobile\n\nFlutter.")
+
+    def test_pick_dir(self):
+        ok = mock.Mock(return_value=mock.Mock(returncode=0, stdout="/tmp/x/app/\n"))
+        cancel = mock.Mock(return_value=mock.Mock(returncode=1, stdout=""))
+        with mock.patch.object(wizard, "PICKABLE", True):
+            self.assertEqual(wizard.pick_dir(ok), "/tmp/x/app/")
+            self.assertEqual(wizard.pick_dir(cancel), "")
+        with mock.patch.object(wizard, "PICKABLE", False):
+            self.assertEqual(wizard.pick_dir(ok), "")
+
     def test_once_set_up_it_is_registered_and_leaves_the_home_page(self):
         target = self.parent / "shop"
         _, _, wid = wizard.start({"dir": str(target), "text": "A shop."})

@@ -476,9 +476,10 @@ copy the path, remove). A project's page (`/p/<id>/`) shows only that project; i
 leads back to `/`. A project's config is reloaded when
 `config.toml` changes. With the cookie the human can register an existing Mark project by path,
 forget one (nothing on disk changes), or start **New project**: a full path (made if missing, its
-parent must exist; not already a Mark project) and what they are building. The wizard
+parent must exist; not already a Mark project; on macOS a Choose button opens the Finder folder
+dialog through `osascript`), a profile or "let Claude suggest", and what they are building. The wizard
 (`lib/mark/wizard.py`) runs the board chat's turns (`chat.py`) in that directory with no ticket:
-state in `MARK_HOME/wizards/<wid>/`, first turn `/mark:init <text>`, a system note that says to
+state in `MARK_HOME/wizards/<wid>/`, first turn `/mark:init [Profile: <name>] <text>`, a system note that says to
 ask in plain text (no `mark ask` without a ticket). The skill proposes the answers and stops; the
 human confirms in the chat; it runs `mark init` and fills in CLAUDE.md. Once `.mark/config.toml`
 exists the project is registered and the wizard links to its board. No tool call may write under

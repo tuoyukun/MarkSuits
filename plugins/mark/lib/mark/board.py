@@ -15,7 +15,8 @@ project adds it there. The page (`board.html`) is one file with two views:
     POST /api/model                    set the model headless sessions use (`model.py`, with the cookie)
     POST /api/projects/add {dir}       register an existing Mark project (with the cookie)
     POST /api/projects/remove {id}     forget one; nothing on disk is touched (with the cookie)
-    POST /api/wizard {dir, text}       set up a new project: `/mark:init` in the board chat (`wizard.py`, with the cookie)
+    POST /api/wizard {dir, profile, text}  set up a new project: `/mark:init` in the board chat (`wizard.py`, with the cookie)
+    POST /api/pickdir                  the Mac's folder dialog: {ok, path} (with the cookie)
     /api/wizard/<wid>                  a wizard's chat; POST {text} the next message, POST .../stop, .../discard (with the cookie)
 
     /p/<id>/                           one project's board; under it, relative to it:
@@ -599,6 +600,9 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
             elif path == "/api/deps/fix":
                 ok, text = deps.start(body.get("id"))
                 self._json(200 if ok else 409, {"ok": ok, "text": text})
+            elif path == "/api/pickdir":
+                d = wizard.pick_dir()  # no lock: the dialog waits on the human
+                self._json(200, {"ok": bool(d), "path": d})
             elif path == "/api/wizard":
                 with board.lock:
                     ok, text, wid = wizard.start(body)
@@ -657,7 +661,7 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
             elif proj is None:
                 m = WIZARD_PATH.match(path)
                 if path == "/api/projects":
-                    self._json(200, {"projects": board.home_view(), "wizards": wizard.cards(), "decide": mode,
+                    self._json(200, {"projects": board.home_view(), "wizards": wizard.cards(), "decide": mode, "pick": wizard.PICKABLE,
                                      "model": model.public(model.store(None))})
                 elif path == "/api/deps":
                     self._json(200, {"checks": deps.checks(), "job": deps.job()})
