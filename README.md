@@ -125,6 +125,8 @@ home page sets up a new one: give a directory and say what you are building, and
 something Mark needs (Claude Code, signing in, the plugin, git, Python 3.11+), the home page says
 what, and installs what it can with one click.
 
+![The home page on a new computer: what Mark still needs, with one-click installs](docs/images/board-home-en.png)
+
 You can also open a ticket on the board (**+ New ticket**) and talk it through with Claude in the
 ticket's **Discussion** tab until the requirement (or bug report) is agreed. Each message runs one
 headless Claude turn in the same conversation, and the requirement file updates on the board as

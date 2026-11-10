@@ -111,6 +111,8 @@ agent 时间、约 6 美元 token。人只输入了两条需求，回答了几�
 `/mark:init`，先给出配置方案，你在对话里确认。这台电脑缺少 Mark 需要的东西（Claude Code、登录、插件、git、
 Python 3.11+）时，首页会列出来，能装的点一下就能装好。
 
+![新电脑上的首页：Mark 还缺什么，能装的一键安装](docs/images/board-home-zh-CN.png)
+
 也可以直接在看板上建单（**+ 新建工单**），在工单的**讨论**标签页里和 Claude 来回讨论，直到需求（或 bug
 描述）定稿。每条消息在同一个对话里跑一轮后台 Claude，需求文件边聊边在看板上更新。之后怎么走和在终端里用
 `/mark:feature` / `/mark:fix` 一样：feature 停下等你评审，bug 直接跑修复链。
