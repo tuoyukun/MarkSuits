@@ -65,6 +65,14 @@ def clean_env(environ=os.environ) -> dict[str, str]:
     return env
 
 
+def find_claude() -> str | None:
+    """`claude` on PATH, else where its installers put it: a service (Homebrew) starts with a bare PATH."""
+    for c in (shutil.which("claude"), Path.home() / ".local" / "bin" / "claude", Path.home() / ".claude" / "local" / "claude"):
+        if c and os.access(c, os.X_OK):
+            return str(c)
+    return None
+
+
 def command(cfg: MarkConfig, ticket_id: str, claude: str, extra: list[str] = ()) -> list[str]:
     return [claude, "-p", f"/mark:continue {ticket_id}", "--permission-mode", cfg.board_permission_mode,
             *extra, "--output-format", "stream-json", "--verbose"]
@@ -74,7 +82,7 @@ def start(cfg: MarkConfig, ticket_id: str, claude: str | None = None) -> tuple[b
     """(started, why not). Never two runners in one project."""
     if running(cfg):
         return False, "busy"
-    claude = claude or shutil.which("claude")
+    claude = claude or find_claude()
     if not claude:
         return False, "no-claude"
     locks = cfg.state_dir / "locks"

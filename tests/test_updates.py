@@ -54,3 +54,31 @@ class NewerTest(unittest.TestCase):
         os.environ["MARK_NO_UPDATE_CHECK"] = "1"
         self.assertIsNone(self.check("9.0.0"))
         self.assertEqual(self.urls, [])
+
+
+class MismatchTest(unittest.TestCase):
+    """The Homebrew board vs the Claude plugin its sessions load."""
+
+    def test_which_to_update(self):
+        self.assertIsNone(updates.mismatch("0.59.0", "0.59.0"))
+        self.assertEqual(updates.mismatch("0.59.0", "0.58.1")["cmd"], "claude plugin update mark@marksuits")
+        self.assertEqual(updates.mismatch("0.59.0", "0.60.0")["cmd"], "brew upgrade marksuits")
+        self.assertEqual(updates.mismatch("0.59.0", ""), {"mark": "0.59.0", "plugin": "", "cmd": updates.INSTALL})
+
+    def test_installed_plugin_prefers_the_user_scope(self):
+        base = Path(tempfile.mkdtemp(prefix="mark-cfg-"))
+        self.addCleanup(shutil.rmtree, base, True)
+        self.assertIsNone(updates.installed_plugin(base))
+        (base / "plugins").mkdir()
+        (base / "plugins" / "installed_plugins.json").write_text(json.dumps({"plugins": {
+            "other@x": [{"scope": "user", "version": "9.9.9"}],
+            "mark@marksuits": [{"scope": "project", "version": "0.50.0"}, {"scope": "user", "version": "0.57.0"}]}}))
+        self.assertEqual(updates.installed_plugin(base), "0.57.0")
+
+
+class FormulaTest(unittest.TestCase):
+    def test_formula_builds_the_released_tag(self):
+        root = Path(__file__).resolve().parents[1]
+        version = json.loads((root / "plugins/mark/.claude-plugin/plugin.json").read_text())["version"]
+        self.assertIn(f'tag: "mark--v{version}"', (root / "Formula/marksuits.rb").read_text(),
+                      "bump the tag in Formula/marksuits.rb with the plugin version")

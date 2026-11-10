@@ -56,7 +56,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import chat, flow, general, home, human, model, propose, runner, states, tickets, wizard
+from . import chat, flow, general, home, human, model, propose, runner, states, tickets, updates, wizard
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .gitutil import git, worktrees
 from .i18n import t
@@ -70,6 +70,7 @@ STATE_FILE = "board.json"
 KEYS_KEPT = 10  # one-time keys not yet traded; older ones lapse
 BODY_MAX = 131072  # a chat message of chat.TEXT_MAX characters, UTF-8
 NO_BROWSER_ENV = "MARK_BOARD_NO_BROWSER"  # tests: never open a browser
+SERVICE_ENV = "MARK_SERVICE"  # set by the menu bar app (macos/Mark.swift): `mark board` never replaces or stops that board
 PAGE = Path(__file__).with_name("board.html")
 SOURCES = ("main", "worktree")
 
@@ -652,7 +653,9 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 m = WIZARD_PATH.match(path)
                 if path == "/api/projects":
                     self._json(200, {"projects": board.home_view(), "wizards": wizard.cards(), "decide": mode,
-                                     "model": model.public(model.store(None))})
+                                     "model": model.public(model.store(None)),
+                                     # a plugin-run board is the plugin; only a service board can differ from it
+                                     "update": updates.mismatch() if os.environ.get(SERVICE_ENV) else None})
                 elif m and not m.group(2) and (v := wizard.view(m.group(1))) is not None:
                     self._json(200, v)
                 else:
@@ -734,9 +737,14 @@ def serve(start: int = DEFAULT_PORT) -> int:
     port = server.server_address[1]
     path = state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"pid": os.getpid(), "port": port, "page": str(PAGE)}) + "\n")
+    state = {"pid": os.getpid(), "port": port, "page": str(PAGE)}
+    if os.environ.get(SERVICE_ENV):
+        state["service"] = os.environ[SERVICE_ENV]
+    path.write_text(json.dumps(state) + "\n")
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown).start())
     threading.Thread(target=board.watch, daemon=True).start()
+    if os.environ.get(SERVICE_ENV):
+        threading.Thread(target=_orphaned, args=(server,), daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -749,6 +757,14 @@ def serve(start: int = DEFAULT_PORT) -> int:
         if read_state().get("pid") == os.getpid():
             path.unlink(missing_ok=True)
     return 0
+
+
+def _orphaned(server: ThreadingHTTPServer) -> None:
+    """A service board lives as long as the app that runs it, even when the app is killed."""
+    parent = os.getppid()
+    while os.getppid() == parent:
+        time.sleep(2)
+    server.shutdown()
 
 
 def read_state() -> dict:
@@ -775,12 +791,18 @@ def running() -> int | None:
     return port if _alive(st.get("pid")) and isinstance(port, int) and in_use(port) else None
 
 
+def service() -> str | None:
+    """The service manager running the live board ("brew"), or None."""
+    return read_state().get("service") if running() else None
+
+
 def start(port: int = DEFAULT_PORT, wait: float = 5.0) -> tuple[int | None, bool]:
     """(port, reused): reuse the live board, else start one in the background. A board started
-    from another plugin install serves that install's code, so it is replaced."""
+    from another plugin install serves that install's code, so it is replaced; unless a service
+    runs it (it would restart it at once): its version banner says what to update."""
     live = running()
     if live:
-        if read_state().get("page") == str(PAGE):
+        if read_state().get("page") == str(PAGE) or read_state().get("service"):
             return live, True
         stop()
     state_path().unlink(missing_ok=True)

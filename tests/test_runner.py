@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import tempfile
 import time
@@ -96,8 +97,19 @@ class RunnerTest(unittest.TestCase):
         self.assertIsNone(runner.running(self.cfg))
 
     def test_no_claude(self):
-        with mock.patch("shutil.which", return_value=None):
+        with mock.patch("mark.runner.find_claude", return_value=None):
             self.assertEqual(runner.start(self.cfg, "0001-a"), (False, "no-claude"))
+
+    def test_claude_is_found_off_path(self):
+        home = Path(tempfile.mkdtemp(prefix="mark-hm-"))
+        self.addCleanup(shutil.rmtree, home, True)
+        exe = home / ".local" / "bin" / "claude"
+        exe.parent.mkdir(parents=True)
+        exe.write_text("#!/bin/sh\n")
+        with mock.patch("shutil.which", return_value=None), mock.patch("pathlib.Path.home", return_value=home):
+            self.assertIsNone(runner.find_claude())
+            exe.chmod(0o755)
+            self.assertEqual(runner.find_claude(), str(exe))
 
     def test_carry_on_after_a_decision(self):
         review, opening = {"kind": "review"}, {"kind": "opening"}

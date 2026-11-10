@@ -728,6 +728,15 @@ covers init's checks and the existing-project cases; `tests/test_upgrade.py` cov
 - This repo is the marketplace (`.claude-plugin/marketplace.json`, name `marksuits`).
 - Plugin releases use explicit semver in `plugin.json` plus a git tag `mark--v<version>`.
   Users only receive an update when the version string changes.
+- Homebrew (v0.59): this repo is also a tap. `Formula/marksuits.rb` builds the release tag:
+  `libexec` = a copy of `plugins/mark`, `bin/mark` runs it on brew's Python, and on macOS it
+  compiles `macos/Mark.swift` into `Mark.app` (menu bar). The app runs `mark board --serve` as
+  its child with `MARK_SERVICE=app`: `board.json` records that, so the plugin's `mark board`
+  reuses that board instead of replacing it, `--stop` refuses, and the board exits when the app
+  dies. Launch at login is a per-user LaunchAgent the app writes. That board's home page compares
+  its version with the user-scope plugin (`updates.mismatch`) and names the command to run.
+  `claude` is looked up on PATH, then `~/.local/bin`, `~/.claude/local` (a login item's PATH is
+  bare). Each release bumps the formula's tag with `plugin.json` (`tests/test_updates.py` checks).
 - Recommended install scope for teams: `project` (committed `.claude/settings.json`).
 - Breaking changes to config or artifact formats bump `mark_schema` and ship a migration note.
 - Migration note (v0.13): projects generated with Copier have `.mark/.copier-answers.yml`. Replace

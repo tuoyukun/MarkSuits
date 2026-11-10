@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import signal
 import subprocess
 import threading
@@ -132,7 +131,7 @@ def start(cfg: MarkConfig, kind: str, ticket_id: str, text: str, claude: str | N
     note (the new-project wizard, `wizard.py`, which has no ticket)."""
     if running(cfg, ticket_id) or (runner.running(cfg) or {}).get("ticket") == ticket_id:
         return False, "busy"
-    claude = claude or shutil.which("claude")
+    claude = claude or runner.find_claude()
     if not claude:
         return False, "no-claude"
     sid = session(cfg, ticket_id)

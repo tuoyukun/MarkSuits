@@ -1217,6 +1217,7 @@ MESSAGES["en"].update({
     "board.stopped": "Board stopped.",
     "board.restarted": "Board restarted on the installed plugin: {url}",
     "board.not_running": "No board is running.",
+    "board.service": "The board runs in the Mark menu bar app; quit Mark there to stop it.",
     "board.failed": "The board did not start; see {log}.",
     "wait.moved": "{id}: {old} -> {new}. The human decided (on the board or in the terminal); being woken is not "
         "a new approval. Carry on with the ticket as after /mark:approve or /mark:reject: run `mark rules` if you do not have them, "
@@ -1258,6 +1259,7 @@ MESSAGES["zh-CN"].update({
     "board.stopped": "看板已关闭。",
     "board.restarted": "看板已用新安装的插件重启：{url}",
     "board.not_running": "没有运行中的看板。",
+    "board.service": "看板由菜单栏的 Mark 应用运行；在那里退出 Mark 即可关闭。",
     "board.failed": "看板没有启动成功，见 {log}。",
     "wait.moved": "{id}：{old} -> {new}。人已做出决定（在看板或终端）；被唤醒本身不是新的批准。"
         "按 /mark:approve 或 /mark:reject 之后的方式继续这张工单：手头没有规则就先跑 `mark rules`，然后 `mark next {id}`，一直推进到下一个人工关卡。",

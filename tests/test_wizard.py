@@ -88,7 +88,7 @@ class WizardTest(unittest.TestCase):
         self.assertFalse(wizard.discard("../x"))
 
     def test_no_claude_says_so(self):
-        with mock.patch.object(chat.shutil, "which", return_value=None):
+        with mock.patch("mark.runner.find_claude", return_value=None):
             ok, why, wid = wizard.start({"dir": str(self.parent / "shop"), "text": "A shop."})
         self.assertEqual((ok, why), (False, "chat.no-claude"))
         self.assertTrue(wid)  # the wizard is there to retry from

@@ -386,7 +386,7 @@ def cmd_init(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
 def restart_board(cfg: MarkConfig, out: TextIO) -> None:
     """A board started from an older plugin install serves old code: restart it on the same port."""
     live = board.running()
-    if live and board.read_state().get("page") != str(board.PAGE):
+    if live and board.read_state().get("page") != str(board.PAGE) and not board.service():
         port, _ = board.start(live)
         if port:
             _say(cfg, out, "board.restarted", url=f"http://127.0.0.1:{port}")
@@ -504,6 +504,9 @@ def cmd_board(cfg: MarkConfig | None, args: list[str], out: TextIO, err: TextIO)
     if opts.get("--serve"):  # internal: the background process `mark board` starts
         return board.serve(int(port))
     if opts.get("--stop"):
+        if board.service():  # its service manager would restart it at once
+            say(err, "board.service")
+            return 1
         say(out, "board.stopped" if board.stop() else "board.not_running")
         return 0
     path = "/"
@@ -567,6 +570,9 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
     if not argv or argv[0] in ("-h", "--help", "help"):
         out.write(t("en", "cli.usage") + "\n")
         return 0 if argv else 2
+    if argv[0] == "--version":
+        out.write(scaffold.version() + "\n")
+        return 0
     if argv[0] == "rules":
         return cmd_rules(cwd or Path.cwd(), argv[1:], out, err)
     if argv[0] == "init":

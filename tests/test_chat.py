@@ -115,7 +115,7 @@ class ChatTest(unittest.TestCase):
         self.assertTrue(chat.prompt("bug", "b0001-x", "Crash.", first=True).startswith("/mark:fix b0001-x\n\n"))
 
     def test_no_claude(self):
-        with mock.patch("shutil.which", return_value=None):
+        with mock.patch("mark.runner.find_claude", return_value=None):
             self.assertEqual(chat.start(self.cfg, "feature", "0001-a", "hi"), (False, "no-claude"))
 
 

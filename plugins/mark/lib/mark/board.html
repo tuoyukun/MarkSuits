@@ -343,6 +343,8 @@ a.ws:hover .sub{display:none}
 .pmenu svg{width:14px;height:14px;color:var(--mute);flex:none}
 .pmenu hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
 .pmenu .bad,.pmenu .bad svg{color:var(--bad)}
+.hban{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 20px;padding:10px 14px;border-radius:8px;background:var(--human-soft);color:var(--human);font-size:13px}
+.hban code{font-family:var(--mono);font-size:12px;color:var(--text);user-select:all;overflow-wrap:anywhere}
 .hfoot{text-align:center;color:var(--mute);font-size:11.5px;margin-top:8px}
 a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}a.btn.pri{color:#fff}
 .hfoot code{font-family:var(--mono);font-size:11px}
@@ -486,7 +488,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
 <script>
 "use strict";
 const I18N={
- en:{newProj:"New project",wHint:"Claude runs /mark:init in this directory: it proposes how to set the project up, you confirm or correct it in the chat.",wDirL:"Directory (full path; created if missing)",wTextL:"What are you building, and on what stack?",wCreate:"Start",wSetting:"Setting up",wOpen:"Open the board",wDiscard:"Discard",
+ en:{updMissing:"Board sessions need the Mark plugin in Claude Code, and it is not installed. Run:",updDiff:"The board runs Mark {m}, the Claude plugin is {p}. Run:",newProj:"New project",wHint:"Claude runs /mark:init in this directory: it proposes how to set the project up, you confirm or correct it in the chat.",wDirL:"Directory (full path; created if missing)",wTextL:"What are you building, and on what stack?",wCreate:"Start",wSetting:"Setting up",wOpen:"Open the board",wDiscard:"Discard",
   "home.isMark":"Already a Mark project: add it on the home page instead.","home.noParent":"The parent directory does not exist.","home.notDir":"That path is a file, not a directory.",
   projects:"Projects",allProjects:"All projects",addProj:"Add existing project",add:"Add project",remove:"Remove from list",pRunning:"A session is running",
   addHint:"A repository where Mark is already set up (it has .mark/config.toml). Any directory inside it works too.",aDirL:"Project directory (full path)",hTip:"Running this in a Mark project also adds it here:",
@@ -520,7 +522,7 @@ const I18N={
   keySaved:"Saved; leave empty to keep it",save:"Save",saved:"Model: {m}. New sessions use it.",
   addProfile:"Add a model",profName:"Name (optional, shown in the list)",cancel:"Cancel",edit:"Edit",del:"Delete",delAsk:"Delete the model \"{m}\"?",
   "chat.busy":"Claude is already working on this ticket; wait for its reply.","chat.no-claude":"`claude` was not found, so nobody can reply. Continue in a terminal."},
- "zh-CN":{newProj:"新建项目",wHint:"Claude 会在这个目录里运行 /mark:init：先提出项目的配置方案，你在对话里确认或修改。",wDirL:"目录（完整路径，不存在会自动创建）",wTextL:"你要做什么？用什么技术栈？",wCreate:"开始",wSetting:"配置中",wOpen:"打开看板",wDiscard:"丢弃",
+ "zh-CN":{updMissing:"看板里的会话需要 Claude Code 的 Mark 插件，但它还没安装。运行：",updDiff:"看板运行的是 Mark {m}，Claude 插件是 {p}。运行：",newProj:"新建项目",wHint:"Claude 会在这个目录里运行 /mark:init：先提出项目的配置方案，你在对话里确认或修改。",wDirL:"目录（完整路径，不存在会自动创建）",wTextL:"你要做什么？用什么技术栈？",wCreate:"开始",wSetting:"配置中",wOpen:"打开看板",wDiscard:"丢弃",
   "home.isMark":"这已经是 Mark 项目了，请在首页添加。","home.noParent":"上级目录不存在。","home.notDir":"这个路径是文件，不是目录。",
   projects:"项目",allProjects:"所有项目",addProj:"添加已有项目",add:"添加项目",remove:"从列表移除",pRunning:"有会话在运行",
   addHint:"已经配置过 Mark 的仓库（里面有 .mark/config.toml）。填仓库里的任意子目录也可以。",aDirL:"项目目录（完整路径）",hTip:"在 Mark 项目里运行这个命令，也会把项目加到这里：",
@@ -692,13 +694,14 @@ function renderHome(){
   document.querySelectorAll(".dz").forEach(b=>b.hidden=!on||none);
   wiz=wizHash();
   if(wiz){pmClose();wizView();return}
+  const u=data.update,ban=u?`<div class="hban" role="status"><span>${esc((u.plugin?tr("updDiff"):tr("updMissing")).replace("{m}",u.mark).replace("{p}",u.plugin))}</span><code>${esc(u.cmd)}</code></div>`:"";
   const foot=`<div class="hfoot">127.0.0.1:<code>${esc(location.port)}</code> · ${tr(on?"canDecide":"readonly")}</div>`;
-  if(none){$("#content").innerHTML=`<div class="homeview"><div class="hempty"><div class="logo">M</div><h2>${tr("welcome")}</h2><p>${tr("welcomeHint")}</p>
+  if(none){$("#content").innerHTML=`<div class="homeview">${ban}<div class="hempty"><div class="logo">M</div><h2>${tr("welcome")}</h2><p>${tr("welcomeHint")}</p>
     ${on?`<div class="hacts"><button class="hact" data-wiz><span class="ic">${ICO.plus}</span><b>${tr("newProj")}</b><small>${tr("newProjD")}</small></button>
       <button class="hact" data-padd><span class="ic">${ICO.folder}</span><b>${tr("addProj")}</b><small>${tr("addProjD")}</small></button></div>`:`<p>${esc(tr("needLogin"))}</p>`}
     <p class="htip">${tr("hTip")} <code>/mark:board</code></p></div>${foot}</div>`;return}
   const hum=ps.reduce((a,p)=>a+(p.human||0),0),run=ps.filter(p=>p.running).length;
-  $("#content").innerHTML=`<div class="homeview"><div class="hhead"><div><h1>${tr("projects")}</h1><div class="hsum"><span class="tag">${ps.length===1?tr("nProj1"):tr("nProj").replace("{n}",ps.length)}</span>${hum?`<span class="tag wait">${tr("nWait").replace("{n}",hum)}</span>`:""}${run?`<span class="tag run">${tr("nRun").replace("{n}",run)}</span>`:""}</div></div></div>
+  $("#content").innerHTML=`<div class="homeview">${ban}<div class="hhead"><div><h1>${tr("projects")}</h1><div class="hsum"><span class="tag">${ps.length===1?tr("nProj1"):tr("nProj").replace("{n}",ps.length)}</span>${hum?`<span class="tag wait">${tr("nWait").replace("{n}",hum)}</span>`:""}${run?`<span class="tag run">${tr("nRun").replace("{n}",run)}</span>`:""}</div></div></div>
    ${ws.length?`<div class="hsec"><div class="hsech">${tr("wSetting")} <b>${ws.length}</b></div><div class="ptable">${ws.map(wrow).join("")}</div></div>`:""}
    ${ps.length?`<div class="hsec"><div class="ptable"><div class="pth"><span>${tr("colName")}</span><span>${tr("colState")}</span><span>${tr("colProg")}</span><span>${tr("colUpd")}</span><span></span></div>${ps.map(prow).join("")}</div></div>`:""}${foot}</div>`;
   const m=$("#pm");if(m.classList.contains("on"))$(`[data-pm="${CSS.escape(m.dataset.id)}"]`)?.classList.add("on")}

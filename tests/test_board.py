@@ -468,6 +468,20 @@ class CliTest(unittest.TestCase):
         self.assertNotEqual(board.read_state()["pid"], old["pid"])
         self.assertEqual(board.read_state()["page"], str(board.PAGE))
 
+    def test_a_service_board_is_reused_and_not_stopped(self):
+        port = free_port()
+        with mock.patch.dict(os.environ, {board.SERVICE_ENV: "app"}):
+            self.assertEqual(cli.main(["board", "--port", str(port)], cwd=make_repo(), out=io.StringIO(), err=io.StringIO()), 0)
+        st = board.read_state()
+        self.assertEqual((st["service"], board.service()), ("app", "app"))
+        board.state_path().write_text(json.dumps({**st, "page": "/Cellar/marksuits/0.1.0/board.html"}))
+        self.assertEqual(board.start(port), (st["port"], True))
+        cli.restart_board(load_config(make_repo()), io.StringIO())
+        self.assertEqual(cli.main(["board", "--stop"], cwd=make_repo(), out=io.StringIO(), err=(err := io.StringIO())), 1)
+        self.assertIn("menu bar", err.getvalue())
+        self.assertEqual(board.read_state()["pid"], st["pid"])
+        board.state_path().write_text(json.dumps(st))  # tearDown stops it
+
     def test_upgrade_restarts_a_board_from_another_install(self):
         cfg = load_config(make_repo())
         port = free_port()

@@ -137,6 +137,22 @@ much of it waited on you.
 
 ![Durations: how long each ticket took and where the time went](docs/images/board-durations-en.png)
 
+### On macOS: the menu bar app
+
+Homebrew installs the `mark` command and **Mark.app**, a menu bar app that keeps the board running
+without a terminal. Its icon shows how many gates wait on you; the menu has **Open** (the board,
+signed in), **Preferences…** (launch at login) and **Quit**.
+
+```bash
+brew tap tuoyukun/marksuits https://github.com/tuoyukun/MarkSuits
+brew install marksuits
+open "$(brew --prefix)/opt/marksuits/Mark.app"
+```
+
+The board's Claude sessions still need the plugin, installed for your user
+(`--scope user` in the Quickstart commands). When the app and the plugin are on different
+versions, the home page says which one to update.
+
 ## How it works
 
 ```mermaid

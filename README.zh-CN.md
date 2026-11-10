@@ -119,6 +119,20 @@ agent 时间、约 6 美元 token。人只输入了两条需求，回答了几�
 
 ![耗时：每张单用了多久、时间花在哪](docs/images/board-durations-zh-CN.png)
 
+### macOS：菜单栏应用
+
+用 Homebrew 安装会得到 `mark` 命令和菜单栏应用 **Mark.app**，不开终端也能让看板一直运行。图标上显示有几个
+关卡在等你；菜单里有 **Open**（打开看板，已登录）、**Preferences…**（开机启动）和 **Quit**。
+
+```bash
+brew tap tuoyukun/marksuits https://github.com/tuoyukun/MarkSuits
+brew install marksuits
+open "$(brew --prefix)/opt/marksuits/Mark.app"
+```
+
+看板里的 Claude 会话仍然需要插件，并且要装在用户级（快速开始里的命令改成 `--scope user`）。应用和插件版本
+不一致时，首页会提示该更新哪一个。
+
 ## 工作原理
 
 ```mermaid
