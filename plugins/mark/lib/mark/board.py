@@ -7,6 +7,8 @@ project adds it there. The page (`board.html`) is one file with two views:
 
     /                                  home: every project, what waits on the human
     /api/projects                      the home's cards (JSON)
+    /api/deps                          what this machine lacks for Mark, and the running fix (`deps.py`)
+    POST /api/deps/fix {id}            run that check's fixed command (with the cookie)
     /events                            server-sent events: a number that grows on any change
     POST /api/open {path}              open the home or a project in the human's browser (what `mark board` calls)
     POST /api/login                    trade a one-time key from that URL for the session cookie
@@ -56,7 +58,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import chat, flow, general, home, human, model, propose, runner, states, tickets, wizard
+from . import chat, deps, flow, general, home, human, model, propose, runner, states, tickets, wizard
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .gitutil import git, worktrees
 from .i18n import t
@@ -594,6 +596,9 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
             elif path == "/api/projects/remove":
                 ok = home.remove(body.get("id"))
                 self._json(200 if ok else 409, {"ok": ok, "text": "" if ok else "bad request"})
+            elif path == "/api/deps/fix":
+                ok, text = deps.start(body.get("id"))
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
             elif path == "/api/wizard":
                 with board.lock:
                     ok, text, wid = wizard.start(body)
@@ -654,6 +659,8 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 if path == "/api/projects":
                     self._json(200, {"projects": board.home_view(), "wizards": wizard.cards(), "decide": mode,
                                      "model": model.public(model.store(None))})
+                elif path == "/api/deps":
+                    self._json(200, {"checks": deps.checks(), "job": deps.job()})
                 elif m and not m.group(2) and (v := wizard.view(m.group(1))) is not None:
                     self._json(200, v)
                 else:

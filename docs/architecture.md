@@ -744,6 +744,14 @@ covers init's checks and the existing-project cases; `tests/test_upgrade.py` cov
   the board once no project has a running session (open pages sign in again). `claude` is looked
   up on PATH, then `~/.local/bin`, `~/.claude/local` (a login item's PATH is bare). The Homebrew
   formula of v0.59 is gone: two installs of the same code drifted apart.
+- Setup checks (v0.61, `lib/mark/deps.py`): the home page asks `/api/deps` for what this machine
+  lacks: python3 >= 3.11 (hooks run it), git (on macOS only after `xcode-select -p` succeeds:
+  without the command line tools `/usr/bin/git` is a stub that opens a dialog), claude, signed in
+  (`claude auth status` exits 0), the user-scope plugin, and on macOS the menu bar app (optional).
+  `POST /api/deps/fix {id}` (cookie, same origin) runs that check's fixed command in the
+  background, one at a time, output in `MARK_HOME/deps.log`: Claude's own installer, the
+  marketplace + plugin install, `xcode-select --install`, `mark app install`. Python and sign-in
+  have no fix; the page shows the command to copy. New project waits until the blocking checks pass.
 - Recommended install scope for teams: `project` (committed `.claude/settings.json`).
 - Breaking changes to config or artifact formats bump `mark_schema` and ship a migration note.
 - Migration note (v0.13): projects generated with Copier have `.mark/.copier-answers.yml`. Replace

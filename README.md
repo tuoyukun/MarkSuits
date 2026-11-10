@@ -121,7 +121,9 @@ board read-only.
 One board serves all your projects: `/mark:board` in a project opens its page and adds it to the
 home page (`/`), which lists every project and what waits on you there. **+ New project** on the
 home page sets up a new one: give a directory and say what you are building, and Claude runs
-`/mark:init` there, proposing the setup for you to confirm in the chat.
+`/mark:init` there, proposing the setup for you to confirm in the chat. When this computer lacks
+something Mark needs (Claude Code, signing in, the plugin, git, Python 3.11+), the home page says
+what, and installs what it can with one click.
 
 You can also open a ticket on the board (**+ New ticket**) and talk it through with Claude in the
 ticket's **Discussion** tab until the requirement (or bug report) is agreed. Each message runs one
@@ -152,8 +154,8 @@ The one-line install also builds **Mark.app**, a menu bar app that keeps the boa
 without a terminal. Its icon shows how many gates wait on you; the menu has **Open** (the board,
 signed in), **Preferences…** (launch at login) and **Quit**. Once a day it updates the Mark
 plugin and, when a new version arrived, rebuilds itself and restarts the board once no session
-runs. Already have the plugin? `mark app install` builds the app (the Xcode command line tools
-provide `swiftc`).
+runs. Already have the plugin? The board's home page offers to install the app, or run
+`mark app install` (the Xcode command line tools provide `swiftc`).
 
 ## How it works
 
