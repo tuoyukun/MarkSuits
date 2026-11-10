@@ -145,6 +145,7 @@ signed in), **Preferences…** (launch at login) and **Quit**.
 
 ```bash
 brew tap tuoyukun/marksuits https://github.com/tuoyukun/MarkSuits
+brew trust tuoyukun/marksuits   # Homebrew asks before loading a third-party tap
 brew install marksuits
 open "$(brew --prefix)/opt/marksuits/Mark.app"
 ```

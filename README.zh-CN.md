@@ -126,6 +126,7 @@ agent 时间、约 6 美元 token。人只输入了两条需求，回答了几�
 
 ```bash
 brew tap tuoyukun/marksuits https://github.com/tuoyukun/MarkSuits
+brew trust tuoyukun/marksuits   # Homebrew 要求先信任第三方 tap
 brew install marksuits
 open "$(brew --prefix)/opt/marksuits/Mark.app"
 ```

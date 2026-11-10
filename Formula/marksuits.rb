@@ -1,6 +1,7 @@
 # Homebrew formula for Mark: the `mark` CLI and, on macOS, Mark.app (menu bar; runs the board).
 # This repo is its own tap:
 #   brew tap tuoyukun/marksuits https://github.com/tuoyukun/MarkSuits
+#   brew trust tuoyukun/marksuits
 #   brew install marksuits && open "$(brew --prefix)/opt/marksuits/Mark.app"
 # The Claude Code plugin is installed separately (`claude plugin install mark@marksuits`).
 class Marksuits < Formula
@@ -18,7 +19,7 @@ class Marksuits < Formula
     libexec.install Dir["plugins/mark/*"], "plugins/mark/.claude-plugin"
     (bin/"mark").write <<~SH
       #!/bin/bash
-      exec "#{Formula["python@3.13"].opt_bin}/python3.13" "#{libexec}/bin/mark" "$@"
+      exec "#{formula_opt_bin("python@3.13")}/python3.13" "#{libexec}/bin/mark" "$@"
     SH
     build_app if OS.mac?
   end
