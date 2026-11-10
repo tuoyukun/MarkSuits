@@ -22,6 +22,15 @@ flowchart LR
 
 ## Quickstart
 
+One line installs Claude Code (if missing), the Mark plugin for your user and, on macOS, the
+menu bar app; run it again to repair or update:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tuoyukun/MarkSuits/main/install.sh | bash
+```
+
+Or add the plugin yourself, for example for a whole team (`.claude/settings.json`):
+
 ```bash
 claude plugin marketplace add tuoyukun/MarkSuits --scope project
 claude plugin install mark@marksuits --scope project
@@ -139,20 +148,12 @@ much of it waited on you.
 
 ### On macOS: the menu bar app
 
-Homebrew installs the `mark` command and **Mark.app**, a menu bar app that keeps the board running
+The one-line install also builds **Mark.app**, a menu bar app that keeps the board running
 without a terminal. Its icon shows how many gates wait on you; the menu has **Open** (the board,
-signed in), **Preferences…** (launch at login) and **Quit**.
-
-```bash
-brew tap tuoyukun/marksuits https://github.com/tuoyukun/MarkSuits
-brew trust tuoyukun/marksuits   # Homebrew asks before loading a third-party tap
-brew install marksuits
-open "$(brew --prefix)/opt/marksuits/Mark.app"
-```
-
-The board's Claude sessions still need the plugin, installed for your user
-(`--scope user` in the Quickstart commands). When the app and the plugin are on different
-versions, the home page says which one to update.
+signed in), **Preferences…** (launch at login) and **Quit**. Once a day it updates the Mark
+plugin and, when a new version arrived, rebuilds itself and restarts the board once no session
+runs. Already have the plugin? `mark app install` builds the app (the Xcode command line tools
+provide `swiftc`).
 
 ## How it works
 

@@ -70,33 +70,3 @@ def newer(plugin: Path = _PLUGIN, fetch=_fetch, now: float | None = None) -> tup
             pass
     return (market, latest) if latest and _ver(latest) > _ver(installed) else None
 
-
-INSTALL = "claude plugin marketplace add tuoyukun/MarkSuits --scope user && claude plugin install mark@marksuits --scope user"
-
-
-def installed_plugin(config_dir: Path | None = None) -> str | None:
-    """Version of the Mark plugin Claude Code has installed for this user, or None."""
-    base = config_dir or Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
-    try:
-        data = json.loads((base / "plugins" / "installed_plugins.json").read_text(encoding="utf-8"))
-        entries = [e for k, v in data["plugins"].items() if k.startswith("mark@") for e in v]
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
-        return None
-    # project-scope installs exist only inside their project; the board's sessions need the user one
-    user = [e for e in entries if isinstance(e, dict) and e.get("scope") == "user"] or [e for e in entries if isinstance(e, dict)]
-    return str(user[0].get("version") or "") or None if user else None
-
-
-def mismatch(mark: str | None = None, plugin: str | None = None) -> dict[str, str] | None:
-    """The service board (Homebrew) and the Claude plugin its sessions load are installed apart:
-    {mark, plugin, cmd} saying which to update when their versions differ, else None."""
-    from .scaffold import version
-
-    mark = mark or version()
-    plugin = plugin if plugin is not None else installed_plugin()
-    if not plugin:
-        return {"mark": mark, "plugin": "", "cmd": INSTALL}
-    if plugin == mark:
-        return None
-    cmd = "claude plugin update mark@marksuits" if _ver(plugin) < _ver(mark) else "brew upgrade marksuits"
-    return {"mark": mark, "plugin": plugin, "cmd": cmd}

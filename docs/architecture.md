@@ -728,15 +728,22 @@ covers init's checks and the existing-project cases; `tests/test_upgrade.py` cov
 - This repo is the marketplace (`.claude-plugin/marketplace.json`, name `marksuits`).
 - Plugin releases use explicit semver in `plugin.json` plus a git tag `mark--v<version>`.
   Users only receive an update when the version string changes.
-- Homebrew (v0.59): this repo is also a tap. `Formula/marksuits.rb` builds the release tag:
-  `libexec` = a copy of `plugins/mark`, `bin/mark` runs it on brew's Python, and on macOS it
-  compiles `macos/Mark.swift` into `Mark.app` (menu bar). The app runs `mark board --serve` as
-  its child with `MARK_SERVICE=app`: `board.json` records that, so the plugin's `mark board`
-  reuses that board instead of replacing it, `--stop` refuses, and the board exits when the app
-  dies. Launch at login is a per-user LaunchAgent the app writes. That board's home page compares
-  its version with the user-scope plugin (`updates.mismatch`) and names the command to run.
-  `claude` is looked up on PATH, then `~/.local/bin`, `~/.claude/local` (a login item's PATH is
-  bare). Each release bumps the formula's tag with `plugin.json` (`tests/test_updates.py` checks).
+- One-line install (v0.60): `install.sh` at the repo root checks git and Python 3.11+, installs
+  Claude Code with its own installer if missing, adds the marketplace and the user-scope plugin,
+  then on macOS runs `<plugin>/bin/mark app install`. Every step is safe to rerun.
+- Menu bar app (v0.60, `lib/mark/app.py`): the plugin is the only copy of Mark's code.
+  `mark app install` writes `~/.local/bin/mark` (`macos/launcher.py`, on the installing Python:
+  it runs the `installPath` of the user-scope plugin from `installed_plugins.json`) and compiles
+  `macos/Mark.swift` into `~/Applications/Mark.app` (built beside it, then swapped in, so a
+  failed build keeps the old app). The app runs `mark board --serve` as its child with
+  `MARK_SERVICE=app`: `board.json` records that, so a session's `mark board` reuses that board,
+  `--stop` refuses, and the board exits when the app dies. Launch at login is a per-user
+  LaunchAgent. Once a day the app runs `mark app update` (marketplace update + `claude plugin
+  update`, since Claude Code auto-updates a third-party plugin only when the user turns that on);
+  when `mark --version` moved, it runs the new plugin's `mark app install --no-open` and restarts
+  the board once no project has a running session (open pages sign in again). `claude` is looked
+  up on PATH, then `~/.local/bin`, `~/.claude/local` (a login item's PATH is bare). The Homebrew
+  formula of v0.59 is gone: two installs of the same code drifted apart.
 - Recommended install scope for teams: `project` (committed `.claude/settings.json`).
 - Breaking changes to config or artifact formats bump `mark_schema` and ship a migration note.
 - Migration note (v0.13): projects generated with Copier have `.mark/.copier-answers.yml`. Replace

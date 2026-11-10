@@ -21,6 +21,14 @@ flowchart LR
 
 ## 快速开始
 
+一行命令安装 Claude Code（没装的话）、用户级的 Mark 插件，在 macOS 上还有菜单栏应用；再跑一次就是修复或更新：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tuoyukun/MarkSuits/main/install.sh | bash
+```
+
+也可以自己装插件，比如给整个团队装（写进 `.claude/settings.json`）：
+
 ```bash
 claude plugin marketplace add tuoyukun/MarkSuits --scope project
 claude plugin install mark@marksuits --scope project
@@ -121,18 +129,10 @@ agent 时间、约 6 美元 token。人只输入了两条需求，回答了几�
 
 ### macOS：菜单栏应用
 
-用 Homebrew 安装会得到 `mark` 命令和菜单栏应用 **Mark.app**，不开终端也能让看板一直运行。图标上显示有几个
-关卡在等你；菜单里有 **Open**（打开看板，已登录）、**Preferences…**（开机启动）和 **Quit**。
-
-```bash
-brew tap tuoyukun/marksuits https://github.com/tuoyukun/MarkSuits
-brew trust tuoyukun/marksuits   # Homebrew 要求先信任第三方 tap
-brew install marksuits
-open "$(brew --prefix)/opt/marksuits/Mark.app"
-```
-
-看板里的 Claude 会话仍然需要插件，并且要装在用户级（快速开始里的命令改成 `--scope user`）。应用和插件版本
-不一致时，首页会提示该更新哪一个。
+一行安装会同时编译菜单栏应用 **Mark.app**，不开终端也能让看板一直运行。图标上显示有几个关卡在等你；菜单里有
+**Open**（打开看板，已登录）、**Preferences…**（开机启动）和 **Quit**。它每天更新一次 Mark 插件，有新版本时
+重新编译自己，并在没有会话运行时重启看板。已经装了插件？运行 `mark app install` 即可编译应用（`swiftc` 来自
+Xcode 命令行工具）。
 
 ## 工作原理
 

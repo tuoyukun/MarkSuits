@@ -448,6 +448,7 @@ _USAGE_EN = (
     "  mark upgrade [--dry-run]                       merge the new template into a general lane (/mark:upgrade)\n"
     "  mark status [--active | --json | --check]      ticket board\n"
     "  mark board [--port <first>] [--stop]           read-only live web board (/mark:board)\n"
+    "  mark app install [--no-open] | update          macOS menu bar app; update the plugin\n"
     "  mark next <id> [--json]                        what happens next for a ticket\n"
     "  mark dispatch <id> [--prev \"<text>\"] [--trigger \"<text>\"] [--retry]\n"
     "                                                 prepare the worktree, print the dispatch prompt\n"
@@ -473,6 +474,7 @@ _USAGE_ZH = (
     "  mark upgrade [--dry-run]                       把新模板合进一条通用车道（/mark:upgrade）\n"
     "  mark status [--active | --json | --check]      工单看板\n"
     "  mark board [--port <起始端口>] [--stop]        只读的实时网页看板（/mark:board）\n"
+    "  mark app install [--no-open] | update          macOS 菜单栏应用；更新插件\n"
     "  mark next <编号> [--json]                      这张工单下一步做什么\n"
     "  mark dispatch <编号> [--prev \"<文本>\"] [--trigger \"<文本>\"] [--retry]\n"
     "                                                 备好 worktree，输出派活 prompt\n"
@@ -1219,6 +1221,16 @@ MESSAGES["en"].update({
     "board.not_running": "No board is running.",
     "board.service": "The board runs in the Mark menu bar app; quit Mark there to stop it.",
     "board.failed": "The board did not start; see {log}.",
+    "app.installed": "Installed {app} (menu bar; it runs the board) and the `mark` command {launcher}.",
+    "app.macos_only": "The menu bar app is macOS only; run `mark board` instead.",
+    "app.no_swiftc": "`swiftc` was not found. Install the Xcode command line tools (`xcode-select --install`) and run this again.",
+    "app.build_failed": "Mark.app did not build:\n{error}",
+    "app.update_off": "Update checks are off (MARK_NO_UPDATE_CHECK).",
+    "app.no_claude": "`claude` was not found, so the plugin cannot be updated.",
+    "app.no_plugin": "The Mark plugin is not installed for this user.",
+    "app.update_failed": "The plugin update failed:\n{error}",
+    "app.updated": "Mark plugin updated: {old} -> {new}.",
+    "app.current": "Mark plugin {new} is the latest.",
     "wait.moved": "{id}: {old} -> {new}. The human decided (on the board or in the terminal); being woken is not "
         "a new approval. Carry on with the ticket as after /mark:approve or /mark:reject: run `mark rules` if you do not have them, "
         "then `mark next {id}`, and loop to the next human gate.",

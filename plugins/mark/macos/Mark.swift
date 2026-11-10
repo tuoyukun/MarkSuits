@@ -1,12 +1,15 @@
 // Mark menu bar app: runs the board server (`mark board --serve`) while it runs, shows how many
-// gates wait on the human, and offers Open / Preferences / Quit. Built by Formula/marksuits.rb,
-// which writes Info.plist with MarkCLI (the `mark` to run) and MarkApp (this binary, by its
-// stable opt path, for the login item). macOS only; AppKit + Foundation, no dependencies.
+// gates wait on the human, and offers Open / Preferences / Quit. Once a day it updates the Claude
+// plugin (`mark app update`); when that moved, it rebuilds itself from the new plugin and restarts
+// the board once no session runs. Built by `mark app install` (lib/mark/app.py), which writes
+// Info.plist with MarkCLI (the launcher, ~/.local/bin/mark) and MarkApp (this binary, for the
+// login item). macOS only; AppKit + Foundation, no dependencies.
 import AppKit
 
 let bundleID = "com.marksuits.mark"
 let info = Bundle.main.infoDictionary ?? [:]
-let markCLI = info["MarkCLI"] as? String ?? "/opt/homebrew/bin/mark"
+let markCLI = info["MarkCLI"] as? String
+    ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/mark").path
 let appBinary = info["MarkApp"] as? String ?? Bundle.main.executablePath ?? ""
 let markVersion = info["CFBundleShortVersionString"] as? String ?? "?"
 let loginPlist = FileManager.default.homeDirectoryForCurrentUser
@@ -18,8 +21,9 @@ func markHome() -> URL {
 }
 
 /// `mark <args>` outside any project, with the PATH a login item lacks (claude, git, node).
-func mark(_ args: [String], wait: Bool = true, service: Bool = false) -> Process {
+func mark(_ args: [String], wait: Bool = true, service: Bool = false, output: Pipe? = nil) -> Process {
     let p = Process()
+    if let output { p.standardOutput = output }
     p.executableURL = URL(fileURLWithPath: markCLI)
     p.arguments = args
     p.currentDirectoryURL = URL(fileURLWithPath: "/")
@@ -33,11 +37,19 @@ func mark(_ args: [String], wait: Bool = true, service: Bool = false) -> Process
     return p
 }
 
+/// `mark --version`: the plugin the launcher runs right now.
+func markVersionNow() -> String {
+    let pipe = Pipe()
+    _ = mark(["--version"], output: pipe)
+    return String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     var board: Process?
     var quitting = false
-    var update: [String: Any]?
+    var restartPending = false  // the plugin updated: restart the board once nothing runs
     var port: Int?
     var prefs: NSWindow?
     var loginBox: NSButton?
@@ -61,6 +73,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startBoard()
         Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.poll() }
         poll()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { self.checkUpdate() }
+        Timer.scheduledTimer(withTimeInterval: 24 * 3600, repeats: true) { [weak self] _ in self?.checkUpdate() }
+    }
+
+    func checkUpdate() {
+        DispatchQueue.global(qos: .utility).async {
+            let before = markVersionNow()
+            _ = mark(["app", "update"])
+            let after = markVersionNow()
+            guard !after.isEmpty, after != before else { return }
+            _ = mark(["app", "install", "--no-open"])  // the rebuilt app takes over at its next launch
+            DispatchQueue.main.async { self.restartPending = true }
+        }
     }
 
     func startBoard() {
@@ -85,9 +110,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let obj = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
             DispatchQueue.main.async {
                 guard let self, let obj else { self?.show(nil); return }
-                self.update = obj["update"] as? [String: Any]
-                let human = (obj["projects"] as? [[String: Any]] ?? []).reduce(0) { $0 + ($1["human"] as? Int ?? 0) }
+                let projects = obj["projects"] as? [[String: Any]] ?? []
+                let human = projects.reduce(0) { $0 + ($1["human"] as? Int ?? 0) }
                 self.show(human)
+                if self.restartPending, !projects.contains(where: { $0["running"] as? Bool == true }) {
+                    self.restartPending = false
+                    self.board?.terminate()  // its termination handler starts the new plugin's board
+                }
             }
         }.resume()
     }
@@ -111,13 +140,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: Preferences
 
     func prefsNote() -> String {
-        var lines = ["Mark \(markVersion)" + (port.map { " · board on 127.0.0.1:\($0)" } ?? "")]
-        if let u = update, let cmd = u["cmd"] as? String {
-            let plugin = u["plugin"] as? String ?? ""
-            lines.append(plugin.isEmpty ? "The Claude plugin is not installed. Run:" : "The Claude plugin is \(plugin). Run:")
-            lines.append(cmd)
-        }
-        return lines.joined(separator: "\n")
+        "Mark \(markVersion)" + (port.map { " · board on 127.0.0.1:\($0)" } ?? "")
+            + "\nUpdates the Claude plugin once a day."
     }
 
     @objc func showPrefs() {

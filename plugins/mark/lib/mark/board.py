@@ -56,7 +56,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import chat, flow, general, home, human, model, propose, runner, states, tickets, updates, wizard
+from . import chat, flow, general, home, human, model, propose, runner, states, tickets, wizard
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .gitutil import git, worktrees
 from .i18n import t
@@ -653,9 +653,7 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 m = WIZARD_PATH.match(path)
                 if path == "/api/projects":
                     self._json(200, {"projects": board.home_view(), "wizards": wizard.cards(), "decide": mode,
-                                     "model": model.public(model.store(None)),
-                                     # a plugin-run board is the plugin; only a service board can differ from it
-                                     "update": updates.mismatch() if os.environ.get(SERVICE_ENV) else None})
+                                     "model": model.public(model.store(None))})
                 elif m and not m.group(2) and (v := wizard.view(m.group(1))) is not None:
                     self._json(200, v)
                 else:
@@ -792,14 +790,14 @@ def running() -> int | None:
 
 
 def service() -> str | None:
-    """The service manager running the live board ("brew"), or None."""
+    """What runs the live board as a service ("app": the menu bar app), or None."""
     return read_state().get("service") if running() else None
 
 
 def start(port: int = DEFAULT_PORT, wait: float = 5.0) -> tuple[int | None, bool]:
     """(port, reused): reuse the live board, else start one in the background. A board started
     from another plugin install serves that install's code, so it is replaced; unless a service
-    runs it (it would restart it at once): its version banner says what to update."""
+    runs it (it would restart it at once; it restarts it itself when the plugin updates)."""
     live = running()
     if live:
         if read_state().get("page") == str(PAGE) or read_state().get("service"):

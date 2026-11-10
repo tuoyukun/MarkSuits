@@ -66,7 +66,7 @@ def clean_env(environ=os.environ) -> dict[str, str]:
 
 
 def find_claude() -> str | None:
-    """`claude` on PATH, else where its installers put it: a service (Homebrew) starts with a bare PATH."""
+    """`claude` on PATH, else where its installers put it: the menu bar app starts with a bare PATH."""
     for c in (shutil.which("claude"), Path.home() / ".local" / "bin" / "claude", Path.home() / ".claude" / "local" / "claude"):
         if c and os.access(c, os.X_OK):
             return str(c)

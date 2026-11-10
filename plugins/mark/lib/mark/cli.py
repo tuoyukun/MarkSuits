@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import ask, board, brief, defaults, e2e, flow, general, home, merge, propose, scaffold, states, tickets, updates, upgrade, wait
+from . import app, ask, board, brief, defaults, e2e, flow, general, home, merge, propose, scaffold, states, tickets, updates, upgrade, wait
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -130,7 +130,7 @@ def cmd_claim(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
 # Orchestration commands
 # --------------------------------------------------------------------------
 
-_FLAGS = {"--json", "--retry", "--no-commit", "--stop", "--serve"}
+_FLAGS = {"--json", "--retry", "--no-commit", "--stop", "--serve", "--no-open"}
 
 
 def _parse(args: list[str], valued: set[str], multi: set[str] = frozenset()
@@ -522,6 +522,32 @@ def cmd_board(cfg: MarkConfig | None, args: list[str], out: TextIO, err: TextIO)
     return 0
 
 
+def cmd_app(args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark app install [--no-open]` / `mark app update`: the macOS menu bar app (`app.py`)."""
+    opts, pos = _parse(args, set())
+    if opts is None or pos not in (["install"], ["update"]):
+        err.write(t("en", "cli.usage") + "\n")
+        return 2
+    if pos == ["update"]:
+        key, params = app.update()
+        (out if key in ("app.updated", "app.current") else err).write(t("en", key, **params) + "\n")
+        return 0 if key in ("app.updated", "app.current", "app.update_off") else 1
+    if sys.platform != "darwin":
+        err.write(t("en", "app.macos_only") + "\n")
+        return 1
+    launcher = app.write_launcher()
+    ok, error = app.build_app(scaffold.version(), launcher=launcher)
+    if not ok:
+        err.write(t("en", error) if error.startswith("app.") else t("en", "app.build_failed", error=error))
+        err.write("\n")
+        return 1
+    if not opts.get("--no-open"):
+        import subprocess
+        subprocess.run(["open", str(app.app_path())], check=False)
+    out.write(t("en", "app.installed", app=app.app_path(), launcher=launcher) + "\n")
+    return 0
+
+
 def cmd_propose(cfg: MarkConfig, args: list[str], inp: TextIO, out: TextIO, err: TextIO) -> int:
     """`mark propose <id>` with JSON on stdin: suggested choices for the board. Never fails the flow."""
     if len(args) != 1:
@@ -575,6 +601,8 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
         return 0
     if argv[0] == "rules":
         return cmd_rules(cwd or Path.cwd(), argv[1:], out, err)
+    if argv[0] == "app":
+        return cmd_app(argv[1:], out, err)
     if argv[0] == "init":
         return cmd_init(cwd or Path.cwd(), argv[1:], out, err)
     if argv[0] == "board" and find_project_root(cwd or Path.cwd()) is None:
