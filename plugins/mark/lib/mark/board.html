@@ -245,6 +245,12 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .tag.run{background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
 .dec input{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:0 0 8px}
 .top .btn{margin:0;white-space:nowrap}
+.dq{font-size:13px;color:var(--text);margin:0 0 8px}
+.dec .dopt{display:flex;color:var(--text);font-size:12.5px;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:6px;padding:7px 9px;margin:0 0 6px;cursor:pointer}
+.dec .dopt:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
+.dec .dopt input{width:auto;margin:3px 0 0;flex:none}
+.dopt b{font-weight:500;font-size:12.5px}.dopt small{display:block;color:var(--mute);font-size:11.5px;margin-top:2px}
+.dopt .rec{font-size:10.5px;color:var(--brand);margin-left:6px}.dopt .go{font-family:var(--mono);font-size:10.5px;color:var(--mute);margin-left:6px}
 .nmodal{width:min(560px,94vw);height:auto;max-height:90vh}
 .nmodal .pad{padding:16px 18px;overflow:auto}
 .chat{flex:1;display:flex;flex-direction:column;min-height:0}
@@ -328,7 +334,7 @@ const I18N={
   hatch:"Striped: waiting on you",noneInView:"No tickets in this stretch. Drag or zoom out.",durHint:"Each bar starts at its own ticket's start: how long it took and where the time went.",
   median:"Median time",humanShare:"of the time waiting on you",avg:"avg",titleCol:"Title",today:"Today",yesterday:"Yesterday",nTickets:"{n} tickets",nTicket:"1 ticket",ago:{s:"just now",m:"{n} min ago",h:"{n} h ago",d:"{n} d ago"},min:"min",waiting:"Waiting on you",
   decide:"Your decision",approve:"Approve",approveOpen:"Approve opening",reject:"Reject with comments",items:"Comments, one per line",target:"Send to",
-  ansNeed:"Your answer (required)",ansOpt:"Answer or note (optional)",canDecide:"you can decide here",
+  ansNeed:"Your answer (required)",ansOpt:"Answer or note (optional)",canDecide:"you can decide here",rec:"Recommended",rejectShort:"Reject",other:"Other…",pick:"Decide",note:"Note to add (optional)",noteNeed:"Note (required for this choice)",
   runH:"Headless session",running:"running",runBlocked:"needs approval",runFailed:"failed",runDone:"stopped at the next gate",stop:"Stop",
   runBlockedHint:"A command needed your approval. Continue in a terminal with /mark:continue {id}, or allow the command in .claude/settings.json.",
   "run.session":"Your open Claude session picks this up.","run.started":"Started a headless session to carry on.","run.terminal":"Say \"continue\" in your Claude session to carry on.",
@@ -348,7 +354,7 @@ const I18N={
   hatch:"斜纹 = 等你",noneInView:"这段时间没有工单，拖动或缩小看看",durHint:"每张单从它自己的开始时间算起：用了多久、时间花在哪个阶段。",
   median:"中位耗时",humanShare:"时间花在等你",avg:"平均",titleCol:"标题",today:"今天",yesterday:"昨天",nTickets:"{n} 张",nTicket:"1 张",ago:{s:"刚刚",m:"{n} 分钟前",h:"{n} 小时前",d:"{n} 天前"},min:" 分钟",waiting:"等你处理",
   decide:"你的决定",approve:"通过",approveOpen:"批准开单",reject:"驳回并附意见",items:"意见，每行一条",target:"转到",
-  ansNeed:"你的答复（必填）",ansOpt:"答复或备注（可选）",canDecide:"可在此处理",
+  ansNeed:"你的答复（必填）",ansOpt:"答复或备注（可选）",canDecide:"可在此处理",rec:"推荐",rejectShort:"驳回",other:"其他…",pick:"按此决定",note:"补充说明（可选）",noteNeed:"补充说明（此选项必填）",
   runH:"后台会话",running:"运行中",runBlocked:"需要授权",runFailed:"失败",runDone:"已停在下一个关卡",stop:"停止",
   runBlockedHint:"有条命令需要你授权。在终端里用 /mark:continue {id} 继续，或在 .claude/settings.json 里放行该命令。",
   "run.session":"你开着的 Claude 会话会接着干。","run.started":"已启动一个后台会话接着干。","run.terminal":"在 Claude 会话里说一声\"继续\"即可接着干。",
@@ -602,12 +608,28 @@ function decBlk(t){const w=t.wait,msg=decMsg&&decMsg.id===t.id?decMsg:null,key=J
   const to=w.kind==="blocked"?`<label for="dTo">${tr("target")}</label><select id="dTo">${w.targets.map(s=>`<option value="${esc(s)}"${s===w.default?" selected":""}>${esc(label(s))}</option>`).join("")}</select>
     <textarea id="dAns" rows="3" placeholder="${tr(w.answer?"ansNeed":"ansOpt")}"></textarea>`:"";
   const rej=w.kind==="review"?`<textarea id="dItems" rows="4" placeholder="${tr("items")}"></textarea><button class="btn" data-dec="reject">${tr("reject")}</button>`:"";
-  $("#dec").innerHTML=`<div class="blk dec"><h5>${tr("decide")}</h5>${to}<button class="btn pri" data-dec="approve">${tr(w.kind==="opening"?"approveOpen":"approve")}</button>${rej}${out}</div>`}
+  const plain=`${to}<button class="btn pri" data-dec="approve">${tr(w.kind==="opening"?"approveOpen":"approve")}</button>${rej}`,p=w.proposal;
+  if(!p){$("#dec").innerHTML=`<div class="blk dec"><h5>${tr("decide")}</h5>${plain}${out}</div>`;return}
+  const pick=Math.max(0,p.options.findIndex(o=>o.recommended));  // the suggestion comes from Claude; choosing it is the human's click
+  const opts=p.options.map((o,i)=>`<label class="dopt"><input type="radio" name="dOpt" value="${i}"${i===pick?" checked":""}><span><b>${esc(o.label)}</b>${o.recommended?`<span class="rec">${tr("rec")}</span>`:""}${o.verb==="reject"?`<span class="go">✕ ${esc(tr("rejectShort"))}</span>`:o.to?`<span class="go">→ ${esc(label(o.to))}</span>`:""}${o.detail?`<small>${esc(o.detail)}</small>`:""}${o.items?.length?`<small>${o.items.map(i=>"· "+esc(i)).join("<br>")}</small>`:""}</span></label>`).join("");
+  $("#dec").innerHTML=`<div class="blk dec"><h5>${tr("decide")}</h5>${p.question?`<div class="dq">${esc(p.question)}</div>`:""}${opts}
+    <label class="dopt"><input type="radio" name="dOpt" value="other"><span><b>${tr("other")}</b></span></label>
+    <div id="dPick"><textarea id="dNote" rows="2" placeholder="${tr("note")}"></textarea><button class="btn pri" data-dec="pick">${tr("pick")}</button></div>
+    <div id="dPlain" hidden>${plain}</div>${out}</div>`}
+function decidePick(t){const o=t.wait.proposal?.options[+document.querySelector("[name=dOpt]:checked")?.value];if(!o)return;
+  const note=$("#dNote").value.trim();
+  if(!note&&(o.verb==="reject"?!o.items.length:t.wait.answer&&!o.answer)){$("#dNote").focus();$("#dNote").placeholder=tr("noteNeed");return}
+  const body=o.verb==="reject"?{ticket:t.id,verb:"reject",items:[...o.items,...note.split("\n").map(s=>s.trim()).filter(Boolean)]}
+    :{ticket:t.id,verb:"approve",to:o.to||undefined,answer:[o.answer,note].filter(Boolean).join(" ")};
+  return postDecision(t,body)}
 async function decide(verb){const t=data.tickets.find(x=>x.id===open.id);if(!t||!t.wait)return;
+  if(verb==="pick")return decidePick(t);
   const body={ticket:t.id,verb};
   if(verb==="approve"&&$("#dTo")){body.to=$("#dTo").value;body.answer=$("#dAns").value.trim();
     if(t.wait.answer&&!body.answer){$("#dAns").focus();$("#dAns").placeholder=tr("ansNeed");return}}
   if(verb==="reject")body.items=$("#dItems").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  return postDecision(t,body)}
+async function postDecision(t,body){
   document.querySelectorAll("[data-dec]").forEach(b=>b.disabled=true);
   let r;try{r=await (await fetch("/api/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}catch{r={ok:false,text:tr("loadFail")}}
   decMsg={id:t.id,ok:!!r.ok,text:(r.text||"")+(r.note?"\n\n"+tr(r.note).replace("{id}",t.id):"")};
@@ -712,6 +734,7 @@ document.addEventListener("keydown",e=>{
 document.querySelectorAll(".nav[data-v]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-v]").forEach(x=>x.classList.toggle("on",x===b));view=b.dataset.v;render()});
 document.querySelectorAll(".kf").forEach(b=>b.onclick=()=>{document.querySelectorAll(".kf").forEach(x=>x.classList.toggle("on",x===b));kind=b.dataset.k;render()});
 document.querySelectorAll("#seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#seg button").forEach(x=>x.classList.toggle("on",x===b));scope=b.dataset.k;render()});
+document.addEventListener("change",e=>{if(e.target.name==="dOpt"){$("#dPick").hidden=e.target.value==="other";$("#dPlain").hidden=e.target.value!=="other"}});
 $("#q").oninput=e=>{q=e.target.value.toLowerCase();render()};
 const tip=$("#tip");
 document.addEventListener("mousemove",e=>{const el=e.target.closest("[data-tip]");if(!el||$("#gw.drag")){tip.style.display="none";return}

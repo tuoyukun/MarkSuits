@@ -453,6 +453,7 @@ _USAGE_EN = (
     "  mark general new | merge <branch> | drop <branch> [--force]\n"
     "                                                 no-ticket lane for docs/config (/mark:general)\n"
     "  mark wait <id> [--stop]                        block until the human decides on the ticket (background)\n"
+    "  mark propose <id> < options.json               suggest choices for the human at a gate (shown on the board)\n"
     "  mark unlock <id> <role>                        release a dead agent's lock (human)\n"
     "  mark rules [orchestrator | role | collaboration]  print a rulebook (orchestrator by default)\n"
     "  mark format <name>                             print an artifact format (design.md, verdict.md ...)"
@@ -475,6 +476,7 @@ _USAGE_ZH = (
     "  mark general new | merge <分支> | drop <分支> [--force]\n"
     "                                                 不属于任何工单的文档/配置改动车道（/mark:general）\n"
     "  mark wait <编号> [--stop]                      等人对该工单做出决定后退出（后台运行）\n"
+    "  mark propose <编号> < options.json             在关卡给人提供备选决定（显示在看板上）\n"
     "  mark unlock <编号> <角色>                      释放已死 agent 的锁（由人执行）\n"
     "  mark rules [orchestrator | role | collaboration]  打印规则（默认 orchestrator）\n"
     "  mark format <名字>                             打印制品格式（design.md、verdict.md ……）"
@@ -1212,6 +1214,29 @@ MESSAGES["en"].update({
     "wait.orphaned": "The session that waited on {id} is gone; stopped waiting.",
     "wait.stopped": "Stopped the wait on {id}.",
     "wait.none": "Nothing waits on {id}.",
+    "next.propose_review": (
+        "\nBefore you stop, give the human your choices so the board can show them (in a terminal, ask with\n"
+        "the same options). Two to four options, at most one recommended; a reject option carries its comments:\n"
+        "  mark propose {id} <<'EOF'\n"
+        "  {{\"question\": \"<one line>\", \"options\": [\n"
+        "    {{\"label\": \"<short>\", \"detail\": \"<what happens>\", \"verb\": \"approve\", \"recommended\": true}},\n"
+        "    {{\"label\": \"<short>\", \"detail\": \"<why>\", \"verb\": \"reject\", \"items\": [\"<comment>\"]}}]}}\n"
+        "  EOF\n"
+        "It is only a suggestion: if it is not saved, do not retry; stop as above."
+    ),
+    "next.propose_blocked": (
+        "\nBefore you stop, give the human your choices so the board can show them (in a terminal, ask with\n"
+        "the same options). Two to four options, at most one recommended; `to` is one of: {targets}; `answer`\n"
+        "is the human's answer that goes with it:\n"
+        "  mark propose {id} <<'EOF'\n"
+        "  {{\"question\": \"<one line>\", \"options\": [\n"
+        "    {{\"label\": \"<short>\", \"detail\": \"<what happens>\", \"to\": \"<status>\", \"answer\": \"<text>\", \"recommended\": true}},\n"
+        "    {{\"label\": \"<short>\", \"detail\": \"<what happens>\", \"to\": \"<status>\", \"answer\": \"<text>\"}}]}}\n"
+        "  EOF\n"
+        "It is only a suggestion: if it is not saved, do not retry; stop as above."
+    ),
+    "propose.saved": "{id}: {n} choice(s) saved; the board shows them. Dropped (not a legal choice here): {dropped}.",
+    "propose.ignored": "{id}: no choices saved ({why}). That is fine: the human decides with the plain form. Do not retry.",
 })
 MESSAGES["zh-CN"].update({
     "board.started": "看板已在浏览器中打开：{url}（实时更新；可在该窗口处理评审；`mark board --stop` 关闭）",
@@ -1227,4 +1252,26 @@ MESSAGES["zh-CN"].update({
     "wait.orphaned": "等待 {id} 的会话已经不在了，停止等待。",
     "wait.stopped": "已停止对 {id} 的等待。",
     "wait.none": "没有进程在等 {id}。",
+    "next.propose_review": (
+        "\n停下之前，把你建议的选项交给 Human，看板会显示出来（在终端里就用同一组选项提问）。两到四个选项，\n"
+        "最多一个推荐；驳回选项要带上意见：\n"
+        "  mark propose {id} <<'EOF'\n"
+        "  {{\"question\": \"<一句话>\", \"options\": [\n"
+        "    {{\"label\": \"<简短>\", \"detail\": \"<会发生什么>\", \"verb\": \"approve\", \"recommended\": true}},\n"
+        "    {{\"label\": \"<简短>\", \"detail\": \"<原因>\", \"verb\": \"reject\", \"items\": [\"<意见>\"]}}]}}\n"
+        "  EOF\n"
+        "这只是建议：没保存也不要重试，照上面停下。"
+    ),
+    "next.propose_blocked": (
+        "\n停下之前，把你建议的选项交给 Human，看板会显示出来（在终端里就用同一组选项提问）。两到四个选项，\n"
+        "最多一个推荐；`to` 取值：{targets}；`answer` 是随该选项一起提交的答复：\n"
+        "  mark propose {id} <<'EOF'\n"
+        "  {{\"question\": \"<一句话>\", \"options\": [\n"
+        "    {{\"label\": \"<简短>\", \"detail\": \"<会发生什么>\", \"to\": \"<状态>\", \"answer\": \"<文本>\", \"recommended\": true}},\n"
+        "    {{\"label\": \"<简短>\", \"detail\": \"<会发生什么>\", \"to\": \"<状态>\", \"answer\": \"<文本>\"}}]}}\n"
+        "  EOF\n"
+        "这只是建议：没保存也不要重试，照上面停下。"
+    ),
+    "propose.saved": "{id}：已保存 {n} 个选项，看板会显示。被丢弃（此处不合法）：{dropped}。",
+    "propose.ignored": "{id}：没有保存选项（{why}）。没关系，Human 会用普通表单决定。不要重试。",
 })

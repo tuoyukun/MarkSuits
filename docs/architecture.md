@@ -524,6 +524,20 @@ Live runs showed that a `-p` session does not exit while a background task runs,
 `mark wait` started at a gate kept the turn alive forever. `wait_guard` (pre-bash) refuses
 `mark wait` in any unattended session (`CLAUDE_CODE_SESSION_ATTENDED=0`); the runner benefits too.
 
+**Suggested choices (v0.52).** At a stop that waits on the human (`review-*`, `blocked-*`),
+`mark next` tells the orchestrator to pipe its options into `mark propose <id>` (a heredoc of
+JSON: a question and two to four options, each a ready decision — approve with a `to` and an
+`answer`, or reject with `items`; at most one `recommended`). In a terminal it asks with the same
+options. `lib/mark/propose.py` keeps only what is legal at that stop (targets from
+`approve_targets`, rejecting only at a review, a rejection only with comments) and saves it as
+`<state>/locks/propose-<id>.json` with the status it was made for; any status write deletes it.
+It is a suggestion, never a step: bad JSON, no legal option, nothing piped in or a status that
+does not wait all save nothing, say so, and exit 0, and the hint says not to retry. Role agents
+may not run it (`MARK_WRITES`). The board adds the proposal to the ticket's `wait` and shows it as
+choices, the recommended one selected, with an optional note (required when the choice lacks the
+answer or comments the gate needs); "Other…" brings back the plain form. A choice posts the same
+`/api/decide` body the plain form would, so the human's click is still the decision.
+
 ### Worktree provisioning (v0.11)
 
 `git worktree add` brings only tracked files: no dependencies, no `.env`, no local config, so

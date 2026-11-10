@@ -590,6 +590,8 @@ def _write_status(ctx: Ctx, new: str, note: str | None, extra: dict[str, str | N
         raise FlowError("flow.invalid_status", problems=problems)
     t.path.write_text(tickets.format_status(fields, body), encoding="utf-8")
     ctx.ticket = candidate
+    from . import propose  # propose imports this module
+    propose.clear(ctx.cfg, ctx.id)  # a proposal belongs to the stop it was made at
 
 
 def _unstaffed(ctx: Ctx, status: str) -> str | None:

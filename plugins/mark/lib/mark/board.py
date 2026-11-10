@@ -44,7 +44,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import chat, flow, general, human, runner, states, tickets
+from . import chat, flow, general, human, propose, runner, states, tickets
 from .config import MarkConfig
 from .gitutil import git, worktrees
 from .i18n import t
@@ -189,12 +189,13 @@ def waits_on(cfg: MarkConfig, tk: tickets.Ticket) -> dict[str, object] | None:
         return {"kind": "opening"}
     if tk.status not in flow.APPROVE:
         return None
+    extra = {"proposal": p} if (p := propose.load(cfg, tk.id, tk.status)) else {}
     if flow.APPROVE[tk.status][0]:
-        return {"kind": "review"}
+        return {"kind": "review", **extra}
     targets = flow.approve_targets(ctx)
     default = flow.APPROVE[tk.status][2]
     return {"kind": "blocked", "targets": targets, "answer": tk.status == "blocked-unclear",
-            "default": default if default in targets else (targets[0] if targets else "")}
+            "default": default if default in targets else (targets[0] if targets else ""), **extra}
 
 
 def general_lanes(cfg: MarkConfig) -> list[dict[str, object]]:

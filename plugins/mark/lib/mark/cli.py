@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import board, brief, defaults, e2e, flow, general, merge, scaffold, states, tickets, updates, upgrade, wait
+from . import board, brief, defaults, e2e, flow, general, merge, propose, scaffold, states, tickets, updates, upgrade, wait
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -190,10 +190,12 @@ def cmd_next(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     action = flow.next_action(ctx, retry=bool(opts.get("--retry")))
     if opts.get("--json"):
         data = {"id": ctx.id, "kind": ctx.kind, "status": ctx.ticket.status, **action.as_dict(),
-                "text": t(cfg.locale, action.message, **action.params)}
+                "text": t(cfg.locale, action.message, **action.params) + propose.hint(ctx)}
         out.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     else:
         _say(cfg, out, action.message, **action.params)
+        if hint := propose.hint(ctx):
+            out.write(hint.lstrip("\n") + "\n")
         _stale_notice(cfg, out)
     return 0
 
@@ -510,6 +512,16 @@ def cmd_board(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
     return 0
 
 
+def cmd_propose(cfg: MarkConfig, args: list[str], inp: TextIO, out: TextIO, err: TextIO) -> int:
+    """`mark propose <id>` with JSON on stdin: suggested choices for the board. Never fails the flow."""
+    if len(args) != 1:
+        _say(cfg, err, "cli.usage")
+        return 2
+    key, params = propose.save(flow.load(cfg, args[0]), inp)
+    _say(cfg, out, key, **params)
+    return 0
+
+
 def cmd_wait(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     """`mark wait <id> [--stop]`: block until the human decides on the ticket (run it in the background)."""
     opts, pos = _parse(args, set())
@@ -531,7 +543,7 @@ COMMANDS = {"board": cmd_board, "wait": cmd_wait, "format": cmd_format, "next": 
 
 
 def main(argv: list[str] | None = None, cwd: Path | None = None,
-         out: TextIO | None = None, err: TextIO | None = None) -> int:
+         out: TextIO | None = None, err: TextIO | None = None, inp: TextIO | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     out = out or sys.stdout
     err = err or sys.stderr
@@ -548,6 +560,11 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
     command, rest = argv[0], argv[1:]
     if command == "status":
         return cmd_status(cfg, rest, out)
+    if command == "propose":
+        try:
+            return cmd_propose(cfg, rest, inp or sys.stdin, out, err)
+        except flow.FlowError as exc:
+            return _fail(cfg, err, exc)
     if command in COMMANDS:
         try:
             return COMMANDS[command](cfg, rest, out, err)
