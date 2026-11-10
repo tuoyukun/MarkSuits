@@ -486,6 +486,26 @@ exists the project is registered and the wizard links to its board. No tool call
 `MARK_HOME` (`guards.write.home_block`, Edit/Write and shell writes alike). Residual: the
 wizard's first turns run before the directory is a Mark project, so Mark's hooks are silent there.
 
+**Columns (v0.64).** Every stage column is expanded by default, empty or not, on a darker
+background that fills the visible height; cards scroll inside the column, so the columns line up
+and the page never scrolls down. A column's header button folds it to a narrow strip (click it to
+unfold); folded columns are remembered per project in `localStorage`.
+
+**Updating Mark from the board (v0.64, `lib/mark/upkeep.py`).** The server asks hourly whether a
+newer plugin is published (`updates.newer`, its cache 1 h here) and the page puts a NEW badge on
+the logo. Clicking it (with the cookie, refused while any Claude session or lane merge runs) runs
+`app.update` in the background, rebuilds the menu bar app when there is one (`mark app install
+--no-open`), then the server shuts down and `execv`s the new install's `bin/mark board --serve` on
+the same port: same pid (a service app keeps tracking it), and the session secret passes over an
+inherited pipe (`MARK_BOARD_SECRET_FD`), so the browser stays logged in. A page that sees a new
+version reloads itself. On start, once per plugin version per project (`MARK_HOME/upgrade-lanes.json`),
+the board runs `upgrade.run` in each registered project that `upgrade.stale` says the version
+changes and that has no open upgrade lane yet; releases that change only the engine open none. A
+lane whose first commit is `chore: upgrade Mark …` shows as waiting on the human with any files
+holding conflict markers; its panel offers **Approve and merge** (`general.merge_lane` in a
+background thread: the regression, then the fast-forward; a failure stays on the card) and
+**Drop** (`general.drop --force`). Residual: an older upgrade lane left open blocks the next one.
+
 **Deciding (v0.47).** A ticket that waits on the human (opening not approved, `review-*`,
 `blocked-*`) gets a decision panel in its modal: approve; reject with one comment per line; for
 a blocked ticket, a target status (`flow.approve_targets`) and an answer. `POST /api/decide`

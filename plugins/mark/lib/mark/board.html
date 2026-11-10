@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#ffffff;--app:#f7f7f8;--panel:#ffffff;--line:#ebebed;--line2:#f1f1f3;--hover:#f0f0f2;
+  --bg:#ffffff;--app:#f7f7f8;--colbg:#efeff2;--panel:#ffffff;--line:#ebebed;--line2:#f1f1f3;--hover:#f0f0f2;
   --text:#1b1b1f;--text2:#5b5b66;--mute:#8e8e99;--faint:#c4c4cc;
   --brand:#5e6ad2;--brand-soft:#eef0fc;--human:#e8833a;--human-soft:#fdf1e7;--ok:#3f9f6b;--bad:#d8524e;
   --c-req:#a37cf0;--c-des:#e5629b;--c-plan:#3d9be9;--c-dev:#f2c94c;--c-qa:#4cb782;--c-merge:#5e6ad2;--c-block:#eb5757;--c-done:#95a2b3;
@@ -18,11 +18,11 @@
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#101012;--app:#0b0b0d;--panel:#17171a;--line:#232327;--line2:#1c1c20;--hover:#1d1d21;
+  --bg:#101012;--app:#0b0b0d;--colbg:#09090b;--panel:#17171a;--line:#232327;--line2:#1c1c20;--hover:#1d1d21;
   --text:#ededf0;--text2:#a5a5ae;--mute:#6f6f79;--faint:#43434b;--brand-soft:#23253a;--human-soft:#2c1f14;
   --shadow:0 1px 2px rgba(0,0,0,.3);--shadow-lg:0 24px 64px rgba(0,0,0,.6);
 }}
-:root[data-theme="dark"]{--bg:#101012;--app:#0b0b0d;--panel:#17171a;--line:#232327;--line2:#1c1c20;--hover:#1d1d21;--text:#ededf0;--text2:#a5a5ae;--mute:#6f6f79;--faint:#43434b;--brand-soft:#23253a;--human-soft:#2c1f14;--shadow:0 1px 2px rgba(0,0,0,.3);--shadow-lg:0 24px 64px rgba(0,0,0,.6)}
+:root[data-theme="dark"]{--bg:#101012;--app:#0b0b0d;--colbg:#09090b;--panel:#17171a;--line:#232327;--line2:#1c1c20;--hover:#1d1d21;--text:#ededf0;--text2:#a5a5ae;--mute:#6f6f79;--faint:#43434b;--brand-soft:#23253a;--human-soft:#2c1f14;--shadow:0 1px 2px rgba(0,0,0,.3);--shadow-lg:0 24px 64px rgba(0,0,0,.6)}
 *{box-sizing:border-box}
 :root{accent-color:var(--brand)}
 html,body{height:100%}
@@ -31,7 +31,9 @@ button{font:inherit;color:inherit}
 .app{display:grid;grid-template-columns:220px 1fr;height:100vh}
 .sb{display:flex;flex-direction:column;padding:10px 8px;gap:1px;border-right:1px solid var(--line);min-width:0}
 .ws{display:flex;align-items:center;gap:8px;padding:4px 8px 12px;min-width:0}
-.logo{width:20px;height:20px;border-radius:5px;background:var(--text);display:grid;place-items:center;color:var(--bg);font-weight:700;font-size:11px;flex:none}
+.upd{position:absolute;top:-9px;left:-8px;border:0;border-radius:7px;background:var(--human);color:#fff;font:700 8.5px/13px var(--mono);padding:0 4px;letter-spacing:.3px;cursor:pointer;z-index:3;box-shadow:0 0 0 2px var(--bg)}
+.upd.busy{background:var(--brand);animation:pulse 1.6s infinite}.upd.bad{background:var(--bad)}
+.logo{position:relative;width:20px;height:20px;border-radius:5px;background:var(--text);display:grid;place-items:center;color:var(--bg);font-weight:700;font-size:11px;flex:none}
 .ws b{font-size:13px;font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ws small{display:block;color:var(--mute);font-size:11px;margin-top:-2px}
 .nav{display:flex;align-items:center;gap:8px;height:28px;padding:0 8px;border-radius:5px;color:var(--text2);font-weight:500;cursor:pointer;border:0;background:none;width:100%;text-align:left}
@@ -68,14 +70,19 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .chip.h{border:1px solid transparent;background:var(--human-soft);color:var(--human)}.chip.h b{color:var(--human)}
 .chip.h.on{border-color:var(--human)}
 .chip:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
-.content:has(>.board){display:flex;flex-direction:column}
-.board{display:flex;gap:12px;padding:4px 20px 24px;align-items:stretch;flex:1 0 auto;width:max-content;min-width:100%}
-.col{flex:0 0 280px;width:280px;display:flex;flex-direction:column}  /* fixed like Linear: one busy column must not fill the page */
-.col.slim{flex:0 0 36px;width:36px;align-self:flex-start;align-items:center;gap:8px;padding:12px 0;margin-top:8px;border-radius:6px;background:var(--app);color:var(--mute);font-size:11.5px}
+.content:has(>.board){display:flex;flex-direction:column;overflow-y:hidden}
+/* every column fills the visible height and scrolls inside, so they line up and the page never scrolls down */
+.board{display:flex;gap:10px;padding:8px 20px 16px;align-items:stretch;flex:1 1 0;min-height:0;width:max-content;min-width:100%}
+.col{flex:0 0 280px;width:280px;display:flex;flex-direction:column;min-height:0;background:var(--colbg);border-radius:10px}  /* fixed like Linear: one busy column must not fill the page */
+.col.slim{flex:0 0 40px;width:40px;align-items:center;gap:8px;padding:10px 0;color:var(--mute);font-size:11.5px;cursor:pointer}
+.col.slim:hover{color:var(--text2)}
 .col.slim span{writing-mode:vertical-rl;font-weight:500;font-size:12px;color:var(--text2)}
-.colh{display:flex;align-items:center;gap:8px;height:44px;padding:0 4px;font-weight:500;white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg)}
+.colh{display:flex;align-items:center;gap:8px;height:42px;padding:0 6px 0 12px;font-weight:500;white-space:nowrap;flex:none}
 .colh .cnt{font-weight:400;color:var(--mute);font-variant-numeric:tabular-nums}
-.cards{display:flex;flex-direction:column;gap:8px}
+.fold{margin-left:auto;width:24px;height:24px;border:0;border-radius:6px;background:none;color:var(--mute);display:grid;place-items:center;cursor:pointer;padding:0}
+.fold:hover{background:var(--hover);color:var(--text)}.fold svg{width:14px;height:14px}
+.fold:focus-visible,.col.slim:focus-visible{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent);outline-offset:-2px}
+.cards{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow-y:auto;padding:2px 8px 10px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 12px 12px;display:flex;flex-direction:column;gap:6px;cursor:pointer;box-shadow:var(--shadow);transition:border-color .12s}
 .card:hover{border-color:color-mix(in srgb,var(--text) 18%,var(--line))}
 .card.done .ttl{color:var(--text2)}
@@ -409,7 +416,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
 <body>
 <div class="app">
   <aside class="sb">
-    <a class="ws" href="/" id="ws"><div class="logo"><span>M</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg></div><div style="min-width:0"><b id="pname">…</b><small><span class="sub" id="psub"></span><span class="bk" data-i="allProjects"></span></small></div></a>
+    <a class="ws" href="/" id="ws"><div class="logo"><button class="upd" data-upd hidden></button><span>M</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg></div><div style="min-width:0"><b id="pname">…</b><small><span class="sub" id="psub"></span><span class="bk" data-i="allProjects"></span></small></div></a>
     <button class="nav on po" data-v="board"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="3.5" height="11" rx="1"/><rect x="6.5" y="2.5" width="3.5" height="7" rx="1"/><rect x="11" y="2.5" width="3" height="9" rx="1"/></svg><span data-i="board"></span><span class="n" id="nAll"></span></button>
     <button class="nav po" data-v="timeline"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h7M5 8h8M3 12h6" stroke-linecap="round"/></svg><span data-i="timeline"></span></button>
     <button class="nav po" data-v="human"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c.8-2.4 2.7-3.5 5-3.5s4.2 1.1 5 3.5" stroke-linecap="round"/></svg><span data-i="human"></span><span class="n h" id="nHuman"></span></button>
@@ -426,7 +433,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
   </aside>
   <div class="main">
     <div class="top">
-      <div class="logo ho">M</div><div class="crumb"><span class="p" id="crumbP" style="color:var(--text);font-weight:500"></span><span>/</span><b id="vt"></b></div><div class="stats po" id="stats"></div>
+      <div class="logo ho"><button class="upd" data-upd hidden></button>M</div><div class="crumb"><span class="p" id="crumbP" style="color:var(--text);font-weight:500"></span><span>/</span><b id="vt"></b></div><div class="stats po" id="stats"></div>
       <span class="grow"></span>
       <button class="btn ho hbtn" data-model><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="3.5" width="9" height="9" rx="2"/><path d="M6 1.5v2M10 1.5v2M6 12.5v2M10 12.5v2M1.5 6h2M1.5 10h2M12.5 6h2M12.5 10h2"/></svg><span id="hModel"></span></button>
       <button class="btn ho hbtn dz" data-padd hidden><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M1.5 4.5v8a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H8L6.5 3.5h-4a1 1 0 0 0-1 1Z"/></svg><span data-i="addProj"></span></button>
@@ -543,6 +550,10 @@ const I18N={
   provider:"Provider",provCustom:"Anthropic-compatible endpoint (DeepSeek …)",modelName:"Model (alias such as opus, or a full name)",presetDs:"Fill in DeepSeek",
   keySaved:"Saved; leave empty to keep it",save:"Save",saved:"Model: {m}. New sessions use it.",
   addProfile:"Add a model",profName:"Name (optional, shown in the list)",cancel:"Cancel",edit:"Edit",del:"Delete",delAsk:"Delete the model \"{m}\"?",
+  collapse:"Collapse",expand:"Expand",updTip:"Mark {new} is out (you have {old}). Click to update.",updAsk:"Update Mark {old} → {new}? The board restarts on the new version; projects whose files the new version changes get an upgrade lane to review.",
+  updRunning:"Updating Mark… the board restarts when it is done.",updFail:"The update failed.","update.busy":"A Claude session is running. Update when it has finished.","update.running":"An update is already running.",
+  upgH:"Mark upgrade",upgHint:"The new Mark version changes this project's Mark files. Merging runs the regression, then lands the change on main.",upgMerge:"Approve and merge",upgDrop:"Drop",upgDropAsk:"Drop this upgrade? `mark status` keeps reminding you; /mark:upgrade opens a new one.",
+  upgMerging:"Merging: the regression is running…",upgConf:"The upgrade clashes with your edits in these files. Resolve them in the lane's worktree (or ask Claude: /mark:upgrade), then merge:","lane.running":"This lane is already merging.",
   "chat.busy":"Claude is already working on this ticket; wait for its reply.","chat.no-claude":"`claude` was not found, so nobody can reply. Continue in a terminal."},
  "zh-CN":{dep_python:"Python 3.11 或更新版本",depH_python:"Mark 的 hooks 用 python3 运行。安装方式举例：",dep_git:"git",depH_git:"git 由 Xcode 命令行工具提供。",dep_claude:"Claude Code",depH_claude:"看板里的会话要运行 claude。用它的官方安装器安装，之后会自动更新。",dep_model:"可用的模型",depH_model:"在终端里登录 Claude，或添加一个自带 API key 的其他模型（DeepSeek 等兼容 Anthropic 接口的服务）。登录命令：",depAddModel:"添加模型",dep_plugin:"用户级 Mark 插件",depH_plugin:"Claude 会话从这里加载 Mark。",dep_app:"菜单栏应用",depH_app:"不开终端也能让看板一直运行，并每天更新一次 Mark。",depT:"这台电脑还差几步",depBlock:"新建项目需要先完成标记的几项。",depOpt:"可选。",depFix:"安装",depRunning:"安装中…",depRecheck:"重新检查",depHide:"暂不",depCopy:"复制",depRun:"正在运行：",depFail:"失败（退出码 {c}）：",depDone:"已完成：",depNeed:"请先完成页面顶部的环境配置。",depAppAsk:"菜单栏应用会接管看板：本页会自动重连，之后点它菜单里的 Open 重新登录。现在安装？",copiedCmd:"已复制命令","deps.busy":"另一个安装正在进行，请等它完成。",newProj:"新建项目",wHint:"Claude 会在这个目录里运行 /mark:init：先提出项目的配置方案，你在对话里确认或修改。",wDirL:"目录（完整路径，不存在会自动创建）",wTextL:"你要做什么、用什么技术栈（可选）",wPick:"选择…",wProfL:"项目类型",
   wProf_:"不确定：让 Claude 建议",wProfD_:"在下面描述一下，Claude 会推荐一种类型。",
@@ -583,6 +594,10 @@ const I18N={
   provider:"提供方",provCustom:"Anthropic 兼容端点（DeepSeek 等）",modelName:"模型（opus 这类别名，或完整名称）",presetDs:"填入 DeepSeek",
   keySaved:"已保存；留空则不变",save:"保存",saved:"当前模型：{m}。新会话将使用它。",
   addProfile:"添加模型",profName:"名称（可选，显示在列表里）",cancel:"取消",edit:"编辑",del:"删除",delAsk:"删除模型「{m}」？",
+  collapse:"收起",expand:"展开",updTip:"Mark {new} 已发布（当前 {old}），点击升级。",updAsk:"把 Mark 从 {old} 升级到 {new}？看板会在新版本上重启；新版本改动了文件的项目会各得到一张升级工单，等你审批。",
+  updRunning:"正在升级 Mark…完成后看板会自动重启。",updFail:"升级失败。","update.busy":"有 Claude 会话正在运行，等它结束再升级。","update.running":"已经在升级了。",
+  upgH:"Mark 升级",upgHint:"新版本的 Mark 改动了这个项目里的 Mark 文件。合并会先跑回归测试，再把改动落到主分支。",upgMerge:"批准并合并",upgDrop:"丢弃",upgDropAsk:"丢弃这次升级？`mark status` 会继续提醒；之后可以用 /mark:upgrade 重新生成。",
+  upgMerging:"合并中：正在跑回归测试…",upgConf:"升级和你对下面这些文件的改动冲突。请在该通道的 worktree 里解决（或让 Claude 处理：/mark:upgrade），再合并：","lane.running":"这个通道已经在合并了。",
   "chat.busy":"Claude 正在处理这张工单，等它回复后再发。","chat.no-claude":"没找到 `claude` 命令，没人能回复。请到终端里继续。"}};
 const LABELS={
  en:{drafting:"Drafting","review-requirement":"Requirement review",designing:"Designing","review-design":"Design review",planning:"Planning","review-plan":"Plan review",developing:"Developing","failed-impl":"Rework","design-qa":"Design QA",testing:"Testing","pending-merge":"Pending merge","blocked-plan":"Blocked: plan","blocked-spec":"Blocked: design","blocked-unclear":"Needs answer",passed:"Passed",superseded:"Superseded"},
@@ -609,6 +624,36 @@ let wiz=null;  // the wizard shown on the home page (#w=<id>), or null
 const wizHash=()=>(location.hash.match(/^#w=([0-9a-f]{10})$/)||[])[1]||null;
 let L="en",data=null,view="board",kind="all",scope="all",only="",q="",open=null,docKey="",shownAt=Date.now(),tl="gantt",allDone=false;
 const DONE_CAP=6;  // the Done column shows the newest few until expanded
+const FOLD_KEY="mark.fold."+location.pathname;  // collapsed columns, per project
+const folded=new Set((()=>{try{return JSON.parse(localStorage.getItem(FOLD_KEY))||[]}catch{return[]}})());
+function toggleFold(k){folded.has(k)?folded.delete(k):folded.add(k);try{localStorage.setItem(FOLD_KEY,JSON.stringify([...folded]))}catch{}render()}
+let upd0=null;  // the update state last seen: reload on a new version, say when an update failed
+function seeUpdate(u){if(!u)return;
+  if(upd0&&upd0.current!==u.current){location.reload();return}
+  if(upd0?.state==="running"&&u.state==="failed")toast(esc(u.error||tr("updFail")));
+  upd0=u;
+  document.querySelectorAll("[data-upd]").forEach(b=>{b.hidden=!u.latest&&u.state!=="running";
+    b.classList.toggle("busy",u.state==="running");b.classList.toggle("bad",u.state==="failed");
+    b.textContent=u.state==="running"?"…":"NEW";
+    b.title=u.state==="running"?tr("updRunning"):u.state==="failed"?u.error:tr("updTip").replace("{old}",u.current).replace("{new}",u.latest)})}
+async function startUpdate(){const u=upd0;if(!u||u.state==="running")return;
+  if(data.decide!=="on"){toast(esc(tr("needLogin")));return}
+  if(!confirm(tr("updAsk").replace("{old}",u.current).replace("{new}",u.latest||"?")))return;
+  let r;try{r=await (await fetch("/api/update",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json()}catch{r={ok:false,text:"loadFail"}}
+  if(!r.ok){toast(esc(tr(r.text)??r.text));return}
+  toast(esc(tr("updRunning")));load()}
+async function laneAct(verb){const t=data.tickets.find(x=>x.id===open?.id);if(!t?.upgrade)return;
+  if(verb==="drop"&&!confirm(tr("upgDropAsk")))return;
+  let r;try{r=await (await fetch("api/lane",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({branch:t.branch,verb})})).json()}catch{r={ok:false,text:"loadFail"}}
+  if(!r.ok){toast(esc(tr(r.text)??r.text));return}
+  if(verb==="drop")closeM();await load()}
+function laneBlk(t){const j=t.job,c=t.conflicts||[];
+  if(data.decide!=="on")return `<div class="blk"><h5>${tr("upgH")}</h5><div class="none">${esc(tr(data.decide==="off"?"offDecide":"needLogin"))}</div></div>`;
+  const busy=j?.state==="running";
+  return `<div class="blk dec"><h5>${tr("upgH")}</h5><div class="dq">${tr("upgHint")}</div>
+   ${c.length?`<div class="none">${tr("upgConf")}</div><pre class="dout bad">${esc(c.join("\n"))}</pre>`:""}
+   ${busy?`<div class="none">${tr("upgMerging")}</div>`:`<button class="btn pri" data-lane="merge"${c.length?" disabled":""}>${tr("upgMerge")}</button><button class="btn" data-lane="drop">${tr("upgDrop")}</button>`}
+   ${j?.state==="failed"?`<pre class="dout bad">${esc(j.error)}</pre>`:""}</div>`}
 const $=s=>document.querySelector(s);
 const tr=k=>(I18N[L]||I18N.en)[k]??I18N.en[k];
 const label=s=>(LABELS[L]||LABELS.en)[s]||s||"?";
@@ -671,10 +716,10 @@ function visible(){return data.tickets.filter(t=>(!only||ONLY[only](t))&&(kind==
 const last=t=>t.history[t.history.length-1]||{};
 async function loadProjects(){try{const r=await (await fetch("/api/projects",{cache:"no-store"})).json();projs=r.projects;return r}catch{return null}}
 async function load(){
-  if(HOME){const r=await loadProjects();if(!r)return;data={...r,home:true};L=navigator.language.startsWith("zh")?"zh-CN":"en";document.documentElement.lang=L;render();return}
+  if(HOME){const r=await loadProjects();if(!r)return;data={...r,home:true};L=navigator.language.startsWith("zh")?"zh-CN":"en";document.documentElement.lang=L;render();seeUpdate(r.update);return}
   let next;try{next=await (await fetch("api/board",{cache:"no-store"})).json()}catch{return}
   const before=data?Object.fromEntries(data.tickets.map(t=>[t.id,t.status])):null;
-  data=next;L=I18N[data.locale]?data.locale:"en";
+  data=next;L=I18N[data.locale]?data.locale:"en";seeUpdate(data.update);
   document.documentElement.lang=L;
   if(before){const moved=data.tickets.filter(t=>before[t.id]!==t.status);
     render();moved.forEach(t=>{const c=document.getElementById("c-"+CSS.escape(t.id));if(c)c.classList.add("flash")});
@@ -808,8 +853,9 @@ function render(){
   else{const cols=view==="human"?STAGES.filter(s=>s.s.some(x=>x.startsWith("review")||x.startsWith("blocked"))):STAGES;
     content.innerHTML=`<div class="board">${cols.map(s=>{let c=v.filter(t=>stageOf(t.status)===s).sort((a,b)=>ts(last(b).at)-ts(last(a).at));const n=c.length,cap=s.k==="done"&&n>DONE_CAP;
       if(cap&&!allDone)c=c.slice(0,DONE_CAP);
-      if(!n)return `<div class="col slim" title="${esc(s.n[L]||s.n.en)} · ${tr("empty")}">${icon(s.s[0])}<span>${esc(s.n[L]||s.n.en)}</span>0</div>`;
-      return `<div class="col"><div class="colh">${icon(s.s[0])}${esc(s.n[L]||s.n.en)}<span class="cnt">${n}</span></div><div class="cards">${c.map(card).join("")}${cap?`<button class="more" data-more>${allDone?tr("less"):tr("showAll").replace("{n}",n)}</button>`:""}</div></div>`}).join("")}</div>`}
+      const nm=esc(s.n[L]||s.n.en);
+      if(folded.has(s.k))return `<div class="col slim" role="button" tabindex="0" data-fold="${s.k}" title="${tr("expand")} · ${nm}">${icon(s.s[0])}<span>${nm}</span>${n}</div>`;
+      return `<div class="col"><div class="colh">${icon(s.s[0])}${nm}<span class="cnt">${n}</span><button class="fold" data-fold="${s.k}" title="${tr("collapse")}" aria-label="${tr("collapse")} · ${nm}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4 5.5 8l4 4"/></svg></button></div><div class="cards">${c.map(card).join("")}${cap?`<button class="more" data-more>${allDone?tr("less"):tr("showAll").replace("{n}",n)}</button>`:""}</div></div>`}).join("")}</div>`}
   [content.scrollLeft,content.scrollTop]=scroll;
   if(gantt){gMount();$("#gw").scrollTop=gTop}
   gAt=null;
@@ -932,7 +978,8 @@ function runBlk(t){const r=runOf(t),el=$("#run");if(!r){el.innerHTML="";return}
   const nl=el.querySelector(".runlog");if(nl&&atEnd)nl.scrollTop=nl.scrollHeight}
 // The decision form is rebuilt only when the ticket's state changes, so a live refresh never eats what the human typed.
 let decKey="",decMsg=null;
-function decBlk(t){const w=t.wait,msg=decMsg&&decMsg.id===t.id?decMsg:null,key=JSON.stringify([t.id,t.status,w,data.decide]);
+function decBlk(t){if(t.upgrade){decKey="";$("#dec").innerHTML=laneBlk(t);return}
+  const w=t.wait,msg=decMsg&&decMsg.id===t.id?decMsg:null,key=JSON.stringify([t.id,t.status,w,data.decide]);
   if(key===decKey)return;decKey=key;
   const out=msg?`<pre class="dout ${msg.ok?"":"bad"}">${esc(msg.text)}</pre>`:"";
   if(!w){$("#dec").innerHTML=out?`<div class="blk dec">${out}</div>`:"";return}
@@ -1083,6 +1130,9 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-now]")){const g=$("#gw");g.scrollLeft=(Date.now()-gT0)*pph/36e5-(g.clientWidth-namew(g))*.8;return}
   const t=e.target.closest("[data-tl]");if(t){tl=t.dataset.tl;render();return}
   if(e.target.closest("[data-more]")){allDone=!allDone;render();return}
+  if(e.target.closest("[data-upd]")){e.preventDefault();startUpdate();return}  // it sits inside the "all projects" link
+  {const f=e.target.closest("[data-fold]");if(f){toggleFold(f.dataset.fold);return}}
+  {const l=e.target.closest("[data-lane]");if(l){laneAct(l.dataset.lane);return}}
   const ch=e.target.closest("[data-only]");if(ch){only=only===ch.dataset.only?"":ch.dataset.only;render();return}
   if(e.target.id==="follow"){follow=e.target.checked;gRows();return}
   const act=e.target.closest("[data-act]");if(act){const ov=$("#ov");if(act.dataset.act==="close")closeM();else{ov.classList.toggle(act.dataset.act==="full"?"full":"noside");if(act.dataset.act==="full")modal()}return}
@@ -1122,6 +1172,7 @@ document.addEventListener("keydown",e=>{
   else if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)&&document.activeElement?.id==="cText"){e.preventDefault();chatSend()}
   else if(e.key==="Enter"&&document.activeElement?.id==="aDir")homePost("/api/projects/add",{dir:$("#aDir").value});
   else if(e.key==="Enter"&&document.activeElement?.dataset.open)openM(document.activeElement.dataset.open);
+  else if(e.key==="Enter"&&document.activeElement?.matches(".col.slim"))toggleFold(document.activeElement.dataset.fold);
   else if(e.key==="/"&&!open&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||"")){e.preventDefault();$("#q").focus()}});
 document.querySelectorAll(".nav[data-v]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-v]").forEach(x=>x.classList.toggle("on",x===b));view=b.dataset.v;render()});
 document.querySelectorAll(".kf").forEach(b=>b.onclick=()=>{document.querySelectorAll(".kf").forEach(x=>x.classList.toggle("on",x===b));kind=b.dataset.k;render()});

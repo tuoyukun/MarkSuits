@@ -33,8 +33,10 @@ def _repo(source: dict) -> str | None:
     return f"{m.group(1)}/{m.group(2)}" if m else None
 
 
-def newer(plugin: Path = _PLUGIN, fetch=_fetch, now: float | None = None) -> tuple[str, str] | None:
-    """(marketplace, published version) when it is newer than the installed `plugin`, else None."""
+def newer(plugin: Path = _PLUGIN, fetch=_fetch, now: float | None = None,
+          every: float = CHECK_EVERY) -> tuple[str, str] | None:
+    """(marketplace, published version) when it is newer than the installed `plugin`, else None.
+    `every`: how old the cached answer may be (the board asks hourly)."""
     if os.environ.get("MARK_NO_UPDATE_CHECK"):
         return None
     # An installed plugin lives at <plugins>/cache/<marketplace>/<name>/<version>.
@@ -54,7 +56,7 @@ def newer(plugin: Path = _PLUGIN, fetch=_fetch, now: float | None = None) -> tup
     except (OSError, ValueError):
         seen = {}
     latest = str(seen.get("latest") or "")
-    if "at" not in seen or now - float(seen["at"]) >= CHECK_EVERY:
+    if "at" not in seen or now - float(seen["at"]) >= every:
         repo = _repo(source)
         latest = ""
         if repo:

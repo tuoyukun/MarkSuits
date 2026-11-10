@@ -17,6 +17,7 @@ project adds it there. The page (`board.html`) is one file with two views:
     POST /api/projects/remove {id}     forget one; nothing on disk is touched (with the cookie)
     POST /api/wizard {dir, profile, text}  set up a new project: `/mark:init` in the board chat (`wizard.py`, with the cookie)
     POST /api/pickdir                  the Mac's folder dialog: {ok, path} (with the cookie)
+    POST /api/update                   update the plugin and restart on it (`upkeep.py`, with the cookie)
     /api/wizard/<wid>                  a wizard's chat; POST {text} the next message, POST .../stop, .../discard (with the cookie)
 
     /p/<id>/                           one project's board; under it, relative to it:
@@ -28,6 +29,7 @@ project adds it there. The page (`board.html`) is one file with two views:
       POST api/stop                    stop the headless session, or with {"ticket"} its chat turn (with the cookie)
       POST api/new                     open a ticket and start talking it through (with the cookie)
       POST api/chat                    send the next message in a ticket's chat (with the cookie)
+      POST api/lane {branch, verb}     merge or drop an upgrade lane (`upkeep.py`, with the cookie)
 
 Deciding: the server holds a random session secret in memory only. It opens the browser itself
 with a one-time key in the URL (`#k=`); the page trades it for an HttpOnly cookie. The model can
@@ -59,7 +61,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import chat, deps, flow, general, home, human, model, propose, runner, states, tickets, wizard
+from . import chat, deps, flow, general, home, human, model, propose, runner, scaffold, states, tickets, upkeep, wizard
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .gitutil import git, worktrees
 from .i18n import t
@@ -73,6 +75,7 @@ STATE_FILE = "board.json"
 KEYS_KEPT = 10  # one-time keys not yet traded; older ones lapse
 BODY_MAX = 131072  # a chat message of chat.TEXT_MAX characters, UTF-8
 NO_BROWSER_ENV = "MARK_BOARD_NO_BROWSER"  # tests: never open a browser
+SECRET_FD_ENV = "MARK_BOARD_SECRET_FD"  # a restart hands the session secret over a pipe: logins survive it
 SERVICE_ENV = "MARK_SERVICE"  # set by the menu bar app (macos/Mark.swift): `mark board` never replaces or stops that board
 PAGE = Path(__file__).with_name("board.html")
 SOURCES = ("main", "worktree")
@@ -232,10 +235,16 @@ def general_lanes(cfg: MarkConfig) -> list[dict[str, object]]:
         commits = git(["rev-list", "--count", f"{cfg.main_branch}..{branch}"], cfg.root)[1] or "0"
         note = f"{commits} commit(s) ahead of {cfg.main_branch}"
         wt = wts.get(branch)
+        extra: dict[str, object] = {}
+        first = git(["log", "--reverse", "--format=%s", f"{cfg.main_branch}..{branch}"], cfg.root)[1].split("\n", 1)[0]
+        if first.startswith(upkeep.SUBJECT):  # the first commit: resolving a conflict adds another
+            job = upkeep.job(cfg, branch)
+            extra = {"upgrade": True, "conflicts": general._conflict_markers(cfg, branch), "job": job,
+                     "side": "agent" if job and job["state"] == "running" else "human"}
         items.append({"kind": "general", "id": f"general-{stamp}", "status": "developing", "desc": subject or branch,
                       "owner": "orchestrator", "updater": "orchestrator", "note": note, "dir": "", "side": "",
                       "branch": branch, "worktree": os.path.relpath(wt, cfg.root) if wt else "",
-                      "files": [], "gates": [], "history": [{"sha": "", "at": at, "status": "developing",
+                      "files": [], "gates": [], **extra, "history": [{"sha": "", "at": at, "status": "developing",
                                                               "owner": "orchestrator", "updater": "orchestrator", "note": note}]})
     return items
 
@@ -400,10 +409,23 @@ class Board:
 
     def __init__(self):
         self.version, self.cond, self.stop = 0, threading.Condition(), threading.Event()
-        self.secret, self.keys, self.lock = secrets.token_urlsafe(32), [], threading.Lock()
+        self.secret, self.keys, self.lock = _handed_secret() or secrets.token_urlsafe(32), [], threading.Lock()
+        self.updater = upkeep.Updater(self.touch)
         self.projects: dict[str, Project] = {}
         self.errors: dict[str, str] = {}
         self.plock = threading.Lock()  # not self.lock: a long decision must not stall page loads
+
+    def touch(self) -> None:
+        """Every open page reloads: for state outside the files `watch` looks at."""
+        with self.cond:
+            for p in list(self.projects.values()):
+                p.version += 1
+            self.version += 1
+            self.cond.notify_all()
+
+    def busy(self) -> bool:
+        return upkeep.busy() or any(c.get("running") for c in self.home_view()) or \
+            any(w.get("running") for w in wizard.cards())
 
     def project(self, pid: object) -> Project | None:
         """The registered project with this id, or None (unknown, gone, or a broken config: see errors)."""
@@ -603,6 +625,9 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
             elif path == "/api/pickdir":
                 d = wizard.pick_dir()  # no lock: the dialog waits on the human
                 self._json(200, {"ok": bool(d), "path": d})
+            elif path == "/api/update":
+                ok, text = board.updater.start(board.busy(), lambda: threading.Thread(target=self.server.shutdown).start())
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
             elif path == "/api/wizard":
                 with board.lock:
                     ok, text, wid = wizard.start(body)
@@ -641,6 +666,9 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 with board.lock:
                     ok, text = send(cfg, body)
                 self._json(200 if ok else 409, {"ok": ok, "text": text})
+            elif path == "/api/lane":
+                ok, text = upkeep.lane_action(cfg, body, general_lanes, board.touch)
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
             else:
                 self._json(404, {"ok": False, "text": "not found"})
 
@@ -662,6 +690,7 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 m = WIZARD_PATH.match(path)
                 if path == "/api/projects":
                     self._json(200, {"projects": board.home_view(), "wizards": wizard.cards(), "decide": mode, "pick": wizard.PICKABLE,
+                                     "update": board.updater.view(),
                                      "model": model.public(model.store(None))})
                 elif path == "/api/deps":
                     self._json(200, {"checks": deps.checks(), "job": deps.job()})
@@ -670,7 +699,7 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 else:
                     self._send(404, b"not found", "text/plain")
             elif path == "/api/board":
-                self._json(200, {**snapshot(proj.cfg, proj.history), "decide": mode})
+                self._json(200, {**snapshot(proj.cfg, proj.history), "decide": mode, "update": board.updater.view()})
             elif path.startswith("/api/chat/"):
                 tid = unquote(path[len("/api/chat/"):])
                 if _known(proj.cfg, tid) is None:
@@ -752,6 +781,8 @@ def serve(start: int = DEFAULT_PORT) -> int:
     path.write_text(json.dumps(state) + "\n")
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown).start())
     threading.Thread(target=board.watch, daemon=True).start()
+    threading.Thread(target=board.updater.poll, args=(board.stop,), daemon=True).start()
+    threading.Thread(target=upkeep.open_lanes, args=(board.touch, general_lanes), daemon=True).start()
     if os.environ.get(SERVICE_ENV):
         threading.Thread(target=_orphaned, args=(server,), daemon=True).start()
     try:
@@ -765,7 +796,26 @@ def serve(start: int = DEFAULT_PORT) -> int:
         server.server_close()
         if read_state().get("pid") == os.getpid():
             path.unlink(missing_ok=True)
+    if board.updater.restart:  # the plugin updated: the same process (and pid) runs the new code
+        r, w = os.pipe()
+        os.write(w, board.secret.encode())
+        os.close(w)
+        os.set_inheritable(r, True)
+        os.environ[SECRET_FD_ENV] = str(r)
+        os.execv(sys.executable, [sys.executable, str(board.updater.restart), "board", "--serve", "--port", str(port)])
     return 0
+
+
+def _handed_secret() -> str:
+    """The session secret the board this one replaced passed on (`serve`), else ""."""
+    fd = os.environ.pop(SECRET_FD_ENV, "")
+    if not fd.isdigit():
+        return ""
+    try:
+        with os.fdopen(int(fd), "rb") as fh:
+            return fh.read(256).decode().strip()
+    except (OSError, ValueError, UnicodeDecodeError):
+        return ""
 
 
 def _orphaned(server: ThreadingHTTPServer) -> None:
