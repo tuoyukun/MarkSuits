@@ -296,7 +296,11 @@ still write there while git deletes it, so removal is retried (3 tries, 5 s apar
 `--force` has already dropped git's record, the half-deleted directory itself is removed. A last
 failure is reported with git's own error (v0.35). `mark set <id> superseded` removes
 the ticket's worktree, local and remote branch the same way (`merge.discard`, v0.32) and prints
-the branch tip with the `git branch` command that brings it back.
+the branch tip with the `git branch` command that brings it back. `voided` (v0.65) is the human's
+"drop it": every open status may move there, but only through `mark void <id> [--note]`, which needs a
+`void` token that only the board's Void button grants (`board.void`: stops the ticket's chat turn and
+its headless runner first); `mark set … voided` is refused. It discards the branches like
+`superseded`.
 **Reused regression (v0.37).** The tester runs the full regression through `mark regress <id>`
 (same command, log in `locks/<id>.regress.log`). Before the run it snapshots the worktree's
 files as a tree (a throwaway index, so uncommitted tests count); a green run records that tree
@@ -319,8 +323,8 @@ unchanged. A failed push undoes the fast-forward only while main still points at
 git process's lock (`.lock': File exists`: `index.lock`, a ref lock) every 0.2 s for about 5 s.
 A lock still there is a crashed git's leftover: the call fails and the lock is never deleted.
 
-**Merge order (v0.8).** `merge-after: [0012, b0007]` lists tickets that must land first; `passed`
-and `superseded` both satisfy it (otherwise folding one ticket into another deadlocks). One check,
+**Merge order (v0.8).** `merge-after: [0012, b0007]` lists tickets that must land first; `passed`,
+`superseded` and `voided` all satisfy it (otherwise folding one ticket into another deadlocks). One check,
 `flow.merge_blockers`, serves every entry point: `mark next` (stop, naming the tickets),
 `mark merge` and `mark set … passed` (no tool call writes `status.md`). Order:
 a cycle among unfinished tickets is reported first, with its path (`0001 -> 0002 -> 0001`);

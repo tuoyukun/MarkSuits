@@ -21,7 +21,8 @@ KINDS = (FEATURE, BUG)
 KIND_DIRS = {FEATURE: "features", BUG: "bugs"}
 
 # Whose move it is in each status.
-TERMINAL = frozenset({"passed", "superseded"})
+# superseded: folded into another ticket; voided: the human dropped it (`mark void`).
+TERMINAL = frozenset({"passed", "superseded", "voided"})
 HUMAN = frozenset({
     "review-requirement", "review-design", "review-plan",
     "blocked-plan", "blocked-spec", "blocked-unclear",
@@ -40,7 +41,7 @@ INITIAL = {FEATURE: DRAFTING, BUG: "planning"}
 _BLOCKED = ("blocked-plan", "blocked-spec", "blocked-unclear")
 
 # Allowed moves. Every non-terminal status may also move to "superseded"
-# (ticket folded into another one); that edge is added below.
+# (ticket folded into another one) or "voided" (dropped by the human); those edges are added below.
 _FEATURE_EDGES: dict[str, tuple[str, ...]] = {
     "drafting": ("review-requirement",),
     # planning: the project has no designer
@@ -60,6 +61,7 @@ _FEATURE_EDGES: dict[str, tuple[str, ...]] = {
     "blocked-unclear": ("designing", "planning", "developing", "testing"),
     "passed": (),
     "superseded": (),
+    "voided": (),
 }
 
 _BUG_EDGES: dict[str, tuple[str, ...]] = {
@@ -74,12 +76,13 @@ _BUG_EDGES: dict[str, tuple[str, ...]] = {
     "blocked-unclear": ("designing", "planning", "developing", "testing"),
     "passed": (),
     "superseded": (),
+    "voided": (),
 }
 
 
 def _with_superseded(edges: dict[str, tuple[str, ...]]) -> dict[str, frozenset[str]]:
     return {
-        s: frozenset(nxt + (() if s in TERMINAL else ("superseded",)))
+        s: frozenset(nxt + (() if s in TERMINAL else ("superseded", "voided")))
         for s, nxt in edges.items()
     }
 

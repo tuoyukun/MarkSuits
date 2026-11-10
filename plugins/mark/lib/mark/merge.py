@@ -391,7 +391,7 @@ def _merge(ctx: Ctx) -> Notes:
 
 
 def discard(ctx: Ctx) -> Notes:
-    """Remove a superseded ticket's worktree and branches, naming the tip so it can be recovered."""
+    """Remove a superseded or voided ticket's worktree and branches, naming the tip so it can be recovered."""
     if not flow._is_git(ctx) or not ref_exists(ctx.main, f"refs/heads/{ctx.branch}"):
         return []
     sha = git(["rev-parse", "--short", ctx.branch], ctx.main)[1]

@@ -23,7 +23,7 @@ from pathlib import Path
 
 from .config import MarkConfig
 
-TOKEN_TTL = {"approve": 12 * 3600, "reject": 12 * 3600, "feature": 2 * 3600, "fix": 2 * 3600}
+TOKEN_TTL = {"approve": 12 * 3600, "reject": 12 * 3600, "void": 12 * 3600, "feature": 2 * 3600, "fix": 2 * 3600}
 VERBS = tuple(TOKEN_TTL)
 _PROMPT_RE = re.compile(r"^\s*/(?:mark:)?(approve|reject|feature|fix)\b[ \t]*(\S*)([^\n]*)")
 _TICKET_REF_RE = re.compile(r"^b?\d{4}(?:-[a-z0-9-]+)?$")

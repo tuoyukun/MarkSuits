@@ -455,6 +455,7 @@ _USAGE_EN = (
     "  mark set <id> <status> [--note \"<text>\"] [--leftover N] [--merge-after <ids>] [--no-commit]\n"
     "  mark approve <id> [--to <status>] [--no-commit]  human only (/mark:approve <id> [<status>])\n"
     "  mark reject <id> --item \"<text>\"... [--to planning] [--no-commit]   human only (/mark:reject)\n"
+    "  mark void <id> [--note \"<reason>\"] [--no-commit]   human only (the board's Void button)\n"
     "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
     "  mark commit <id> [-m \"<message>\"]             commit + push the ticket's state on main\n"
     "  mark regress <id>                              run the merge regression in the ticket's worktree (tester)\n"
@@ -481,6 +482,7 @@ _USAGE_ZH = (
     "  mark set <编号> <状态> [--note \"<文本>\"] [--leftover N] [--merge-after <编号>] [--no-commit]\n"
     "  mark approve <编号> [--to <状态>] [--no-commit] 仅限人（/mark:approve <编号> [<状态>]）\n"
     "  mark reject <编号> --item \"<文本>\"... [--to planning] [--no-commit]   仅限人（/mark:reject）\n"
+    "  mark void <编号> [--note \"<原因>\"] [--no-commit]   仅限人（看板的「作废」按钮）\n"
     "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
     "  mark commit <编号> [-m \"<说明>\"]               在 main 上提交并推送工单状态\n"
     "  mark merge <编号>                              pending-merge -> passed：合入 main、回归、ff-only、推送\n"
@@ -538,7 +540,7 @@ MESSAGES["en"].update({
     "merge.status": "{id} is at `{status}`; only `pending-merge` tickets are merged.",
     "merge.no_git": "This project is not a git repository; there is nothing to merge.",
     "merge.verdict": "{id}: verdict.md does not end with `<!-- mark:verdict PASSED -->`. Only a passing tester verdict is merged.",
-    "merge.waiting": "{id} must merge after: {deps}. Those tickets must be `passed` or `superseded` first.",
+    "merge.waiting": "{id} must merge after: {deps}. Those tickets must be `passed`, `superseded` or `voided` first.",
     "merge.cycle": (
         "`merge-after` forms a cycle, so none of these can ever merge first: {cycle}.\n"
         "This is a deadlock, not a wait. A human resolves it: merge the tickets, split them differently, or\n"
@@ -754,6 +756,9 @@ MESSAGES["en"].update({
     "approve.gate": "Gate written: {gate}",
     "approve.rounds": "Review rounds settled: {rounds}",
     "reject.done": "Recorded round {round} ({refs}) in {file}. {id}: `{old}` -> `{new}`.",
+    "void.done": "Voided {id} (was `{old}`).",
+    "flow.void_human": "Only the human voids a ticket, with the Void button on the board's ticket page. Never void {id} on their behalf.",
+    "flow.void_done": "{id} is already finished (`{status}`); there is nothing to void.",
     "claim.approved": "Opening approved by the human's /mark:{verb}; wrote {gate}.",
     "claim.unapproved": "No /mark:feature or /mark:fix was typed, so opening {id} is not approved yet: artifacts stay blocked until the human runs /mark:approve {id}.",
     # brief
@@ -829,7 +834,7 @@ MESSAGES["zh-CN"].update({
     "merge.status": "{id} 处于 `{status}`；只合并 `pending-merge` 的工单。",
     "merge.no_git": "本项目不是 git 仓库，没有可合并的东西。",
     "merge.verdict": "{id}：verdict.md 结尾不是 `<!-- mark:verdict PASSED -->`。只合并 tester 判通过的工单。",
-    "merge.waiting": "{id} 必须排在这些工单之后合并：{deps}。它们须先到 `passed` 或 `superseded`。",
+    "merge.waiting": "{id} 必须排在这些工单之后合并：{deps}。它们须先到 `passed`、`superseded` 或 `voided`。",
     "merge.cycle": (
         "`merge-after` 成环，环上谁都不可能先合：{cycle}。\n"
         "这是死锁，不是等待。由人来解：合并这几单、重新划分，或亲手编辑 status.md 删掉一条 `merge-after`。"
@@ -1034,6 +1039,9 @@ MESSAGES["zh-CN"].update({
     "approve.gate": "已写闸门：{gate}",
     "approve.rounds": "已结清人审轮次：{rounds}",
     "reject.done": "已在 {file} 记下第 {round} 轮（{refs}）。{id}：`{old}` -> `{new}`。",
+    "void.done": "已作废 {id}（原状态 `{old}`）。",
+    "flow.void_human": "只有 Human 能作废工单，在看板的工单详情页点「作废」。绝不能替人作废 {id}。",
+    "flow.void_done": "{id} 已经结束（`{status}`），无需作废。",
     "claim.approved": "Human 输入了 /mark:{verb}，建单已获同意；已写 {gate}。",
     "claim.unapproved": "没有人输入 /mark:feature 或 /mark:fix，所以 {id} 的建单还没获同意：在 Human 执行 /mark:approve {id} 之前，制品写入都会被拦。",
     "brief.no_template": "场景 `{scenario}` 缺少派活模板 `{path}`。项目的模板放在 [paths] prompts 指定的目录。",

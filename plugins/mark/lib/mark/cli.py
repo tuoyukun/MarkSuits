@@ -294,6 +294,20 @@ def cmd_reject(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> in
     return _commit(cfg, ctx, f"{ctx.id}: rejected at {res.old} ({', '.join(res.refs)})", opts, out)
 
 
+def cmd_void(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
+    opts, pos = _parse(args, {"--note"})
+    if opts is None or len(pos) != 1:
+        _say(cfg, err, "cli.usage")
+        return 2
+    ctx = flow.load(cfg, pos[0])
+    old = flow.void(ctx, opts.get("--note") or "")
+    _say(cfg, out, "void.done", id=ctx.id, old=old)
+    code = _commit(cfg, ctx, f"{ctx.id}: voided ({old})", opts, out)
+    for key, params in merge.discard(ctx):
+        _say(cfg, out, key, **params)
+    return code
+
+
 def cmd_commit(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     opts, pos = _parse(args, {"-m"})
     if opts is None or len(pos) != 1:
@@ -584,7 +598,7 @@ def cmd_wait(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
 
 
 COMMANDS = {"board": cmd_board, "wait": cmd_wait, "format": cmd_format, "next": cmd_next, "dispatch": cmd_dispatch, "set": cmd_set, "approve": cmd_approve,
-            "reject": cmd_reject, "commit": cmd_commit, "claim": cmd_claim, "merge": cmd_merge,
+            "reject": cmd_reject, "void": cmd_void, "commit": cmd_commit, "claim": cmd_claim, "merge": cmd_merge,
             "regress": cmd_regress, "general": cmd_general, "upgrade": cmd_upgrade, "journeys": cmd_journeys}
 
 

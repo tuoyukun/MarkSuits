@@ -26,6 +26,7 @@ project adds it there. The page (`board.html`) is one file with two views:
       f/<features|bugs>/<id>/<main|worktree>/<path>   a file from the ticket dir
       api/chat/<ticket>                a ticket's chat (`chat.py`)
       POST api/decide                  approve or reject, with the cookie
+      POST api/void {ticket, reason}   void an unfinished ticket for the human (with the cookie)
       POST api/stop                    stop the headless session, or with {"ticket"} its chat turn (with the cookie)
       POST api/new                     open a ticket and start talking it through (with the cookie)
       POST api/chat                    send the next message in a ticket's chat (with the cookie)
@@ -346,6 +347,26 @@ def decide(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
     return code == 0, out.getvalue().strip()
 
 
+def void(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
+    """The human's Void button: stop what runs on the ticket, then `mark void` with a token."""
+    from . import cli  # cli imports this module
+
+    ticket, reason = req.get("ticket"), req.get("reason") or ""
+    if _known(cfg, ticket) is None or not isinstance(reason, str) or len(reason) > human.TEXT_MAX:
+        return False, "bad request"
+    chat.stop(cfg, ticket)
+    if (runner.running(cfg) or {}).get("ticket") == ticket:
+        runner.stop(cfg)
+    token = human.grant(cfg, "void", ticket, [], reason, source="board")
+    out = io.StringIO()
+    try:
+        code = cli.main(["void", ticket] + (["--note", reason.strip()] if reason.strip() else []),
+                        cwd=cfg.root, out=out, err=out)
+    finally:
+        token.unlink(missing_ok=True)
+    return code == 0, out.getvalue().strip()
+
+
 RUN_AFTER = ("review", "blocked")  # opening and drafting need the human in the conversation
 
 
@@ -655,6 +676,10 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                     ok, text = decide(cfg, body)
                     note = carry_on(cfg, tid, before[1] if before else None, had_waiter) if ok else ""
                 self._json(200 if ok else 409, {"ok": ok, "text": text, "note": note})
+            elif path == "/api/void":
+                with board.lock:
+                    ok, text = void(cfg, body)
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
             elif path == "/api/stop":
                 tid = body.get("ticket")
                 self._json(200, {"ok": chat.stop(cfg, tid) if isinstance(tid, str) else runner.stop(cfg)})

@@ -158,7 +158,7 @@ def merge_cycle(cfg: MarkConfig, ticket: tickets.Ticket) -> list[str] | None:
 
 
 def merge_blockers(cfg: MarkConfig, ticket: tickets.Ticket) -> FlowError | None:
-    """Why `ticket` may not land yet. `passed` and `superseded` both satisfy `merge-after`."""
+    """Why `ticket` may not land yet. Any finished status (passed, superseded, voided) satisfies `merge-after`."""
     cycle = merge_cycle(cfg, ticket)
     if cycle:
         return FlowError("merge.cycle", id=ticket.id, cycle=" -> ".join(cycle))
@@ -414,7 +414,7 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
             return Action("stop", "next.no_brief", {**base, "file": f"{ctx.rel_dir}/{brief}"})
     result = None if retry else last_result(ctx, action.role)
     if result is not None:
-        options = sorted(states.TRANSITIONS[kind][status] - {"superseded"})
+        options = sorted(states.TRANSITIONS[kind][status] - {"superseded", "voided"})
         params = {**base, "role": action.role, "options": " | ".join(options),
                   "reason": result.get("reason", ""), "wrapup": "", "route": ""}
         if action.role == "tester":
@@ -649,6 +649,8 @@ def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None
     if _is_git(ctx):
         _require_main_branch(ctx)
     old = ctx.ticket.status
+    if new == "voided" and old != new:
+        raise FlowError("flow.void_human", id=ctx.id)
     if old in states.HELD and new not in ("superseded", old) and not (old == states.MERGE and new == "passed"):
         raise FlowError("flow.human_gate", status=old, id=ctx.id)
     if new == "review-requirement" and old != new:
@@ -792,7 +794,7 @@ def ui_only_rework(ctx: Ctx) -> bool:
 def approve_targets(ctx: Ctx) -> list[str]:
     """Where `mark approve --to` may send a blocked ticket: its legal moves."""
     return sorted(s for s in states.TRANSITIONS[ctx.kind].get(ctx.ticket.status, frozenset())
-                  if s != "superseded" and not _unstaffed(ctx, s))
+                  if s not in ("superseded", "voided") and not _unstaffed(ctx, s))
 
 
 def approve(ctx: Ctx, to: str | None = None) -> Outcome:
@@ -909,6 +911,17 @@ def reject(ctx: Ctx, items: list[str], to: str | None = None) -> Outcome:
     n, refs = reviews.append_round(path, ctx.cfg.locale, ctx.id, review, items)
     _move(ctx, new, None)
     return Outcome(status, new, rounds=[n], refs=refs, review=str(path))
+
+
+def void(ctx: Ctx, reason: str = "") -> str:
+    """The human drops an unfinished ticket (board button -> `mark void`, human token)."""
+    if _is_git(ctx):
+        _require_main_branch(ctx)
+    if ctx.ticket.status in states.TERMINAL:
+        raise FlowError("flow.void_done", id=ctx.id, status=ctx.ticket.status)
+    if not human.consume(ctx.cfg, ("void",), ctx.id):
+        raise FlowError("flow.void_human", id=ctx.id)
+    return _move(ctx, "voided", reason or None, {"updater": "human"})
 
 
 def open_ticket(cfg: MarkConfig, kind: str, desc: str, slug: str | None = None) -> tuple[tickets.Ticket, bool]:

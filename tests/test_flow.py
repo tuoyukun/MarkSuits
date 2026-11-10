@@ -386,6 +386,26 @@ class MovesTest(unittest.TestCase):
             self.assertIn("waits on the human", err)
             self.assertEqual(run(self.root, "set", f"0001-{status}", "superseded", "--no-commit")[0], 0, status)
 
+    def test_only_the_human_voids(self):
+        add_ticket(self.root, "feature", "0001-a", "developing", gates=ALL_GATES)
+        code, _, err = run(self.root, "set", "0001", "voided", "--no-commit")
+        self.assertEqual(code, 1)
+        self.assertIn("Void button", err)
+        code, _, err = run(self.root, "void", "0001", "--no-commit")  # no token
+        self.assertEqual(code, 1)
+        self.assertIn("Void button", err)
+        cfg = load_config(self.root)
+        human.grant(cfg, "void", "0001", [], "", source="board")
+        code, out, err = run(self.root, "void", "0001", "--note", "not needed", "--no-commit")
+        self.assertEqual(code, 0, err)
+        status = (self.root / ".mark/features/0001-a/status.md").read_text()
+        self.assertIn("status: voided", status)
+        self.assertIn("not needed", status)
+        human.grant(cfg, "void", "0001", [], "", source="board")
+        code, _, err = run(self.root, "void", "0001", "--no-commit")
+        self.assertEqual(code, 1)
+        self.assertIn("already finished", err)
+
     def test_design_qa_must_pass_before_testing(self):
         add_ticket(self.root, "feature", "0001-a", "design-qa", gates=ALL_GATES)
         qa = self.root / ".mark/features/0001-a/design-qa.md"
@@ -571,6 +591,15 @@ class MergeTest(unittest.TestCase):
         self.assertFalse(self.wt.exists())
         self.assertEqual(sh(self.root, "git", "branch", "--list", "bug/*"), "")
         self.assertNotIn("bug/b0001-x", sh(self.root, "git", "ls-remote", "--heads", "origin"))
+
+    def test_void_removes_worktree_and_branches(self):
+        human.grant(load_config(self.root), "void", "b0001", [], "", source="board")
+        code, out, err = run(self.root, "void", "b0001")
+        self.assertEqual(code, 0, err + out)
+        self.assertIn("Voided b0001", out)
+        self.assertFalse(self.wt.exists())
+        self.assertEqual(sh(self.root, "git", "branch", "--list", "bug/*"), "")
+        self.assertIn("b0001-x: voided", sh(self.root, "git", "log", "-1", "--format=%s"))
 
     def test_merge_settles_reject_rounds(self):
         review = self.dir / "review-merge.md"

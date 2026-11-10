@@ -368,6 +368,7 @@ a.ws:hover .sub{display:none}
 .dlog.bad{color:var(--bad)}
 .dlog pre{margin:6px 0 0;max-height:180px;overflow:auto;font-family:var(--mono);font-size:11.5px;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}
 .hfoot{text-align:center;color:var(--mute);font-size:11.5px;margin-top:8px}
+.btn.void{margin:0 4px 0 0;height:26px;padding:0 10px;color:var(--bad)}
 a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}a.btn.pri{color:#fff}
 .hfoot code{font-family:var(--mono);font-size:11px}
 .hempty{max-width:620px;margin:56px auto 0;text-align:center}
@@ -441,6 +442,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
       <button class="btn pri po" id="newBtn" data-new hidden>+ <span data-i="newT"></span></button>
       <div class="seg po" id="seg"><button class="on" data-k="all" data-i="all"></button><button data-k="active" data-i="active"></button><button data-k="done" data-i="done"></button></div>
       <label class="search po"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3" stroke-linecap="round"/></svg><input id="q"><kbd>/</kbd></label>
+      <button class="btn" data-lang data-i="langSw" title="English / 中文"></button>
     </div>
     <div class="content" id="content"></div>
   </div>
@@ -522,7 +524,7 @@ const I18N={
   projects:"Projects",allProjects:"All projects",addProj:"Add existing project",add:"Add project",remove:"Remove from list",pRunning:"A session is running",
   addHint:"A repository where Mark is already set up (it has .mark/config.toml). Any directory inside it works too.",aDirL:"Project directory (full path)",hTip:"Running this in a Mark project also adds it here:",
   colName:"Name",colState:"Status",colProg:"Progress",colUpd:"Updated",nProj:"{n} projects",nProj1:"1 project",nWait:"{n} waiting on you",nRun:"{n} running",
-  openBoard:"Open board",openTab:"Open in new tab",copyPath:"Copy path",copied:"Path copied",rmAsk:"Remove \"{p}\" from the list? Nothing on disk is deleted; open its board again to bring it back.",
+  openBoard:"Open board",openTab:"Open in new tab",copyPath:"Copy path",copied:"Path copied",langSw:"中文",void:"Void",voidAsk:"Void {id}? It stops here for good: its worktree and branch are removed (the commit is printed so it can be recovered). Reason (optional):",rmAsk:"Remove \"{p}\" from the list? Nothing on disk is deleted; open its board again to bring it back.",
   wCont:"Continue",wReplying:"Claude is replying",wWaits:"Waiting for your reply",welcome:"Welcome to Mark",welcomeHint:"Every project's tickets, decisions and sessions in one place. Start a new project, or add one you already set up.",
   newProjD:"Pick a directory and say what you are building. Claude sets Mark up there with you.",addProjD:"A repository where /mark:init already ran.","home.already":"This project is already on the list.",
   "home.gone":"This directory no longer exists.","home.notMark":"Not a Mark project (no .mark/config.toml there).","home.absolute":"Give the full path, like ~/code/my-app.",
@@ -566,7 +568,7 @@ const I18N={
   projects:"项目",allProjects:"所有项目",addProj:"添加已有项目",add:"添加项目",remove:"从列表移除",pRunning:"有会话在运行",
   addHint:"已经配置过 Mark 的仓库（里面有 .mark/config.toml）。填仓库里的任意子目录也可以。",aDirL:"项目目录（完整路径）",hTip:"在 Mark 项目里运行这个命令，也会把项目加到这里：",
   colName:"名称",colState:"状态",colProg:"进度",colUpd:"更新",nProj:"{n} 个项目",nProj1:"1 个项目",nWait:"{n} 项等你处理",nRun:"{n} 个会话在运行",
-  openBoard:"打开看板",openTab:"在新标签页打开",copyPath:"复制路径",copied:"已复制路径",rmAsk:"从列表移除「{p}」？磁盘上的文件不会被删除，再打开它的看板就会回来。",
+  openBoard:"打开看板",openTab:"在新标签页打开",copyPath:"复制路径",copied:"已复制路径",langSw:"EN",void:"作废",voidAsk:"作废 {id}？工单就此终止，worktree 和分支会被删除（会打印末端提交，可恢复）。原因（可选）：",rmAsk:"从列表移除「{p}」？磁盘上的文件不会被删除，再打开它的看板就会回来。",
   wCont:"继续",wReplying:"Claude 正在回复",wWaits:"等你回复",welcome:"欢迎使用 Mark",welcomeHint:"所有项目的工单、待你决定的事和后台会话，都在这里。新建一个项目，或者添加已经配置好的项目。",
   newProjD:"选一个目录，说说你要做什么，Claude 和你一起把 Mark 配置好。",addProjD:"已经运行过 /mark:init 的仓库。","home.already":"这个项目已经在列表里了。",
   "home.gone":"这个目录已经不存在。","home.notMark":"不是 Mark 项目（那里没有 .mark/config.toml）。","home.absolute":"请填写完整路径，例如 ~/code/my-app。",
@@ -600,8 +602,8 @@ const I18N={
   upgMerging:"合并中：正在跑回归测试…",upgConf:"升级和你对下面这些文件的改动冲突。请在该通道的 worktree 里解决（或让 Claude 处理：/mark:upgrade），再合并：","lane.running":"这个通道已经在合并了。",
   "chat.busy":"Claude 正在处理这张工单，等它回复后再发。","chat.no-claude":"没找到 `claude` 命令，没人能回复。请到终端里继续。"}};
 const LABELS={
- en:{drafting:"Drafting","review-requirement":"Requirement review",designing:"Designing","review-design":"Design review",planning:"Planning","review-plan":"Plan review",developing:"Developing","failed-impl":"Rework","design-qa":"Design QA",testing:"Testing","pending-merge":"Pending merge","blocked-plan":"Blocked: plan","blocked-spec":"Blocked: design","blocked-unclear":"Needs answer",passed:"Passed",superseded:"Superseded"},
- "zh-CN":{drafting:"起草需求","review-requirement":"需求评审",designing:"设计中","review-design":"设计评审",planning:"方案中","review-plan":"方案评审",developing:"开发中","failed-impl":"返工中","design-qa":"设计验收",testing:"测试中","pending-merge":"待合并","blocked-plan":"方案阻塞","blocked-spec":"设计阻塞","blocked-unclear":"需澄清",passed:"已完成",superseded:"已并入他单"}};
+ en:{drafting:"Drafting","review-requirement":"Requirement review",designing:"Designing","review-design":"Design review",planning:"Planning","review-plan":"Plan review",developing:"Developing","failed-impl":"Rework","design-qa":"Design QA",testing:"Testing","pending-merge":"Pending merge","blocked-plan":"Blocked: plan","blocked-spec":"Blocked: design","blocked-unclear":"Needs answer",passed:"Passed",superseded:"Superseded",voided:"Voided"},
+ "zh-CN":{drafting:"起草需求","review-requirement":"需求评审",designing:"设计中","review-design":"设计评审",planning:"方案中","review-plan":"方案评审",developing:"开发中","failed-impl":"返工中","design-qa":"设计验收",testing:"测试中","pending-merge":"待合并","blocked-plan":"方案阻塞","blocked-spec":"设计阻塞","blocked-unclear":"需澄清",passed:"已完成",superseded:"已并入他单",voided:"已作废"}};
 const STAGES=[
  {k:"req",n:{en:"Requirement","zh-CN":"需求"},c:"--c-req",s:["drafting","review-requirement"],p:.12},
  {k:"des",n:{en:"Design","zh-CN":"设计"},c:"--c-des",s:["designing","review-design"],p:.28},
@@ -610,13 +612,13 @@ const STAGES=[
  {k:"qa",n:{en:"Verify","zh-CN":"验收测试"},c:"--c-qa",s:["design-qa","testing"],p:.78},
  {k:"merge",n:{en:"Merge","zh-CN":"待合并"},c:"--c-merge",s:["pending-merge"],p:.92},
  {k:"block",n:{en:"Blocked","zh-CN":"阻塞"},c:"--c-block",s:["blocked-plan","blocked-spec","blocked-unclear"],p:0},
- {k:"done",n:{en:"Done","zh-CN":"已完成"},c:"--c-done",s:["passed","superseded"],p:1},
+ {k:"done",n:{en:"Done","zh-CN":"已完成"},c:"--c-done",s:["passed","superseded","voided"],p:1},
 ];
 const DOCN={en:{"requirement.md":"Requirement","bug.md":"Bug report","design.md":"Design","preview.html":"Preview","tech-plan.md":"Tech plan","fix-plan.md":"Fix plan","handoff.md":"Handoff","design-qa.md":"Design QA","verdict.md":"Verdict"},
  "zh-CN":{"requirement.md":"需求","bug.md":"Bug 描述","design.md":"设计","preview.html":"预览","tech-plan.md":"技术方案","fix-plan.md":"修复方案","handoff.md":"交付说明","design-qa.md":"设计验收","verdict.md":"测试结论"}};
 const docName=n=>(DOCN[L]||DOCN.en)[n]||n;
 const DOC_ORDER=["requirement.md","bug.md","design.md","preview.html","tech-plan.md","fix-plan.md","handoff.md","design-qa.md","verdict.md"];
-const TERMINAL=new Set(["passed","superseded"]);
+const TERMINAL=new Set(["passed","superseded","voided"]);
 // "/" is the home page; "/p/<id>/" a project's board, whose API is relative to it
 const HOME=!/^\/p\/[0-9a-f]{10}\//.test(location.pathname);
 let projs=[];
@@ -714,12 +716,15 @@ const CHIP={human:"sWait",agent:"sAgent",bug:"sBugs",done:"sDone"};
 const ONLY={human:isHuman,agent:t=>t.side==="agent",bug:t=>t.kind==="bug"&&!TERMINAL.has(t.status),done:t=>t.status==="passed"};
 function visible(){return data.tickets.filter(t=>(!only||ONLY[only](t))&&(kind==="all"||t.kind===kind)&&(scope==="all"||(scope==="done")===TERMINAL.has(t.status))&&(view!=="human"||isHuman(t))&&(!q||(t.id+" "+(t.desc||"")).toLowerCase().includes(q)))}
 const last=t=>t.history[t.history.length-1]||{};
+// The top-right language button: one choice for the whole board, kept in this browser.
+const langPref=()=>{try{const v=localStorage.getItem("mark.lang");return I18N[v]?v:""}catch{return ""}};
+function langSwitch(){try{localStorage.setItem("mark.lang",L==="en"?"zh-CN":"en")}catch{}docKey="";load().then(()=>{$("#liveText").textContent=tr($("#live").classList.contains("off")?"offline":"live");if(HOME)loadDeps()})}
 async function loadProjects(){try{const r=await (await fetch("/api/projects",{cache:"no-store"})).json();projs=r.projects;return r}catch{return null}}
 async function load(){
-  if(HOME){const r=await loadProjects();if(!r)return;data={...r,home:true};L=navigator.language.startsWith("zh")?"zh-CN":"en";document.documentElement.lang=L;render();seeUpdate(r.update);return}
+  if(HOME){const r=await loadProjects();if(!r)return;data={...r,home:true};L=langPref()||(navigator.language.startsWith("zh")?"zh-CN":"en");document.documentElement.lang=L;render();seeUpdate(r.update);return}
   let next;try{next=await (await fetch("api/board",{cache:"no-store"})).json()}catch{return}
   const before=data?Object.fromEntries(data.tickets.map(t=>[t.id,t.status])):null;
-  data=next;L=I18N[data.locale]?data.locale:"en";seeUpdate(data.update);
+  data=next;L=langPref()||(I18N[data.locale]?data.locale:"en");seeUpdate(data.update);
   document.documentElement.lang=L;
   if(before){const moved=data.tickets.filter(t=>before[t.id]!==t.status);
     render();moved.forEach(t=>{const c=document.getElementById("c-"+CSS.escape(t.id));if(c)c.classList.add("flash")});
@@ -957,6 +962,7 @@ function modal(){
   const ov=$("#ov"),files=sortFiles(t.files);
   if(open.tab!=="__hist"&&!(open.tab==="__chat"&&t.kind!=="general")&&!files.some(f=>f.name===open.tab))open.tab="__hist";
   $("#mh").innerHTML=`${kindIcon(t.kind)}<span class="id">${short(t.id)}</span><span class="t">${esc(t.desc||t.id)}</span><span class="mst">${icon(t.status,14)}${esc(label(t.status))}</span>${isHuman(t)?`<span class="who need"><i></i>${tr("waiting")}</span>`:""}<span class="grow"></span>
+   ${data.decide==="on"&&t.kind!=="general"&&!TERMINAL.has(t.status)?`<button class="btn void" data-void>${tr("void")}</button>`:""}
    <button class="ib" title="${tr("sidebar")}" data-act="side"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11"/></svg></button>
    <button class="ib" title="${tr("fullscreen")}" data-act="full"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">${ov.classList.contains("full")?'<path d="M6 2.5V6H2.5M10 2.5V6h3.5M6 13.5V10H2.5M10 13.5V10h3.5"/>':'<path d="M2.5 6V2.5H6M13.5 6V2.5H10M2.5 10v3.5H6M13.5 10v3.5H10"/>'}</svg></button>
    <button class="ib" title="${tr("close")}" data-act="close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>`;
@@ -1019,6 +1025,10 @@ async function postDecision(t,body){
   else $("#dec .blk")?.insertAdjacentHTML("beforeend",`<pre class="dout ${r.ok?"":"bad"}">${esc(decMsg.text)}</pre>`);
   load();
 }
+async function voidTicket(b){const id=open?.id,reason=id&&prompt(tr("voidAsk").replace("{id}",short(id)),"");if(reason==null)return;
+  b.disabled=true;
+  let r;try{r=await (await fetch("api/void",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:id,reason})})).json()}catch{r={ok:false,text:tr("loadFail")}}
+  b.disabled=false;toast(esc(r.text||""));load()}
 async function doc(t,files){
   const el=$("#doc"),f=files.find(x=>x.name===open.tab);
   if(open.tab==="__chat"){const key=`${t.id}|__chat`;
@@ -1137,7 +1147,9 @@ document.addEventListener("click",e=>{
   if(e.target.id==="follow"){follow=e.target.checked;gRows();return}
   const act=e.target.closest("[data-act]");if(act){const ov=$("#ov");if(act.dataset.act==="close")closeM();else{ov.classList.toggle(act.dataset.act==="full"?"full":"noside");if(act.dataset.act==="full")modal()}return}
   const dec=e.target.closest("[data-dec]");if(dec){decide(dec.dataset.dec);return}
+  if(e.target.closest("[data-void]")){voidTicket(e.target.closest("[data-void]"));return}
   if(e.target.closest("[data-new]")){newOpen();return}
+  if(e.target.closest("[data-lang]")){langSwitch();return}
   if(e.target.closest("[data-wiz]")){if(depBlocked()){toast(esc(tr("depNeed")));$("#deps")?.scrollIntoView({behavior:"smooth",block:"center"});return}wizOpen();return}
   const df=e.target.closest("[data-dfix]");if(df){depFix(df.dataset.dfix);return}
   const dc=e.target.closest("[data-dcopy]");if(dc){navigator.clipboard?.writeText(dc.dataset.dcopy).then(()=>toast(esc(tr("copiedCmd"))));return}

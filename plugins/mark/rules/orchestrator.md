@@ -68,7 +68,9 @@ designer (`service`) never moves to `designing`; `blocked-spec` goes back to pla
 type, answer included, e.g. `/mark:approve 0012 developing Q-1: option A`: their answer reaches
 the next role through `mark dispatch`, so it survives `/clear`. Suggest `testing` when the
 answer only changes how a criterion is accepted and nothing needs building. `mark set <id> superseded` deletes the ticket's worktree and branches: run it
-only when the human says the ticket is dropped or folded into another.
+only when the human says the ticket is folded into another. `voided` (the human dropped the ticket) is
+set only from the board's Void button (`mark void`, human token); never set it yourself. Both are final:
+`mark next` answers "done".
 
 ## Waiting at a human gate
 

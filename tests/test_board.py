@@ -273,6 +273,17 @@ class DecideTest(unittest.TestCase):
         self.assertIn("0001-a: approved review-plan -> developing", sh(self.root, "git", "log", "-1", "--format=%s"))
         self.no_tokens_left()
 
+    def test_void_from_the_board(self):
+        cookie = self.login()
+        code, res, _ = self.post(self.p + "/api/void", {"ticket": "0001-a", "reason": "dropped"}, cookie=cookie)
+        self.assertEqual(code, 200, res)
+        self.assertEqual(self.status("0001-a"), "voided")
+        self.assertIn("0001-a: voided (review-plan)", sh(self.root, "git", "log", "-1", "--format=%s"))
+        self.no_tokens_left()
+        code, res, _ = self.post(self.p + "/api/void", {"ticket": "0001-a"}, cookie=cookie)
+        self.assertEqual(code, 409)
+        self.no_tokens_left()
+
     def test_after_a_decision_a_waiting_session_carries_on_else_a_runner_starts(self):
         cookie = self.login()
         wait.path(self.cfg, "0001-a").parent.mkdir(parents=True, exist_ok=True)

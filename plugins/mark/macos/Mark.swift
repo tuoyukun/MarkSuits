@@ -1,5 +1,6 @@
 // Mark menu bar app: runs the board server (`mark board --serve`) while it runs, shows how many
-// gates wait on the human, and offers Open / Preferences / Quit. Once a day it updates the Claude
+// gates wait on the human, and offers Open / Check for Updates / Preferences / Quit. Once a day (or on
+// Check for Updates, which reports the result) it updates the Claude
 // plugin (`mark app update`); when that moved, it rebuilds itself from the new plugin and restarts
 // the board once no session runs. Built by `mark app install` (lib/mark/app.py), which writes
 // Info.plist with MarkCLI (the launcher, ~/.local/bin/mark) and MarkApp (this binary, for the
@@ -23,7 +24,7 @@ func markHome() -> URL {
 /// `mark <args>` outside any project, with the PATH a login item lacks (claude, git, node).
 func mark(_ args: [String], wait: Bool = true, service: Bool = false, output: Pipe? = nil) -> Process {
     let p = Process()
-    if let output { p.standardOutput = output }
+    if let output { p.standardOutput = output; p.standardError = output }
     p.executableURL = URL(fileURLWithPath: markCLI)
     p.arguments = args
     p.currentDirectoryURL = URL(fileURLWithPath: "/")
@@ -50,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var board: Process?
     var quitting = false
     var restartPending = false  // the plugin updated: restart the board once nothing runs
+    var checking = false
     var port: Int?
     var prefs: NSWindow?
     var loginBox: NSButton?
@@ -65,6 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.imagePosition = .imageLeading
         let menu = NSMenu()
         menu.addItem(withTitle: "Open", action: #selector(open), keyEquivalent: "o")
+        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkNow), keyEquivalent: "")
         menu.addItem(withTitle: "Preferences…", action: #selector(showPrefs), keyEquivalent: ",")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Mark", action: #selector(quit), keyEquivalent: "q")
@@ -77,14 +80,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Timer.scheduledTimer(withTimeInterval: 24 * 3600, repeats: true) { [weak self] _ in self?.checkUpdate() }
     }
 
-    func checkUpdate() {
+    @objc func checkNow() { checkUpdate(report: true) }
+
+    /// Runs on the main thread; `report` shows what `mark app update` said.
+    func checkUpdate(report: Bool = false) {
+        guard !checking else { return }
+        checking = true
         DispatchQueue.global(qos: .utility).async {
             let before = markVersionNow()
-            _ = mark(["app", "update"])
+            let pipe = Pipe()
+            _ = mark(["app", "update"], output: pipe)
+            let said = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let after = markVersionNow()
-            guard !after.isEmpty, after != before else { return }
-            _ = mark(["app", "install", "--no-open"])  // the rebuilt app takes over at its next launch
-            DispatchQueue.main.async { self.restartPending = true }
+            let moved = !after.isEmpty && after != before
+            if moved { _ = mark(["app", "install", "--no-open"]) }  // the rebuilt app takes over at its next launch
+            DispatchQueue.main.async {
+                self.checking = false
+                if moved { self.restartPending = true }
+                guard report else { return }
+                let alert = NSAlert()
+                alert.messageText = moved ? "Mark updated to \(after)" : "Check for Updates"
+                alert.informativeText = (said.isEmpty ? "No answer from `mark app update`." : said)
+                    + (moved ? "\n\nThe board restarts on it once no session runs; this app at its next launch." : "")
+                NSApp.activate(ignoringOtherApps: true)
+                alert.runModal()
+            }
         }
     }
 
