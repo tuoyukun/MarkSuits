@@ -7,13 +7,14 @@ import json
 import os
 import re
 import socket
+import subprocess
 import threading
 import unittest
 from unittest import mock
 
-from tests._support import add_ticket, add_worktree, make_repo, sh, status_text
+from tests._support import add_ticket, add_worktree, fresh_home, make_repo, sh, status_text
 
-from mark import board, cli, flow, human, reviews, runner, tickets, wait
+from mark import board, cli, flow, home, human, reviews, runner, tickets, wait
 from mark.config import load_config
 
 
@@ -117,12 +118,14 @@ class GeneralLaneTest(unittest.TestCase):
 
 class ServerTest(unittest.TestCase):
     def setUp(self):
-        root = make_repo()
+        fresh_home(self)
+        root = make_repo().resolve()
         d = add_ticket(root, "feature", "0001-a", "planning")
         (d / "requirement.md").write_text("# R\n", encoding="utf-8")
         self.cfg = load_config(root)
+        self.p = f"/p/{home.add(root)}"
         self.server = board.bind(free_port())
-        self.board = board.Board(self.cfg)
+        self.board = board.Board()
         self.server.RequestHandlerClass = board.make_handler(self.board)
         self.server.daemon_threads = True
         self.port = self.server.server_address[1]
@@ -142,16 +145,21 @@ class ServerTest(unittest.TestCase):
         return r.status, r.read()
 
     def test_routes(self):
-        code, body = self.get("/api/board")
+        code, body = self.get(self.p + "/api/board")
         self.assertEqual(code, 200)
         self.assertEqual(json.loads(body)["tickets"][0]["id"], "0001-a")
         self.assertEqual(self.get("/")[0], 200)
-        self.assertEqual(self.get("/f/features/0001-a/main/requirement.md"), (200, b"# R\n"))
-        self.assertEqual(self.get("/f/features/0001-a/main/..%2F..%2Fconfig.toml")[0], 404)
+        self.assertEqual(self.get(self.p + "/f/features/0001-a/main/requirement.md"), (200, b"# R\n"))
+        self.assertEqual(self.get(self.p + "/f/features/0001-a/main/..%2F..%2Fconfig.toml")[0], 404)
         self.assertEqual(self.get("/nope")[0], 404)
+        self.assertEqual(self.get(self.p)[0], 301)  # the page reads its API relative to /p/<id>/
+        self.assertEqual(self.get(self.p + "/")[0], 200)
+        self.assertEqual(self.get("/p/0123456789/api/board")[0], 404)  # not registered
+        cards = json.loads(self.get("/api/projects")[1])["projects"]
+        self.assertEqual([(c["name"], c["total"]) for c in cards], [(self.cfg.root.name, 1)])
 
     def test_other_hosts_are_refused(self):  # DNS rebinding
-        self.assertEqual(self.get("/api/board", host="evil.example")[0], 403)
+        self.assertEqual(self.get(self.p + "/api/board", host="evil.example")[0], 403)
 
     def test_events_push_a_new_version(self):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
@@ -170,13 +178,15 @@ class DecideTest(unittest.TestCase):
     """Deciding on the board: only the browser `mark board` opened may, and it runs the CLI's checks."""
 
     def setUp(self):
-        self.root = make_repo()
+        fresh_home(self)
+        self.root = make_repo().resolve()
         add_ticket(self.root, "feature", "0001-a", "review-plan", gates=("ticket-approved",))
         add_ticket(self.root, "feature", "0002-b", "blocked-unclear", gates=("ticket-approved",))
         add_ticket(self.root, "feature", "0003-c", "drafting")
         self.cfg = load_config(self.root)
+        self.p = f"/p/{home.add(self.root)}"
         self.server = board.bind(free_port())
-        self.board = board.Board(self.cfg)
+        self.board = board.Board()
         self.server.RequestHandlerClass = board.make_handler(self.board)
         self.server.daemon_threads = True
         self.port = self.server.server_address[1]
@@ -225,7 +235,7 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(waits["0003-c"], {"kind": "opening"})
 
     def test_without_the_cookie_nothing_is_decided(self):
-        code, _, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "approve"})
+        code, _, _ = self.post(self.p + "/api/decide", {"ticket": "0001-a", "verb": "approve"})
         self.assertEqual(code, 403)
         self.assertEqual(self.status("0001-a"), "review-plan")
         self.assertEqual(self.post("/api/login", {"k": "guess"})[0], 403)
@@ -240,13 +250,13 @@ class DecideTest(unittest.TestCase):
 
     def test_another_origin_cannot_use_the_cookie(self):
         cookie = self.login()
-        code, _, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "approve"},
+        code, _, _ = self.post(self.p + "/api/decide", {"ticket": "0001-a", "verb": "approve"},
                                origin="http://evil.example", cookie=cookie)
         self.assertEqual(code, 403)
         self.assertEqual(self.status("0001-a"), "review-plan")
 
     def test_mode_in_the_snapshot(self):
-        get = lambda cookie="": json.loads(self._get("/api/board", cookie))["decide"]
+        get = lambda cookie="": json.loads(self._get(self.p + "/api/board", cookie))["decide"]
         self.assertEqual(get(), "login")
         self.assertEqual(get(self.login()), "on")
 
@@ -256,7 +266,7 @@ class DecideTest(unittest.TestCase):
         return c.getresponse().read()
 
     def test_approve_moves_the_ticket_writes_the_gate_and_commits(self):
-        code, res, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "approve"}, cookie=self.login())
+        code, res, _ = self.post(self.p + "/api/decide", {"ticket": "0001-a", "verb": "approve"}, cookie=self.login())
         self.assertEqual(code, 200, res)
         self.assertEqual(self.status("0001-a"), "developing")
         self.assertTrue((self.root / ".mark" / "gates" / "0001-a.plan-approved").is_file())
@@ -267,17 +277,17 @@ class DecideTest(unittest.TestCase):
         cookie = self.login()
         wait.path(self.cfg, "0001-a").parent.mkdir(parents=True, exist_ok=True)
         wait.path(self.cfg, "0001-a").write_text(json.dumps({"pid": os.getpid()}))
-        code, res, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "approve"}, cookie=cookie)
+        code, res, _ = self.post(self.p + "/api/decide", {"ticket": "0001-a", "verb": "approve"}, cookie=cookie)
         self.assertEqual((code, res["note"]), (200, "run.session"))
         self.run_start.assert_not_called()
-        code, res, _ = self.post("/api/decide", {"ticket": "0002-b", "verb": "approve", "to": "planning",
+        code, res, _ = self.post(self.p + "/api/decide", {"ticket": "0002-b", "verb": "approve", "to": "planning",
                                                  "answer": "Yes."}, cookie=cookie)
         self.assertEqual((code, res["note"]), (200, "run.started"))
         self.run_start.assert_called_once_with(self.cfg, "0002-b")
-        self.assertEqual(self.post("/api/stop", {})[0], 403)
+        self.assertEqual(self.post(self.p + "/api/stop", {})[0], 403)
 
     def test_reject_records_each_line_as_an_item(self):
-        code, res, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "reject", "items": ["too big", "split it"]},
+        code, res, _ = self.post(self.p + "/api/decide", {"ticket": "0001-a", "verb": "reject", "items": ["too big", "split it"]},
                                  cookie=self.login())
         self.assertEqual(code, 200, res)
         self.assertEqual(self.status("0001-a"), "planning")
@@ -287,12 +297,12 @@ class DecideTest(unittest.TestCase):
 
     def test_a_refusal_comes_back_and_leaves_no_token(self):
         cookie = self.login()
-        code, res, _ = self.post("/api/decide", {"ticket": "0002-b", "verb": "approve", "to": "planning"}, cookie=cookie)
+        code, res, _ = self.post(self.p + "/api/decide", {"ticket": "0002-b", "verb": "approve", "to": "planning"}, cookie=cookie)
         self.assertEqual(code, 409)
         self.assertTrue(res["text"])
         self.assertEqual(self.status("0002-b"), "blocked-unclear")
         self.no_tokens_left()
-        code, res, _ = self.post("/api/decide", {"ticket": "0002-b", "verb": "approve", "to": "planning",
+        code, res, _ = self.post(self.p + "/api/decide", {"ticket": "0002-b", "verb": "approve", "to": "planning",
                                                  "answer": "Use the email as the key."}, cookie=cookie)
         self.assertEqual(code, 200, res)
         self.assertEqual(self.status("0002-b"), "planning")
@@ -302,13 +312,13 @@ class DecideTest(unittest.TestCase):
         cookie = self.login()
         for body in ({"ticket": "../x", "verb": "approve"}, {"ticket": "0001-a", "verb": "merge"},
                      {"ticket": "0001-a", "verb": "reject", "items": "one"}):
-            self.assertEqual(self.post("/api/decide", body, cookie=cookie)[0], 409, body)
+            self.assertEqual(self.post(self.p + "/api/decide", body, cookie=cookie)[0], 409, body)
         self.assertEqual(self.status("0001-a"), "review-plan")
 
     def test_new_ticket_opens_approved_and_starts_the_chat(self):
         cookie = self.login()
         with mock.patch.object(board.chat, "start", return_value=(True, "")) as start:
-            code, res, _ = self.post("/api/new", {"kind": "feature", "text": "Due dates\nOverdue ones in red.",
+            code, res, _ = self.post(self.p + "/api/new", {"kind": "feature", "text": "Due dates\nOverdue ones in red.",
                                                   "slug": "due-dates"}, cookie=cookie)
         self.assertEqual((code, res["ok"]), (200, True), res)
         tid = res["id"]
@@ -321,16 +331,16 @@ class DecideTest(unittest.TestCase):
 
     def test_new_ticket_and_chat_need_the_cookie_and_a_good_request(self):
         with mock.patch.object(board.chat, "start", return_value=(True, "")) as start:
-            self.assertEqual(self.post("/api/new", {"kind": "bug", "text": "Crash"})[0], 403)
-            self.assertEqual(self.post("/api/chat", {"ticket": "0003-c", "text": "hi"})[0], 403)
+            self.assertEqual(self.post(self.p + "/api/new", {"kind": "bug", "text": "Crash"})[0], 403)
+            self.assertEqual(self.post(self.p + "/api/chat", {"ticket": "0003-c", "text": "hi"})[0], 403)
             cookie = self.login()
             for body in ({"kind": "chore", "text": "x"}, {"kind": "bug", "text": "  "}, {"kind": "bug", "text": 1},
                          {"kind": "bug", "text": "x" * 20001}):
-                self.assertEqual(self.post("/api/new", body, cookie=cookie)[0], 409, body)
+                self.assertEqual(self.post(self.p + "/api/new", body, cookie=cookie)[0], 409, body)
             for body in ({"ticket": "../x", "text": "hi"}, {"ticket": "0003-c", "text": ""}):
-                self.assertEqual(self.post("/api/chat", body, cookie=cookie)[0], 409, body)
+                self.assertEqual(self.post(self.p + "/api/chat", body, cookie=cookie)[0], 409, body)
             start.assert_not_called()
-            code, res, _ = self.post("/api/chat", {"ticket": "0003-c", "text": " ISO dates. "}, cookie=cookie)
+            code, res, _ = self.post(self.p + "/api/chat", {"ticket": "0003-c", "text": " ISO dates. "}, cookie=cookie)
             self.assertEqual(code, 200, res)
             start.assert_called_once_with(self.cfg, "feature", "0003-c", "ISO dates.")
         self.assertEqual(len(tickets.ticket_dirs(self.cfg, "feature")), 3)  # nothing was claimed
@@ -343,30 +353,29 @@ class DecideTest(unittest.TestCase):
         cookie = self.login()
         self.assertEqual(self.post("/api/model", {**body, "base_url": "nope"}, cookie=cookie)[0], 409)
         self.assertEqual(self.post("/api/model", body, cookie=cookie)[0], 200)
-        raw = self._get("/api/board").decode()
+        raw = self._get(self.p + "/api/board").decode()
         self.assertNotIn("sk-secret", raw)
         self.assertEqual(json.loads(raw)["model"]["label"], "deepseek-chat @ api.deepseek.com")
 
     def test_a_busy_chat_comes_back(self):
         with mock.patch.object(board.chat, "start", return_value=(False, "busy")):
-            code, res, _ = self.post("/api/chat", {"ticket": "0003-c", "text": "hi"}, cookie=self.login())
+            code, res, _ = self.post(self.p + "/api/chat", {"ticket": "0003-c", "text": "hi"}, cookie=self.login())
         self.assertEqual((code, res["text"]), (409, "chat.busy"))
 
     def test_the_chat_view_and_stop(self):
-        self.assertEqual(json.loads(self._get("/api/chat/0003-c")), {"running": False, "messages": [], "ask": None, "model": ""})
+        self.assertEqual(json.loads(self._get(self.p + "/api/chat/0003-c")), {"running": False, "messages": [], "ask": None, "model": ""})
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
-        c.request("GET", "/api/chat/nope", headers={"Host": f"127.0.0.1:{self.port}"})
+        c.request("GET", self.p + "/api/chat/nope", headers={"Host": f"127.0.0.1:{self.port}"})
         self.assertEqual(c.getresponse().status, 404)
         with mock.patch.object(board.chat, "stop", return_value=True) as stop:
-            code, res, _ = self.post("/api/stop", {"ticket": "0003-c"}, cookie=self.login())
+            code, res, _ = self.post(self.p + "/api/stop", {"ticket": "0003-c"}, cookie=self.login())
         self.assertEqual((code, res["ok"]), (200, True))
         stop.assert_called_once_with(self.cfg, "0003-c")
 
     def test_board_decide_off(self):
         cfg_path = self.root / ".mark" / "config.toml"
         cfg_path.write_text(cfg_path.read_text(encoding="utf-8") + "\n[board]\ndecide = false\n", encoding="utf-8")
-        self.board.cfg = load_config(self.root)
-        code, _, _ = self.post("/api/decide", {"ticket": "0001-a", "verb": "approve"}, cookie=self.login())
+        code, _, _ = self.post(self.p + "/api/decide", {"ticket": "0001-a", "verb": "approve"}, cookie=self.login())
         self.assertEqual(code, 403)
         self.assertEqual(self.status("0001-a"), "review-plan")
 
@@ -384,57 +393,105 @@ class PortsTest(unittest.TestCase):
                 server.server_close()
 
 
-class CliTest(unittest.TestCase):
-    def test_start_reuse_stop(self):
+class HomeTest(unittest.TestCase):
+    """The registry, and the home page's add / remove / cards."""
+
+    def setUp(self):
+        fresh_home(self)
+
+    def test_add_once_find_remove_and_nothing_on_disk_is_touched(self):
         root = make_repo()
+        pid = home.add(root)
+        self.assertEqual(home.add(root.resolve()), pid)  # one entry per project, however spelled
+        self.assertEqual([p["id"] for p in home.projects()], [pid])
+        self.assertEqual(home.find(pid), root.resolve())
+        self.assertTrue(home.remove(pid))
+        self.assertFalse(home.remove(pid))
+        self.assertEqual(home.projects(), [])
+        self.assertTrue((root / ".mark" / "config.toml").is_file())
+
+    def test_a_gone_or_broken_project_shows_an_error_card(self):
+        gone, broken = make_repo(), make_repo()
+        home.add(gone)
+        home.add(broken)
+        (broken / ".mark" / "config.toml").write_text("mark_schema = 999\n")
+        sh(gone, "rm", "-rf", str(gone))
+        cards = board.Board().home_view()
+        self.assertEqual(cards[0]["error"], "home.gone")
+        self.assertIn("mark_schema=999", cards[1]["error"])
+
+    def test_add_project_needs_an_absolute_mark_project(self):
+        root = make_repo()
+        self.assertEqual(board.add_project({"dir": "rel/path"})[:2], (False, "home.absolute"))
+        self.assertEqual(board.add_project({"dir": str(root / "nope")})[:2], (False, "home.notMark"))
+        self.assertEqual(board.add_project({"dir": 1})[:2], (False, "bad request"))
+        ok, _, pid = board.add_project({"dir": str(root / ".mark")})  # inside the project: its root
+        self.assertTrue(ok)
+        self.assertEqual(home.find(pid), root.resolve())
+        self.assertEqual(board.add_project({"dir": str(root)})[:2], (False, "home.already"))
+
+
+class CliTest(unittest.TestCase):
+    def setUp(self):
+        self.home = fresh_home(self)
+
+    def tearDown(self):
+        board.stop()
+
+    def test_start_reuse_stop_one_server_for_every_project(self):
+        a, b = make_repo(), make_repo()
         port = str(free_port())
         out, err = io.StringIO(), io.StringIO()
-        self.assertEqual(cli.main(["board", "--port", port], cwd=root, out=out, err=err), 0, err.getvalue())
-        try:
-            self.assertIn("http://127.0.0.1:", out.getvalue())
-            out2 = io.StringIO()
-            self.assertEqual(cli.main(["board", "--port", port], cwd=root, out=out2, err=err), 0)
-            self.assertIn("already running", out2.getvalue())
-            url = re.compile(r"http://127\.0\.0\.1:\d+")
-            self.assertEqual(url.search(out.getvalue())[0], url.search(out2.getvalue())[0])
-        finally:
-            out3 = io.StringIO()
-            cli.main(["board", "--stop"], cwd=root, out=out3, err=err)
-        self.assertIn("stopped", out3.getvalue())
-        self.assertIsNone(board.running(load_config(root)))
+        self.assertEqual(cli.main(["board", "--port", port], cwd=a, out=out, err=err), 0, err.getvalue())
+        self.assertIn(f"/p/{home.project_id(a)}/", out.getvalue())
+        out2 = io.StringIO()
+        self.assertEqual(cli.main(["board", "--port", port], cwd=b, out=out2, err=err), 0)
+        self.assertIn("already running", out2.getvalue())
+        url = re.compile(r"http://127\.0\.0\.1:\d+")
+        self.assertEqual(url.search(out.getvalue())[0], url.search(out2.getvalue())[0])
+        self.assertEqual({p["id"] for p in home.projects()}, {home.project_id(a), home.project_id(b)})
+        out3 = io.StringIO()
+        self.assertEqual(cli.main(["board"], cwd=self.home, out=out3, err=err), 0)  # outside a project: home
+        self.assertRegex(out3.getvalue(), r"http://127\.0\.0\.1:\d+/\n")
+        out4 = io.StringIO()
+        cli.main(["board", "--stop"], cwd=a, out=out4, err=err)
+        self.assertIn("stopped", out4.getvalue())
+        self.assertIsNone(board.running())
 
     def test_a_board_from_another_install_is_replaced(self):
-        root = make_repo()
-        cfg = load_config(root)
         port = free_port()
-        self.assertEqual(cli.main(["board", "--port", str(port)], cwd=root, out=io.StringIO(), err=io.StringIO()), 0)
-        try:
-            old = board.read_state(cfg)
-            board.state_path(cfg).write_text(json.dumps({**old, "page": "/old/install/board.html"}))
-            live, reused = board.start(cfg, port)
-            self.assertFalse(reused)
-            self.assertNotEqual(board.read_state(cfg)["pid"], old["pid"])
-            self.assertEqual(board.read_state(cfg)["page"], str(board.PAGE))
-        finally:
-            board.stop(cfg)
+        self.assertEqual(cli.main(["board", "--port", str(port)], cwd=make_repo(), out=io.StringIO(), err=io.StringIO()), 0)
+        old = board.read_state()
+        board.state_path().write_text(json.dumps({**old, "page": "/old/install/board.html"}))
+        live, reused = board.start(port)
+        self.assertFalse(reused)
+        self.assertNotEqual(board.read_state()["pid"], old["pid"])
+        self.assertEqual(board.read_state()["page"], str(board.PAGE))
 
     def test_upgrade_restarts_a_board_from_another_install(self):
-        root = make_repo()
-        cfg = load_config(root)
+        cfg = load_config(make_repo())
         port = free_port()
-        self.assertEqual(cli.main(["board", "--port", str(port)], cwd=root, out=io.StringIO(), err=io.StringIO()), 0)
-        try:
-            current = board.read_state(cfg)
-            cli.restart_board(cfg, out := io.StringIO())
-            self.assertEqual(board.read_state(cfg)["pid"], current["pid"])  # current board: left alone
-            self.assertEqual(out.getvalue(), "")
-            board.state_path(cfg).write_text(json.dumps({**current, "page": "/old/install/board.html"}))
-            cli.restart_board(cfg, out)
-            self.assertIn("restarted", out.getvalue())
-            self.assertNotEqual(board.read_state(cfg)["pid"], current["pid"])
-            self.assertEqual(board.read_state(cfg)["port"], current["port"])
-        finally:
-            board.stop(cfg)
+        self.assertEqual(cli.main(["board", "--port", str(port)], cwd=cfg.root, out=io.StringIO(), err=io.StringIO()), 0)
+        current = board.read_state()
+        cli.restart_board(cfg, out := io.StringIO())
+        self.assertEqual(board.read_state()["pid"], current["pid"])  # current board: left alone
+        self.assertEqual(out.getvalue(), "")
+        board.state_path().write_text(json.dumps({**current, "page": "/old/install/board.html"}))
+        cli.restart_board(cfg, out)
+        self.assertIn("restarted", out.getvalue())
+        self.assertNotEqual(board.read_state()["pid"], current["pid"])
+        self.assertEqual(board.read_state()["port"], current["port"])
+
+    def test_a_projects_own_board_from_before_is_stopped(self):
+        root = make_repo()
+        legacy = load_config(root).state_dir / "locks" / "board.json"
+        legacy.parent.mkdir(parents=True, exist_ok=True)
+        sleeper = subprocess.Popen(["sleep", "30"])
+        self.addCleanup(sleeper.kill)
+        legacy.write_text(json.dumps({"pid": sleeper.pid, "port": 1}))
+        self.assertEqual(cli.main(["board", "--port", str(free_port())], cwd=root, out=io.StringIO(), err=io.StringIO()), 0)
+        self.assertEqual(sleeper.wait(timeout=5), -15)
+        self.assertFalse(legacy.exists())
 
     def test_bad_port_is_a_usage_error(self):
         root = make_repo()

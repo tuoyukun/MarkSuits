@@ -1,25 +1,35 @@
-"""Web board: every ticket, its documents and its status history, live; the human decides gates on it.
+"""Web board: every project's tickets, their documents and status history, live; the human decides gates on it.
 
-`mark board` starts one server per project on 127.0.0.1, first free port from 6275 up,
-and records it in `<state>/locks/board.json` so a second call reuses it (unless the
-plugin was updated since: then the old server is replaced). The page
-(`board.html`) reads three endpoints:
+One server per user (since v0.58), on 127.0.0.1, first free port from 6275 up, recorded in
+`MARK_HOME/board.json` (`home.py`) so `mark board` reuses it (unless the plugin was updated since:
+then it is replaced). It shows the projects in `MARK_HOME/projects.json`; `mark board` in a
+project adds it there. The page (`board.html`) is one file with two views:
 
-    /api/board                         snapshot of every ticket (JSON)
-    /events                            server-sent events: a number that grows on every change
-    /f/<features|bugs>/<id>/<main|worktree>/<path>   a file from the ticket dir
-    POST /api/open                     open the board in the human's browser (what `mark board` calls)
+    /                                  home: every project, what waits on the human
+    /api/projects                      the home's cards (JSON)
+    /events                            server-sent events: a number that grows on any change
+    POST /api/open {path}              open the home or a project in the human's browser (what `mark board` calls)
     POST /api/login                    trade a one-time key from that URL for the session cookie
-    POST /api/decide                   approve or reject, with the cookie
-    POST /api/stop                     stop the headless session, or with {"ticket"} its chat turn (with the cookie)
-    POST /api/new                      open a ticket and start talking it through (with the cookie)
-    POST /api/chat                     send the next message in a ticket's chat (with the cookie)
-    POST /api/model                    set the model new headless sessions use (`model.py`, with the cookie)
-    /api/chat/<id>                     a ticket's chat (`chat.py`)
+    POST /api/model                    set the model headless sessions use (`model.py`, with the cookie)
+    POST /api/projects/add {dir}       register an existing Mark project (with the cookie)
+    POST /api/projects/remove {id}     forget one; nothing on disk is touched (with the cookie)
+    POST /api/wizard {dir, text}       set up a new project: `/mark:init` in the board chat (`wizard.py`, with the cookie)
+    /api/wizard/<wid>                  a wizard's chat; POST {text} the next message, POST .../stop, .../discard (with the cookie)
+
+    /p/<id>/                           one project's board; under it, relative to it:
+      api/board                        snapshot of every ticket (JSON)
+      events                           server-sent events for this project only
+      f/<features|bugs>/<id>/<main|worktree>/<path>   a file from the ticket dir
+      api/chat/<ticket>                a ticket's chat (`chat.py`)
+      POST api/decide                  approve or reject, with the cookie
+      POST api/stop                    stop the headless session, or with {"ticket"} its chat turn (with the cookie)
+      POST api/new                     open a ticket and start talking it through (with the cookie)
+      POST api/chat                    send the next message in a ticket's chat (with the cookie)
 
 Deciding: the server holds a random session secret in memory only. It opens the browser itself
 with a one-time key in the URL (`#k=`); the page trades it for an HttpOnly cookie. The model can
 run `mark board` and curl the API but never sees a key or the secret, so it cannot decide.
+A project with `[board] decide = false` stays read-only even with the cookie.
 
 Sources: the main checkout's ticket dirs (status, requirement, reviews, log), the
 ticket's worktree (role artifacts before they merge), `<state>/gates/<id>.*`, and
@@ -32,6 +42,7 @@ import io
 import json
 import mimetypes
 import os
+import re
 import secrets
 import signal
 import subprocess
@@ -45,8 +56,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import chat, flow, general, human, model, propose, runner, states, tickets
-from .config import MarkConfig
+from . import chat, flow, general, home, human, model, propose, runner, states, tickets, wizard
+from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .gitutil import git, worktrees
 from .i18n import t
 from .ports import in_use
@@ -341,18 +352,80 @@ def carry_on(cfg: MarkConfig, ticket: str, before: dict | None, had_waiter: bool
     return "run.started" if started else f"run.{why}"
 
 
+def summary(cfg: MarkConfig) -> dict[str, object]:
+    """A project's card on the home page: counts only, no git history."""
+    tks = tickets.all_tickets(cfg)
+    live = [tk for tk in tks if tk.side != "terminal"]
+    times = [tk.path.stat().st_mtime for tk in tks if tk.exists]
+    return {"name": cfg.root.name, "locale": cfg.locale, "total": len(tks),
+            "human": sum(tk.side == "human" for tk in tks), "agent": sum(tk.side == "agent" for tk in tks),
+            "done": len(tks) - len(live),
+            "running": runner.running(cfg) is not None or any(chat.running(cfg, tk.id) for tk in live),
+            "at": _dt.datetime.fromtimestamp(max(times)).astimezone().isoformat(timespec="seconds") if times else ""}
+
+
+def add_project(req: dict) -> tuple[bool, str, str]:
+    """Register an existing Mark project from the home page: (ok, why not, id)."""
+    d = req.get("dir")
+    if not isinstance(d, str) or not d.strip() or len(d) > 4096:
+        return False, "bad request", ""
+    path = Path(d.strip()).expanduser()
+    if not path.is_absolute():
+        return False, "home.absolute", ""
+    found = find_project_root(path) if path.is_dir() else None
+    if found is None:
+        return False, "home.notMark", ""
+    try:
+        cfg = load_config(tickets.main_root(found))
+    except ConfigError as exc:
+        return False, str(exc), ""
+    if home.find(home.project_id(cfg.root)):
+        return False, "home.already", ""
+    return True, "", home.add(cfg.root)
+
+
+class Project:
+    """A registered project as the server holds it: its config, reloaded when the file changes."""
+
+    def __init__(self, cfg: MarkConfig, mtime: int, version: int = 0):
+        self.cfg, self.mtime, self.version, self.history = cfg, mtime, version, History(cfg)
+
+
 class Board:
-    def __init__(self, cfg: MarkConfig):
-        self.cfg, self.history = cfg, History(cfg)
+    """The one board server: every registered project (`home.py`), one login for all of them."""
+
+    def __init__(self):
         self.version, self.cond, self.stop = 0, threading.Condition(), threading.Event()
         self.secret, self.keys, self.lock = secrets.token_urlsafe(32), [], threading.Lock()
+        self.projects: dict[str, Project] = {}
+        self.errors: dict[str, str] = {}
+        self.plock = threading.Lock()  # not self.lock: a long decision must not stall page loads
 
-    def open_browser(self, port: int) -> None:
+    def project(self, pid: object) -> Project | None:
+        """The registered project with this id, or None (unknown, gone, or a broken config: see errors)."""
+        root = home.find(pid)
+        if root is None:
+            return None
+        try:
+            mtime = (root / ".mark" / "config.toml").stat().st_mtime_ns
+            with self.plock:
+                p = self.projects.get(pid)
+                if p is None or p.mtime != mtime:
+                    p = self.projects[pid] = Project(load_config(root), mtime, p.version if p else 0)
+                self.errors.pop(pid, None)
+                return p
+        except FileNotFoundError:
+            self.errors[pid] = "home.gone"
+        except (OSError, ConfigError) as exc:
+            self.errors[pid] = str(exc)
+        return None
+
+    def open_browser(self, port: int, path: str = "/") -> None:
         key = secrets.token_urlsafe(24)
         with self.lock:
             self.keys = self.keys[-(KEYS_KEPT - 1):] + [key]
         if os.environ.get(NO_BROWSER_ENV) != "1":
-            webbrowser.open(f"http://127.0.0.1:{port}/#k={key}")
+            webbrowser.open(f"http://127.0.0.1:{port}{path}#k={key}")
 
     def redeem(self, key: object) -> bool:
         with self.lock:
@@ -368,25 +441,62 @@ class Board:
             return False
         return morsel is not None and secrets.compare_digest(morsel.value, self.secret)
 
-    def mode(self, cookie_header: str | None, port: int) -> str:
-        """"on": this browser may decide; "login": it may not yet; "off": `[board] decide = false`."""
-        if not self.cfg.board_decide:
+    def mode(self, cookie_header: str | None, port: int, cfg: MarkConfig | None = None) -> str:
+        """"on": this browser may decide; "login": it may not yet; "off": the project's `[board] decide = false`."""
+        if cfg is not None and not cfg.board_decide:
             return "off"
         return "on" if self.authorized(cookie_header, port) else "login"
 
+    def home_view(self) -> list[dict[str, object]]:
+        out = []
+        for reg in home.projects():
+            p = self.project(reg["id"])
+            card: dict[str, object] = {"id": reg["id"], "root": reg["root"], "path": home.short(Path(reg["root"])),
+                                       "name": Path(reg["root"]).name}
+            if p is None:
+                card["error"] = self.errors.get(reg["id"], "home.gone")
+            else:
+                try:
+                    card |= summary(p.cfg)
+                except OSError as exc:
+                    card["error"] = str(exc)
+            out.append(card)
+        return out
+
     def watch(self) -> None:
-        last = signature(self.cfg)
+        """Bump a project's version when its signature or config changes, and the home's version
+        when any project does or the registry changes. shortcut: polls every registered project each
+        second; watch only those with an open page if people register dozens."""
+        last: dict[str, tuple] = {}
+        ids: tuple = ()
         while not self.stop.wait(POLL_SECONDS):
-            sig = signature(self.cfg)
-            if sig != last:
-                last = sig
+            reg = (tuple(p["id"] for p in home.projects()), wizard.signature())
+            changed, ids = reg != ids, reg
+            for pid in reg[0]:
+                p = self.project(pid)
+                if p is None:
+                    continue
+                try:
+                    key = (p.mtime, signature(p.cfg))
+                except OSError:
+                    continue
+                if last.get(pid) != key:
+                    if pid in last:
+                        p.version += 1
+                        changed = True
+                    last[pid] = key
+            if changed:
                 with self.cond:
                     self.version += 1
                     self.cond.notify_all()
 
 
 def cookie_name(port: int) -> str:
-    return f"mark_board_{port}"  # cookies ignore the port: two projects' boards must not share one
+    return f"mark_board_{port}"  # cookies ignore the port: a test server on another port must not share one
+
+
+PROJECT_PATH = re.compile(r"^/p/([0-9a-f]{10})(/.*)?$")
+WIZARD_PATH = re.compile(r"^/api/wizard/([0-9a-f]{10})(?:/(stop|discard))?$")
 
 
 def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
@@ -394,10 +504,12 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
         def log_message(self, *args) -> None:
             pass
 
-        def _send(self, code: int, body: bytes, ctype: str, cookie: str = "") -> None:
+        def _send(self, code: int, body: bytes, ctype: str, cookie: str = "", headers: dict | None = None) -> None:
             self.send_response(code)
             if cookie:
                 self.send_header("Set-Cookie", cookie)
+            for k, v in (headers or {}).items():
+                self.send_header(k, v)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
@@ -414,6 +526,19 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 return False
             return True
 
+        def _route(self) -> tuple[Project | None, str, bool]:
+            """(project, path inside it, ok): /p/<id>/x -> (that project, "/x"); "/x" -> (None, "/x").
+            ok is False (a 404 already sent) for an unknown or broken project."""
+            path = self.path.split("?", 1)[0]
+            m = PROJECT_PATH.match(path)
+            if not m:
+                return None, path, True
+            p = board.project(m.group(1))
+            if p is None:
+                self._send(404, b"not found", "text/plain")
+                return None, "", False
+            return p, m.group(2) or "", True
+
         def do_POST(self) -> None:
             try:
                 raw = self.rfile.read(min(int(self.headers.get("Content-Length") or 0), BODY_MAX))
@@ -421,79 +546,127 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 raw = b""
             if not self._local():
                 return
-            port = self.server.server_address[1]
-            path, origin = self.path.split("?", 1)[0], self.headers.get("Origin")
-            same = origin in (f"http://127.0.0.1:{port}", f"http://localhost:{port}")
-            if path == "/api/open" and (origin is None or same):  # no Origin: `mark board`, not a web page
-                board.open_browser(port)
-                self._json(200, {"ok": True})
+            proj, path, ok = self._route()
+            if not ok:
                 return
+            port = self.server.server_address[1]
+            origin = self.headers.get("Origin")
+            same = origin in (f"http://127.0.0.1:{port}", f"http://localhost:{port}")
             try:
                 body = json.loads(raw or b"{}")
             except ValueError:
                 body = None
+            if proj is None and path == "/api/open" and (origin is None or same):  # no Origin: `mark board`, not a web page
+                target = body.get("path") if isinstance(body, dict) else None
+                m = PROJECT_PATH.match(target) if isinstance(target, str) else None
+                if target not in (None, "/") and not (m and m.group(2) == "/" and home.find(m.group(1))):
+                    self._json(404, {"ok": False, "text": "not found"})
+                    return
+                board.open_browser(port, target or "/")
+                self._json(200, {"ok": True})
+                return
             ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip()
+            cookie = self.headers.get("Cookie")
             if not same or ctype != "application/json" or not isinstance(body, dict):
                 self._json(403, {"ok": False, "text": "forbidden"})
-            elif path == "/api/login":
+            elif proj is None and path == "/api/login":
                 if board.redeem(body.get("k")):
                     self._json(200, {"ok": True},
                                f"{cookie_name(port)}={board.secret}; HttpOnly; SameSite=Strict; Path=/")
                 else:
                     self._json(403, {"ok": False, "text": "expired key"})
-            elif path == "/api/decide":
-                if board.mode(self.headers.get("Cookie"), port) != "on":
-                    self._json(403, {"ok": False, "text": "read-only"})
-                    return
+            elif board.mode(cookie, port, proj.cfg if proj else None) != "on":
+                self._json(403, {"ok": False, "text": "read-only"})
+            elif proj is None:
+                self._post_home(path, body)
+            else:
+                self._post_project(proj.cfg, path, body)
+
+        def _post_home(self, path: str, body: dict) -> None:
+            if path == "/api/model":
+                with board.lock:
+                    ok, text = model.save(None, body)
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
+            elif path == "/api/projects/add":
+                ok, text, pid = add_project(body)
+                self._json(200 if ok else 409, {"ok": ok, "text": text, "id": pid})
+            elif path == "/api/projects/remove":
+                ok = home.remove(body.get("id"))
+                self._json(200 if ok else 409, {"ok": ok, "text": "" if ok else "bad request"})
+            elif path == "/api/wizard":
+                with board.lock:
+                    ok, text, wid = wizard.start(body)
+                self._json(200 if ok else 409, {"ok": ok, "text": text, "id": wid})
+            elif m := WIZARD_PATH.match(path):
+                wid, act = m.group(1), m.group(2)
+                with board.lock:
+                    if act == "stop":
+                        ok, text = wizard.stop(wid), ""
+                    elif act == "discard":
+                        ok, text = wizard.discard(wid), ""
+                    else:
+                        ok, text = wizard.send(wid, body.get("text"))
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
+            else:
+                self._json(404, {"ok": False, "text": "not found"})
+
+        def _post_project(self, cfg: MarkConfig, path: str, body: dict) -> None:
+            if path == "/api/decide":
                 from . import wait  # wait imports this module
                 tid = body.get("ticket")
                 with board.lock:  # one decision at a time
-                    before = wait.state(board.cfg, tid) if isinstance(tid, str) else None
-                    had_waiter = isinstance(tid, str) and wait.waiter(board.cfg, tid) is not None
-                    ok, text = decide(board.cfg, body)
-                    note = carry_on(board.cfg, tid, before[1] if before else None, had_waiter) if ok else ""
+                    before = wait.state(cfg, tid) if isinstance(tid, str) else None
+                    had_waiter = isinstance(tid, str) and wait.waiter(cfg, tid) is not None
+                    ok, text = decide(cfg, body)
+                    note = carry_on(cfg, tid, before[1] if before else None, had_waiter) if ok else ""
                 self._json(200 if ok else 409, {"ok": ok, "text": text, "note": note})
-            elif path in ("/api/stop", "/api/new", "/api/chat", "/api/model"):
-                if board.mode(self.headers.get("Cookie"), port) != "on":
-                    self._json(403, {"ok": False, "text": "read-only"})
-                elif path == "/api/stop":
-                    tid = body.get("ticket")
-                    self._json(200, {"ok": chat.stop(board.cfg, tid) if isinstance(tid, str) else runner.stop(board.cfg)})
-                elif path == "/api/model":
-                    with board.lock:
-                        ok, text = model.save(board.cfg, body)
-                    self._json(200 if ok else 409, {"ok": ok, "text": text})
-                elif path == "/api/new":
-                    with board.lock:
-                        ok, text, tid = new_ticket(board.cfg, body)
-                    self._json(200 if ok else 409, {"ok": ok, "text": text, "id": tid})
-                else:
-                    with board.lock:
-                        ok, text = send(board.cfg, body)
-                    self._json(200 if ok else 409, {"ok": ok, "text": text})
+            elif path == "/api/stop":
+                tid = body.get("ticket")
+                self._json(200, {"ok": chat.stop(cfg, tid) if isinstance(tid, str) else runner.stop(cfg)})
+            elif path == "/api/new":
+                with board.lock:
+                    ok, text, tid = new_ticket(cfg, body)
+                self._json(200 if ok else 409, {"ok": ok, "text": text, "id": tid})
+            elif path == "/api/chat":
+                with board.lock:
+                    ok, text = send(cfg, body)
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
             else:
                 self._json(404, {"ok": False, "text": "not found"})
 
         def do_GET(self) -> None:
             if not self._local():
                 return
-            path = self.path.split("?", 1)[0]
-            if path == "/":
+            proj, path, ok = self._route()
+            if not ok:
+                return
+            port = self.server.server_address[1]
+            mode = board.mode(self.headers.get("Cookie"), port, proj.cfg if proj else None)
+            if path == "/" or (proj is None and path == ""):
                 self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
-            elif path == "/api/board":
-                port = self.server.server_address[1]
-                self._json(200, {**snapshot(board.cfg, board.history),
-                                 "decide": board.mode(self.headers.get("Cookie"), port)})
+            elif path == "":  # /p/<id>: the page reads its API relative to /p/<id>/
+                self._send(301, b"", "text/plain", headers={"Location": self.path.split("?", 1)[0] + "/"})
             elif path == "/events":
-                self._events()
+                self._events(proj)
+            elif proj is None:
+                m = WIZARD_PATH.match(path)
+                if path == "/api/projects":
+                    self._json(200, {"projects": board.home_view(), "wizards": wizard.cards(), "decide": mode,
+                                     "model": model.public(model.store(None))})
+                elif m and not m.group(2) and (v := wizard.view(m.group(1))) is not None:
+                    self._json(200, v)
+                else:
+                    self._send(404, b"not found", "text/plain")
+            elif path == "/api/board":
+                self._json(200, {**snapshot(proj.cfg, proj.history), "decide": mode})
             elif path.startswith("/api/chat/"):
                 tid = unquote(path[len("/api/chat/"):])
-                if _known(board.cfg, tid) is None:
+                if _known(proj.cfg, tid) is None:
                     self._json(404, {"ok": False, "text": "not found"})
                 else:
-                    self._json(200, chat.view(board.cfg, tid))
+                    self._json(200, chat.view(proj.cfg, tid))
             elif path.startswith("/f/"):
-                f = resolve_file(board.cfg, [unquote(p) for p in path[3:].split("/")])
+                f = resolve_file(proj.cfg, [unquote(p) for p in path[3:].split("/")])
                 if f is None:
                     self._send(404, b"not found", "text/plain")
                     return
@@ -506,7 +679,11 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
             else:
                 self._send(404, b"not found", "text/plain")
 
-        def _events(self) -> None:
+        def _events(self, proj: Project | None) -> None:
+            """A number that grows on every change: of this project, or (the home page) of any."""
+            def version() -> int:
+                return proj.version if proj else board.version
+
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-store")
@@ -515,11 +692,11 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
             try:
                 while not board.stop.is_set():
                     with board.cond:
-                        if board.version == seen:
+                        if version() == seen:
                             board.cond.wait(PING_SECONDS)
-                        version = board.version
-                    msg = f"data: {version}\n\n" if version != seen else ": ping\n\n"
-                    seen = version
+                        v = version()
+                    msg = f"data: {v}\n\n" if v != seen else ": ping\n\n"
+                    seen = v
                     self.wfile.write(msg.encode())
                     self.wfile.flush()
             except OSError:
@@ -542,25 +719,24 @@ def bind(start: int) -> ThreadingHTTPServer | None:
     return None
 
 
-def state_path(cfg: MarkConfig) -> Path:
-    return cfg.state_dir / "locks" / STATE_FILE
+def state_path() -> Path:
+    return home.root() / STATE_FILE
 
 
-def serve(cfg: MarkConfig, start: int = DEFAULT_PORT) -> int:
+def serve(start: int = DEFAULT_PORT) -> int:
     """Run the board in this process until SIGTERM / Ctrl-C."""
     server = bind(start)
     if server is None:
         return 1
-    board = Board(cfg)
+    board = Board()
     server.RequestHandlerClass = make_handler(board)
     server.daemon_threads = True
     port = server.server_address[1]
-    path = state_path(cfg)
+    path = state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"pid": os.getpid(), "port": port, "root": str(cfg.root), "page": str(PAGE)}) + "\n")
+    path.write_text(json.dumps({"pid": os.getpid(), "port": port, "page": str(PAGE)}) + "\n")
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown).start())
     threading.Thread(target=board.watch, daemon=True).start()
-    board.open_browser(port)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -570,14 +746,14 @@ def serve(cfg: MarkConfig, start: int = DEFAULT_PORT) -> int:
         with board.cond:
             board.cond.notify_all()
         server.server_close()
-        if read_state(cfg).get("pid") == os.getpid():
+        if read_state().get("pid") == os.getpid():
             path.unlink(missing_ok=True)
     return 0
 
 
-def read_state(cfg: MarkConfig) -> dict:
+def read_state() -> dict:
     try:
-        return json.loads(state_path(cfg).read_text())
+        return json.loads(state_path().read_text())
     except (OSError, ValueError):
         return {}
 
@@ -592,42 +768,43 @@ def _alive(pid: object) -> bool:
         return False
 
 
-def running(cfg: MarkConfig) -> int | None:
-    """Port of this project's live board, or None."""
-    st = read_state(cfg)
+def running() -> int | None:
+    """Port of the live board, or None."""
+    st = read_state()
     port = st.get("port")
     return port if _alive(st.get("pid")) and isinstance(port, int) and in_use(port) else None
 
 
-def start(cfg: MarkConfig, port: int = DEFAULT_PORT, wait: float = 5.0) -> tuple[int | None, bool]:
-    """(port, reused): reuse this project's board, else start one in the background. A board
-    started from another plugin install serves that install's page, so it is replaced."""
-    live = running(cfg)
+def start(port: int = DEFAULT_PORT, wait: float = 5.0) -> tuple[int | None, bool]:
+    """(port, reused): reuse the live board, else start one in the background. A board started
+    from another plugin install serves that install's code, so it is replaced."""
+    live = running()
     if live:
-        if read_state(cfg).get("page") == str(PAGE):
+        if read_state().get("page") == str(PAGE):
             return live, True
-        stop(cfg)
-    state_path(cfg).unlink(missing_ok=True)
-    log = cfg.state_dir / "locks" / "board.log"
+        stop()
+    state_path().unlink(missing_ok=True)
+    log = home.root() / "board.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     mark = Path(__file__).resolve().parents[2] / "bin" / "mark"
     with open(log, "w") as fh:
+        # cwd MARK_HOME: outside any project, so `mark board --serve` loads no project config
         child = subprocess.Popen([sys.executable, str(mark), "board", "--serve", "--port", str(port)],
-                                 cwd=cfg.root, stdin=subprocess.DEVNULL, stdout=fh, stderr=fh,
+                                 cwd=home.root(), stdin=subprocess.DEVNULL, stdout=fh, stderr=fh,
                                  start_new_session=True)  # outlives the Bash call that started it
     deadline = time.monotonic() + wait
     while time.monotonic() < deadline and child.poll() is None:
-        st = read_state(cfg)
+        st = read_state()
         if st.get("pid") == child.pid:
             return st.get("port"), False
         time.sleep(0.1)
     return None, False
 
 
-def reopen(port: int) -> bool:
-    """Ask a live board to open itself in the human's browser again."""
-    req = urllib.request.Request(f"http://127.0.0.1:{port}/api/open", data=b"{}", method="POST",
-                                 headers={"Content-Type": "application/json"})
+def reopen(port: int, path: str = "/") -> bool:
+    """Ask the live board to open a page (the home, or `/p/<id>/`) in the human's browser."""
+    req = urllib.request.Request(f"http://127.0.0.1:{port}/api/open", data=json.dumps({"path": path}).encode(),
+                                 method="POST", headers={"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
             return r.status == 200
@@ -635,15 +812,27 @@ def reopen(port: int) -> bool:
         return False
 
 
-def stop(cfg: MarkConfig) -> bool:
-    pid = read_state(cfg).get("pid")
+def _kill(state: Path) -> bool:
+    try:
+        pid = json.loads(state.read_text()).get("pid")
+    except (OSError, ValueError, AttributeError):
+        pid = None
     if not _alive(pid):
-        state_path(cfg).unlink(missing_ok=True)
+        state.unlink(missing_ok=True)
         return False
     os.kill(pid, signal.SIGTERM)
     for _ in range(30):
         if not _alive(pid):
             break
         time.sleep(0.1)
-    state_path(cfg).unlink(missing_ok=True)
+    state.unlink(missing_ok=True)
     return True
+
+
+def stop() -> bool:
+    return _kill(state_path())
+
+
+def stop_legacy(cfg: MarkConfig) -> bool:
+    """Stop this project's own board from before v0.58 (one server per project)."""
+    return _kill(cfg.state_dir / "locks" / STATE_FILE)

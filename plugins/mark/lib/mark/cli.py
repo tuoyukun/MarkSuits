@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from . import ask, board, brief, defaults, e2e, flow, general, merge, propose, scaffold, states, tickets, updates, upgrade, wait
+from . import ask, board, brief, defaults, e2e, flow, general, home, merge, propose, scaffold, states, tickets, updates, upgrade, wait
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .i18n import t
 
@@ -385,9 +385,9 @@ def cmd_init(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
 
 def restart_board(cfg: MarkConfig, out: TextIO) -> None:
     """A board started from an older plugin install serves old code: restart it on the same port."""
-    live = board.running(cfg)
-    if live and board.read_state(cfg).get("page") != str(board.PAGE):
-        port, _ = board.start(cfg, live)
+    live = board.running()
+    if live and board.read_state().get("page") != str(board.PAGE):
+        port, _ = board.start(live)
         if port:
             _say(cfg, out, "board.restarted", url=f"http://127.0.0.1:{port}")
 
@@ -490,25 +490,32 @@ def cmd_journeys(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
     return 1
 
 
-def cmd_board(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
-    """`mark board [--port N] [--stop]`: the web board, one per project, opened in the browser."""
+def cmd_board(cfg: MarkConfig | None, args: list[str], out: TextIO, err: TextIO) -> int:
+    """`mark board [--port N] [--stop]`: the web board, one per user, opened in the browser: on this
+    project's page (which registers it), or on the home page outside a project."""
+    def say(stream: TextIO, key: str, **params: object) -> None:
+        stream.write(t(cfg.locale if cfg else "en", key, **params) + "\n")
+
     opts, pos = _parse(args, {"--port"})
     port = (opts or {}).get("--port", str(board.DEFAULT_PORT))
     if opts is None or pos or not port.isdigit():
-        _say(cfg, err, "cli.usage")
+        say(err, "cli.usage")
         return 2
     if opts.get("--serve"):  # internal: the background process `mark board` starts
-        return board.serve(cfg, int(port))
+        return board.serve(int(port))
     if opts.get("--stop"):
-        _say(cfg, out, "board.stopped" if board.stop(cfg) else "board.not_running")
+        say(out, "board.stopped" if board.stop() else "board.not_running")
         return 0
-    live, reused = board.start(cfg, int(port))
+    path = "/"
+    if cfg is not None:
+        board.stop_legacy(cfg)  # this project's own server from before v0.58
+        path = f"/p/{home.add(cfg.root)}/"
+    live, reused = board.start(int(port))
     if live is None:
-        _say(cfg, err, "board.failed", log=board.state_path(cfg).with_name("board.log"))
+        say(err, "board.failed", log=home.root() / "board.log")
         return 1
-    if reused:
-        board.reopen(live)
-    _say(cfg, out, "board.reused" if reused else "board.started", url=f"http://127.0.0.1:{live}")
+    board.reopen(live, path)
+    say(out, "board.reused" if reused else "board.started", url=f"http://127.0.0.1:{live}{path}")
     return 0
 
 
@@ -564,6 +571,8 @@ def main(argv: list[str] | None = None, cwd: Path | None = None,
         return cmd_rules(cwd or Path.cwd(), argv[1:], out, err)
     if argv[0] == "init":
         return cmd_init(cwd or Path.cwd(), argv[1:], out, err)
+    if argv[0] == "board" and find_project_root(cwd or Path.cwd()) is None:
+        return cmd_board(None, argv[1:], out, err)  # outside a project: the home page
     cfg = _load(cwd or Path.cwd(), err)
     if cfg is None:
         return 2

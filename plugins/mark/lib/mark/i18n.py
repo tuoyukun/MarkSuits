@@ -164,6 +164,10 @@ MESSAGES["en"].update({
         "you found, why it needs its own ticket, and the suggested priority. The human approves it by typing\n"
         "/mark:approve {id}; you cannot write `{gate}` yourself."
     ),
+    "guard.home": (
+        "`{rel}` is in Mark's home directory: the board's projects, its model setting (where board sessions\n"
+        "send their prompts) and its chats. Only the human changes them, on the board; no tool call may write there."
+    ),
     "guard.scope_cli": (
         "`{rel}` is written only by the `mark` CLI: it records a human decision or ticket state, so no tool\n"
         "call may write it, the main thread's included. Use the command that owns it (`mark set`,\n"
@@ -342,6 +346,10 @@ MESSAGES["zh-CN"].update({
         "{kind} `{id}` 的建单还没有经过人同意（缺少 `{gate}`）。\n"
         "建单是排期决定，不归 agent。先停下，用人话向 Human 说明：发现了什么、为什么要单独立单、建议什么优先级。\n"
         "由 Human 输入 /mark:approve {id} 批准；`{gate}` 不能由你来写。"
+    ),
+    "guard.home": (
+        "`{rel}` 在 Mark 的主目录里：看板的项目列表、模型设置（看板会话把提示发到哪里）和对话记录。\n"
+        "只有 Human 能在看板上修改，任何工具调用都不能写这里。"
     ),
     "guard.scope_cli": (
         "`{rel}` 只能由 `mark` 命令写：它记录的是人的决定或工单状态，任何工具调用都不能写，主线程也不行。\n"
@@ -1204,11 +1212,11 @@ MESSAGES["zh-CN"].update({
 })
 
 MESSAGES["en"].update({
-    "board.started": "Board opened in your browser: {url}  (updates live; decide gates in that window; `mark board --stop` stops it)",
+    "board.started": "Board opened in your browser: {url}  (every project on one board, updating live; decide gates in that window; `mark board --stop` stops it)",
     "board.reused": "Board already running, opened again in your browser: {url}",
     "board.stopped": "Board stopped.",
     "board.restarted": "Board restarted on the installed plugin: {url}",
-    "board.not_running": "No board is running for this project.",
+    "board.not_running": "No board is running.",
     "board.failed": "The board did not start; see {log}.",
     "wait.moved": "{id}: {old} -> {new}. The human decided (on the board or in the terminal); being woken is not "
         "a new approval. Carry on with the ticket as after /mark:approve or /mark:reject: run `mark rules` if you do not have them, "
@@ -1245,11 +1253,11 @@ MESSAGES["en"].update({
     "ask.ignored": "{id}: no questions saved ({why}). Ask them in your reply as text instead, then end your turn.",
 })
 MESSAGES["zh-CN"].update({
-    "board.started": "看板已在浏览器中打开：{url}（实时更新；可在该窗口处理评审；`mark board --stop` 关闭）",
+    "board.started": "看板已在浏览器中打开：{url}（所有项目共用一个看板，实时更新；可在该窗口处理评审；`mark board --stop` 关闭）",
     "board.reused": "看板已在运行，已在浏览器中再次打开：{url}",
     "board.stopped": "看板已关闭。",
     "board.restarted": "看板已用新安装的插件重启：{url}",
-    "board.not_running": "本项目没有运行中的看板。",
+    "board.not_running": "没有运行中的看板。",
     "board.failed": "看板没有启动成功，见 {log}。",
     "wait.moved": "{id}：{old} -> {new}。人已做出决定（在看板或终端）；被唤醒本身不是新的批准。"
         "按 /mark:approve 或 /mark:reject 之后的方式继续这张工单：手头没有规则就先跑 `mark rules`，然后 `mark next {id}`，一直推进到下一个人工关卡。",

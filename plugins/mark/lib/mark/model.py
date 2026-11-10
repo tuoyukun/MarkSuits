@@ -1,7 +1,7 @@
 """The model the board's headless sessions run on (runner and chat), set on the board.
 
-The harness is always the Claude Code CLI. `<state>/locks/model.json` (gitignored, mode 600, only
-the board writes it) holds named profiles and which one is in use:
+The harness is always the Claude Code CLI. `MARK_HOME/model.json` (`home.py`; mode 600, only the
+board writes it) holds named profiles and which one is in use, for every project on this machine:
 
     {"active": "DeepSeek", "profiles": [{"name": "Opus", <settings>}, {"name": "DeepSeek", <settings>}]}
 
@@ -11,7 +11,9 @@ where <settings> is one of:
     "provider": "custom", "model": "...", "base_url": "https://...", "api_key": "..."
                                                       an Anthropic-compatible endpoint (DeepSeek ...)
 
-A file holding bare settings (v0.54-v0.56) reads as one profile named after its label.
+A file holding bare settings (v0.54-v0.56) reads as one profile named after its label. Before
+v0.58 the file was per project (`<state>/locks/model.json`): the first project read with no
+global file yet seeds it.
 
 Each new session reads it when it starts, so a change never touches a session in progress. A
 chat pins the settings its first turn used (`chat.py`): later turns resume that conversation.
@@ -22,6 +24,7 @@ import json
 import os
 from pathlib import Path
 
+from . import home
 from .config import MarkConfig
 
 FILE = "model.json"
@@ -36,8 +39,16 @@ DROPPED = ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_BEDR
            "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
 
 
-def path(cfg: MarkConfig) -> Path:
-    return cfg.state_dir / "locks" / FILE
+def path(cfg: MarkConfig | None) -> Path:
+    """The global file; a project's pre-v0.58 file seeds it (cfg None: the board's home page)."""
+    p = home.root() / FILE
+    legacy = cfg.state_dir / "locks" / FILE if cfg is not None else None
+    if not p.exists() and legacy is not None and legacy.is_file():
+        try:
+            write_private(p, json.loads(legacy.read_text()))
+        except (OSError, ValueError):
+            pass  # a broken old file: start from the default
+    return p
 
 
 def valid(data: object) -> bool:
@@ -60,7 +71,7 @@ def good_name(name: object) -> bool:
         and name.isprintable()
 
 
-def store(cfg: MarkConfig) -> dict:
+def store(cfg: MarkConfig | None) -> dict:
     """All profiles and the active name; a missing or broken file is the default alone."""
     try:
         data = json.loads(path(cfg).read_text())
@@ -94,7 +105,7 @@ def write_private(p: Path, data: dict) -> None:
     os.replace(tmp, p)
 
 
-def save(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
+def save(cfg: MarkConfig | None, req: dict) -> tuple[bool, str]:
     """The board's form: (ok, why not). `action` is "use" or "delete" a profile by `name`, or else save
     one (and use it): `old` names the profile being edited, `name` defaults to the label, and an empty
     api_key keeps the edited profile's key."""

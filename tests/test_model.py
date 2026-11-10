@@ -4,7 +4,7 @@ from __future__ import annotations
 import stat
 import unittest
 
-from tests._support import make_repo
+from tests._support import fresh_home, make_repo
 
 from mark import model
 from mark.config import load_config
@@ -15,6 +15,7 @@ DEEPSEEK = {"provider": "custom", "model": "deepseek-chat", "base_url": "https:/
 
 class ModelTest(unittest.TestCase):
     def setUp(self):
+        fresh_home(self)
         self.cfg = load_config(make_repo())
 
     def test_default_is_opus_on_the_cli_login(self):
@@ -70,6 +71,16 @@ class ModelTest(unittest.TestCase):
         self.assertEqual(model.store(self.cfg), {"active": "sonnet", "profiles": [
             {"name": "sonnet", "provider": "anthropic", "model": "sonnet"}]})
         self.assertEqual(model.load(self.cfg), {"provider": "anthropic", "model": "sonnet"})
+
+    def test_one_file_for_every_project_seeded_from_the_old_per_project_one(self):
+        legacy = self.cfg.state_dir / "locks" / "model.json"
+        legacy.parent.mkdir(parents=True, exist_ok=True)
+        legacy.write_text('{"provider": "anthropic", "model": "sonnet"}')
+        self.assertEqual(model.load(self.cfg)["model"], "sonnet")
+        other = load_config(make_repo())
+        self.assertEqual(model.load(other)["model"], "sonnet")  # global now
+        model.save(other, {"provider": "anthropic", "model": "haiku"})
+        self.assertEqual(model.load(self.cfg)["model"], "haiku")
 
     def test_bad_settings_are_refused(self):
         for req in ({"provider": "openai", "model": "x"}, {"provider": "anthropic", "model": ""},

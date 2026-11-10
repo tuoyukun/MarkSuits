@@ -454,13 +454,36 @@ Its sources are the ones above:
 - **Live**: one thread fingerprints those dirs (mtime, size) plus HEAD every second;
   `/events` (server-sent events) tells the page to refetch `/api/board`.
 
-One board per project. The port is the first free one from 6275 up (`--port` changes the start);
-a port with any listener is skipped before binding. The server records `pid` and `port` in
-`<state>/locks/board.json` (gitignored); `mark board` reuses a live one, `--stop` ends it. A board started from another plugin
-install is restarted on its port by `mark board` and by `mark upgrade`. The
+One board per user (v0.58; before, one per project). The port is the first free one from 6275 up (`--port` changes the start);
+a port with any listener is skipped before binding. The server records `pid`, `port` and its page in
+`MARK_HOME/board.json` (`lib/mark/home.py`: `$MARK_HOME`, else `~/.mark` on macOS, else
+`${XDG_DATA_HOME:-~/.local/share}/mark`; outside the plugin dirs because it outlives plugin updates);
+`mark board` reuses a live one, `--stop` ends it. `mark board` in a project registers it in
+`MARK_HOME/projects.json` and opens `/p/<id>/` (id: the first 10 hex digits of the SHA-1 of the root path);
+outside a project it opens the home page `/`. It also stops that project's pre-v0.58 server
+(`<state>/locks/board.json`). A board started from another plugin
+install is restarted on its port by `mark board` and by `mark upgrade`. One server runs one plugin
+version's code for every project: a project whose `mark_schema` that code does not support shows
+an error card until a newer plugin's `mark board` replaces the server. The
 child runs in its own session so it outlives the Bash call that started it. Requests whose Host
 is not `127.0.0.1`/`localhost` are refused (DNS rebinding). Markdown renders with a small built-in
 renderer; mermaid fences load mermaid from jsDelivr and stay code blocks offline.
+
+**Home and new projects (v0.58).** `/` is its own page without the sidebar: the registered projects
+as a list (counts by side, progress, whether a session runs, the last move; a gone directory or
+unreadable config shows its error), wizards still setting up above it, and a menu per project (open,
+copy the path, remove). A project's page (`/p/<id>/`) shows only that project; its logo, top left,
+leads back to `/`. A project's config is reloaded when
+`config.toml` changes. With the cookie the human can register an existing Mark project by path,
+forget one (nothing on disk changes), or start **New project**: a full path (made if missing, its
+parent must exist; not already a Mark project) and what they are building. The wizard
+(`lib/mark/wizard.py`) runs the board chat's turns (`chat.py`) in that directory with no ticket:
+state in `MARK_HOME/wizards/<wid>/`, first turn `/mark:init <text>`, a system note that says to
+ask in plain text (no `mark ask` without a ticket). The skill proposes the answers and stops; the
+human confirms in the chat; it runs `mark init` and fills in CLAUDE.md. Once `.mark/config.toml`
+exists the project is registered and the wizard links to its board. No tool call may write under
+`MARK_HOME` (`guards.write.home_block`, Edit/Write and shell writes alike). Residual: the
+wizard's first turns run before the directory is a Mark project, so Mark's hooks are silent there.
 
 **Deciding (v0.47).** A ticket that waits on the human (opening not approved, `review-*`,
 `blocked-*`) gets a decision panel in its modal: approve; reject with one comment per line; for
@@ -553,8 +576,8 @@ run it (`MARK_WRITES`). In live runs Claude used it 6/6 times with valid JSON an
 the answers.
 
 **Model (v0.54).** The harness is always the Claude Code CLI; the model is set on the board (the
-"Model" button in the sidebar, cookie required) and kept in `<state>/locks/model.json` (gitignored,
-mode 600). It keeps named profiles and the one in use (v0.57: add, edit, delete, click to switch;
+"Model" button in the sidebar or on the home page, cookie required) and kept in `MARK_HOME/model.json` (mode 600; one
+setting for every project since v0.58, seeded from the first project's old `<state>/locks/model.json`). It keeps named profiles and the one in use (v0.57: add, edit, delete, click to switch;
 a v0.54 single-settings file reads as one profile). Default profile `opus`:
 `{"provider": "anthropic", "model": "opus"}`, the CLI's own login with `--model=opus`. `"custom"` adds a base URL and an API key for an Anthropic-compatible endpoint such
 as DeepSeek: the session gets `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL` and

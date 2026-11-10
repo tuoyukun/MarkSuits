@@ -36,7 +36,9 @@ Design: `docs/architecture.md`.
    agents, prompts, formats) stay generic, and a project overrides any of them. If you need a
    new knob, add it to the config schema with a default.
 5. **Never write state under `${CLAUDE_PLUGIN_ROOT}`** (it changes on every update).
-   Project state goes in `.mark/`; caches go in `${CLAUDE_PLUGIN_DATA}`.
+   Project state goes in `.mark/`; caches go in `${CLAUDE_PLUGIN_DATA}`. Per-user state the board
+   server needs across projects and plugin installs (project registry, model setting, wizards) goes
+   in `MARK_HOME` (`lib/mark/home.py`, `~/.mark` on macOS).
 6. **Match role names after stripping the plugin prefix** (`mark.hookio.normalize_agent_type`).
 7. **Hooks match language-neutral anchors** (e.g. `<!-- mark:ac-table -->`), never
    localized headings. Templates ship in `zh-CN` and `en`; engine code and docs are English.

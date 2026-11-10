@@ -1500,6 +1500,12 @@ class GuardTest(unittest.TestCase):
                                      "tool_input": {"file_path": str(self.root / ".mark/locks/model.json"),
                                                     "content": "{}"}})
         self.assertEqual(code, 2)
+        mark_home = os.environ["MARK_HOME"]  # since v0.58 the setting lives there, with the board's registry
+        self.assertEqual(self.bash(f"echo '{{}}' > {mark_home}/model.json")[0], 2)
+        self.assertEqual(self.bash(f"cp x {mark_home}/projects.json")[0], 2)
+        code, _ = hook("pre-write", {"hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": str(self.root),
+                                     "tool_input": {"file_path": f"{mark_home}/model.json", "content": "{}"}})
+        self.assertEqual(code, 2)
 
     def test_unattended_prompt_records_no_token(self):
         tokens = self.root / ".mark" / "locks" / "human"

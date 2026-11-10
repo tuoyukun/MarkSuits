@@ -109,6 +109,11 @@ if not, the board starts a headless Claude session that carries the ticket to th
 shows what it runs, and can be stopped (`[board] run = "off"` turns that off). `[board] decide = false` keeps the
 board read-only.
 
+One board serves all your projects: `/mark:board` in a project opens its page and adds it to the
+home page (`/`), which lists every project and what waits on you there. **+ New project** on the
+home page sets up a new one: give a directory and say what you are building, and Claude runs
+`/mark:init` there, proposing the setup for you to confirm in the chat.
+
 You can also open a ticket on the board (**+ New ticket**) and talk it through with Claude in the
 ticket's **Discussion** tab until the requirement (or bug report) is agreed. Each message runs one
 headless Claude turn in the same conversation, and the requirement file updates on the board as

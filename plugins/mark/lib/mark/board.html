@@ -283,6 +283,89 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .pform .crow{margin-top:4px}
 .nmodal .none{color:var(--text2);margin:0 0 14px;font-size:12.5px;line-height:1.55}
 .nmodal .dout{margin-top:8px}
+.at-home .po,body:not(.at-home) .ho{display:none!important}
+.sb{min-height:0;overflow-y:auto}
+a.ws{color:inherit;text-decoration:none;border-radius:6px;padding:6px 8px;margin:0 0 10px}
+a.ws:hover{background:var(--hover)}
+a.ws:focus-visible{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent)}
+.ws .logo svg{width:12px;height:12px;display:none}
+a.ws:hover .logo span,.ws .bk{display:none}
+a.ws:hover .logo svg,a.ws:hover .bk{display:inline}
+a.ws:hover .sub{display:none}
+/* home */
+.at-home .app{grid-template-columns:1fr}.at-home .sb{display:none}.at-home .main{margin:8px}
+.top>.logo{margin-right:2px}
+.hbtn{display:inline-flex;align-items:center;gap:6px}.hbtn[hidden]{display:none}.hbtn svg{flex:none;color:var(--mute)}.hbtn.pri svg{color:#fff}
+.hbtn code{font-family:var(--mono);font-size:11px;color:var(--text2)}
+.homeview{padding:32px 32px 48px;max-width:1080px;margin:0 auto;box-sizing:border-box}
+.hhead{display:flex;align-items:flex-end;gap:16px;margin:0 0 24px}
+.hhead h1{font-size:20px;font-weight:600;letter-spacing:-.015em;margin:0 0 4px}
+.hsum{display:flex;gap:6px;flex-wrap:wrap}
+.hsec{margin:0 0 28px}
+.hsech{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--text2);margin:0 0 8px;padding:0 2px}
+.hsech b{font-weight:500;color:var(--mute);font-variant-numeric:tabular-nums}
+.ptable{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+.pth,.pr{display:grid;grid-template-columns:minmax(0,1fr) 210px 150px 88px 36px;align-items:center;gap:16px;padding:0 10px 0 16px}
+.pth{height:34px;font-size:11.5px;color:var(--mute);border-bottom:1px solid var(--line)}
+.pr{position:relative;min-height:60px;border-bottom:1px solid var(--line2);transition:background .12s}
+.pr:last-child{border-bottom:0}
+.pr:hover{background:var(--hover)}
+.pr .go{position:absolute;inset:0;z-index:0;border-radius:inherit}
+.pr .go:focus-visible{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent);outline-offset:-2px}
+.pr>*{position:relative;pointer-events:none}.pr>.go,.pr .dots,.pr .btn,.pr .perr{pointer-events:auto}
+.pname b .nm{overflow:hidden;text-overflow:ellipsis}
+.pr>.go{position:absolute}
+.pname{display:flex;align-items:center;gap:12px;min-width:0}
+.ava{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;flex:none;background:hsl(var(--h) 52% 52%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.ava.off{background:var(--line);color:var(--mute)}
+.ava.wz{background:none;color:var(--mute);border:1.5px dashed var(--faint);box-sizing:border-box;box-shadow:none}
+.pname .tx{min-width:0;display:flex;flex-direction:column;gap:1px}
+.pname b{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.pname small{font-family:var(--mono);font-size:11px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pname .rund,.wrun .rund{width:6px;height:6px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 18%,transparent);flex:none;animation:pulse 2s infinite}
+.pwait{display:flex;flex-wrap:wrap;gap:4px;font-size:12px;color:var(--mute)}
+.pwait .zero{color:var(--faint)}
+.prog{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--mute);font-variant-numeric:tabular-nums}
+.prog .trk{flex:1;height:4px;border-radius:2px;background:var(--line);overflow:hidden;display:flex}
+.prog .trk i{display:block;height:100%}
+.prog .dn{background:var(--ok)}.prog .ag{background:var(--brand)}.prog .hu{background:var(--human)}
+.pupd{font-size:12px;color:var(--mute);white-space:nowrap}
+.perr{color:var(--bad);font-size:12px;grid-column:2/5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dots{width:28px;height:28px;border:0;background:none;border-radius:6px;display:grid;place-items:center;color:var(--mute);cursor:pointer;opacity:0;transition:opacity .12s}
+.pr:hover .dots,.dots:focus-visible,.dots.on{opacity:1}.dots:hover,.dots.on{background:var(--line);color:var(--text)}
+.wrow{grid-template-columns:minmax(0,1fr) auto auto}
+.wrun{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
+.wact{display:flex;gap:6px}
+.pmenu{position:fixed;z-index:40;min-width:200px;background:var(--panel);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow-lg);padding:4px;display:none}
+.pmenu.on{display:block;animation:fade .1s}
+.pmenu button,.pmenu a{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:9px;width:100%;height:30px;padding:0 10px;border-radius:5px;cursor:pointer;font-size:12.5px;color:var(--text)}
+.pmenu button:hover,.pmenu a:hover,.pmenu :focus-visible{background:var(--hover)}
+.pmenu svg{width:14px;height:14px;color:var(--mute);flex:none}
+.pmenu hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
+.pmenu .bad,.pmenu .bad svg{color:var(--bad)}
+.hfoot{text-align:center;color:var(--mute);font-size:11.5px;margin-top:8px}
+a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}a.btn.pri{color:#fff}
+.hfoot code{font-family:var(--mono);font-size:11px}
+.hempty{max-width:620px;margin:56px auto 0;text-align:center}
+.hempty>.logo{width:44px;height:44px;border-radius:11px;font-size:20px;margin:0 auto 18px}
+.hempty h2{font-size:20px;font-weight:600;letter-spacing:-.015em;margin:0 0 6px}
+.hempty>p{color:var(--text2);margin:0 0 28px;line-height:1.6}
+.hacts{display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:left}
+.hact{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:var(--shadow);transition:border-color .12s,transform .12s}
+.hact:hover{border-color:color-mix(in srgb,var(--brand) 45%,var(--line));transform:translateY(-1px)}
+.hact:focus-visible{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent);outline-offset:1px}
+.hact .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand);margin-bottom:6px}
+.hact .ic svg{width:15px;height:15px}
+.hact b{font-weight:600;font-size:13.5px}.hact small{color:var(--text2);font-size:12px;line-height:1.55}
+.htip,.hempty>.htip{color:var(--mute);font-size:12px;margin:24px 0 0}
+.htip code,.hempty code{font-family:var(--mono);font-size:11.5px;background:var(--app);border:1px solid var(--line2);padding:1px 6px;border-radius:4px}
+.aact{margin-top:12px}
+.nmodal .htip{margin:16px 0 0;padding-top:14px;border-top:1px solid var(--line2)}
+.wview{display:flex;flex-direction:column;height:100%;min-height:0}
+.wbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);flex:none;min-width:0}
+.wbar .pp{min-width:0}
+.content:has(>.wview){overflow:hidden}
+.whint{color:var(--mute);font-size:12px;margin:0 0 12px}
 .mbtn{all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--text2);min-width:0}
 .mbtn:hover{color:var(--text)}.mbtn code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chat{flex:1;display:flex;flex-direction:column;min-height:0}
@@ -290,7 +373,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .msg{max-width:760px;border-radius:10px;padding:10px 14px;font-size:13.5px;line-height:1.6;word-wrap:break-word}
 .msg.me{align-self:flex-end;background:var(--brand-soft);color:var(--text);white-space:pre-wrap}
 .msg.ai{align-self:flex-start;background:var(--panel);border:1px solid var(--line)}
-.msg.ai.md p:first-child{margin-top:0}.msg.ai.md p:last-child{margin-bottom:0}
+.msg.ai.md{margin:0}.msg.ai.md p:first-child{margin-top:0}.msg.ai.md p:last-child{margin-bottom:0}
 .msg.err{align-self:flex-start;color:var(--c-block);font-family:var(--mono);font-size:11.5px;padding:2px 14px}
 .steps{align-self:flex-start;font-family:var(--mono);font-size:11px;color:var(--mute);padding:0 14px;white-space:pre-wrap;word-break:break-all;max-width:760px}
 .cin{border-top:1px solid var(--line);padding:10px 14px;flex:none}
@@ -301,6 +384,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
   .search{width:auto;flex:1}.crumb span,.crumb .p{display:none}.top{padding:0 16px}.col{flex-basis:260px;width:260px}
   .board{padding:4px 16px 16px}.top{flex-wrap:wrap;height:auto;min-height:48px;padding:8px 16px}.top .stats{order:9;flex-basis:100%;padding:0}.tbar{padding:10px 16px}.gw{margin:0 16px 16px;--namew:170px}.dur{padding:0 16px 24px}
   .dh,.dr{grid-template-columns:80px 1fr 1fr 56px}.dh>:nth-child(3),.dr>:nth-child(3){display:none}
+  .homeview{padding:20px 16px 40px}.pth{display:none}.pr{grid-template-columns:minmax(0,1fr) auto 36px;gap:10px}.pr .prog,.pr .pupd{display:none}.perr{grid-column:2/3}.hacts{grid-template-columns:1fr}.top .hbtn span{display:none}
   .mb{grid-template-columns:1fr}.mside{display:none}.doc .pad{padding:20px 16px}.modal{width:100vw;height:100vh;border-radius:0}
 }
 </style>
@@ -308,15 +392,15 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 <body>
 <div class="app">
   <aside class="sb">
-    <div class="ws"><div class="logo">M</div><div style="min-width:0"><b id="pname">…</b><small id="psub"></small></div></div>
-    <button class="nav on" data-v="board"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="3.5" height="11" rx="1"/><rect x="6.5" y="2.5" width="3.5" height="7" rx="1"/><rect x="11" y="2.5" width="3" height="9" rx="1"/></svg><span data-i="board"></span><span class="n" id="nAll"></span></button>
-    <button class="nav" data-v="timeline"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h7M5 8h8M3 12h6" stroke-linecap="round"/></svg><span data-i="timeline"></span></button>
-    <button class="nav" data-v="human"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c.8-2.4 2.7-3.5 5-3.5s4.2 1.1 5 3.5" stroke-linecap="round"/></svg><span data-i="human"></span><span class="n h" id="nHuman"></span></button>
-    <div class="sbh" data-i="kind"></div>
-    <button class="nav kf on" data-k="all"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span data-i="allTickets"></span></button>
-    <button class="nav kf" data-k="feature"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="3"/><path d="M8 5.5v5M5.5 8h5" stroke-linecap="round"/></svg>Feature</button>
-    <button class="nav kf" data-k="bug"><svg viewBox="0 0 16 16" fill="none" stroke="var(--bad)" stroke-width="1.5" style="color:var(--bad)"><rect x="2.5" y="2.5" width="11" height="11" rx="3"/><circle cx="8" cy="8" r="1.6" fill="var(--bad)" stroke="none"/></svg>Bug</button>
-    <button class="nav kf" data-k="general"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="3"/><path d="M5.5 8h5" stroke-linecap="round"/></svg>General</button>
+    <a class="ws" href="/" id="ws"><div class="logo"><span>M</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg></div><div style="min-width:0"><b id="pname">…</b><small><span class="sub" id="psub"></span><span class="bk" data-i="allProjects"></span></small></div></a>
+    <button class="nav on po" data-v="board"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="3.5" height="11" rx="1"/><rect x="6.5" y="2.5" width="3.5" height="7" rx="1"/><rect x="11" y="2.5" width="3" height="9" rx="1"/></svg><span data-i="board"></span><span class="n" id="nAll"></span></button>
+    <button class="nav po" data-v="timeline"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h7M5 8h8M3 12h6" stroke-linecap="round"/></svg><span data-i="timeline"></span></button>
+    <button class="nav po" data-v="human"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c.8-2.4 2.7-3.5 5-3.5s4.2 1.1 5 3.5" stroke-linecap="round"/></svg><span data-i="human"></span><span class="n h" id="nHuman"></span></button>
+    <div class="sbh po" data-i="kind"></div>
+    <button class="nav po kf on" data-k="all"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span data-i="allTickets"></span></button>
+    <button class="nav po kf" data-k="feature"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="3"/><path d="M8 5.5v5M5.5 8h5" stroke-linecap="round"/></svg>Feature</button>
+    <button class="nav po kf" data-k="bug"><svg viewBox="0 0 16 16" fill="none" stroke="var(--bad)" stroke-width="1.5" style="color:var(--bad)"><rect x="2.5" y="2.5" width="11" height="11" rx="3"/><circle cx="8" cy="8" r="1.6" fill="var(--bad)" stroke="none"/></svg>Bug</button>
+    <button class="nav po kf" data-k="general"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="3"/><path d="M5.5 8h5" stroke-linecap="round"/></svg>General</button>
     <div class="sbfoot">
       <button class="mbtn" data-model title=""><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="3.5" width="9" height="9" rx="2"/><path d="M6 1.5v2M10 1.5v2M6 12.5v2M10 12.5v2M1.5 6h2M1.5 10h2M12.5 6h2M12.5 10h2"/></svg><span data-i="modelH"></span> <code id="mLabel"></code></button>
       <span class="live" id="live"><i></i><span id="liveText"></span></span>
@@ -325,11 +409,14 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
   </aside>
   <div class="main">
     <div class="top">
-      <div class="crumb"><span class="p" id="crumbP" style="color:var(--text);font-weight:500"></span><span>/</span><b id="vt"></b></div><div class="stats" id="stats"></div>
+      <div class="logo ho">M</div><div class="crumb"><span class="p" id="crumbP" style="color:var(--text);font-weight:500"></span><span>/</span><b id="vt"></b></div><div class="stats po" id="stats"></div>
       <span class="grow"></span>
-      <button class="btn pri" id="newBtn" data-new hidden>+ <span data-i="newT"></span></button>
-      <div class="seg" id="seg"><button class="on" data-k="all" data-i="all"></button><button data-k="active" data-i="active"></button><button data-k="done" data-i="done"></button></div>
-      <label class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3" stroke-linecap="round"/></svg><input id="q"><kbd>/</kbd></label>
+      <button class="btn ho hbtn" data-model><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="3.5" width="9" height="9" rx="2"/><path d="M6 1.5v2M10 1.5v2M6 12.5v2M10 12.5v2M1.5 6h2M1.5 10h2M12.5 6h2M12.5 10h2"/></svg><span id="hModel"></span></button>
+      <button class="btn ho hbtn dz" data-padd hidden><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M1.5 4.5v8a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H8L6.5 3.5h-4a1 1 0 0 0-1 1Z"/></svg><span data-i="addProj"></span></button>
+      <button class="btn pri ho hbtn dz" id="wizBtn" data-wiz hidden><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg><span data-i="newProj"></span></button>
+      <button class="btn pri po" id="newBtn" data-new hidden>+ <span data-i="newT"></span></button>
+      <div class="seg po" id="seg"><button class="on" data-k="all" data-i="all"></button><button data-k="active" data-i="active"></button><button data-k="done" data-i="done"></button></div>
+      <label class="search po"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3" stroke-linecap="round"/></svg><input id="q"><kbd>/</kbd></label>
     </div>
     <div class="content" id="content"></div>
   </div>
@@ -370,12 +457,45 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
     </div>
   </div>
 </div>
+<div class="ov" id="wv">
+  <div class="modal nmodal dec" role="dialog" aria-modal="true">
+    <div class="mh"><span class="t" data-i="newProj"></span><span class="grow"></span><button class="ib" data-wclose aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
+    <div class="pad">
+      <p class="whint" data-i="wHint"></p>
+      <label for="wnDir" data-i="wDirL"></label><input id="wnDir" autocomplete="off" spellcheck="false">
+      <label for="wnText" data-i="wTextL"></label><textarea id="wnText" rows="6"></textarea>
+      <button class="btn pri" data-wcreate data-i="wCreate"></button><pre class="dout bad" id="wnOut"></pre>
+    </div>
+  </div>
+</div>
+<div class="ov" id="av">
+  <div class="modal nmodal dec" role="dialog" aria-modal="true">
+    <div class="mh"><span class="t" data-i="addProj"></span><span class="grow"></span><button class="ib" data-aclose aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
+    <div class="pad">
+      <p class="whint" data-i="addHint"></p>
+      <label for="aDir" data-i="aDirL"></label><input id="aDir" placeholder="~/code/my-app" autocomplete="off" spellcheck="false">
+      <pre class="dout bad" id="aOut"></pre>
+      <div class="crow aact"><button class="btn pri" data-aadd data-i="add"></button><button class="btn" data-aclose type="button" data-i="cancel"></button></div>
+      <p class="htip"><span data-i="hTip"></span> <code>/mark:board</code></p>
+    </div>
+  </div>
+</div>
+<div class="pmenu" id="pm" role="menu"></div>
 <div class="toast" id="toast"></div>
 <div class="tip" id="tip"></div>
 <script>
 "use strict";
 const I18N={
- en:{board:"Board",timeline:"History",human:"Waiting on me",kind:"Type",allTickets:"All tickets",readonly:"read-only",live:"Live",offline:"Reconnecting…",all:"All",active:"Active",done:"Done",search:"Search tickets",
+ en:{newProj:"New project",wHint:"Claude runs /mark:init in this directory: it proposes how to set the project up, you confirm or correct it in the chat.",wDirL:"Directory (full path; created if missing)",wTextL:"What are you building, and on what stack?",wCreate:"Start",wSetting:"Setting up",wOpen:"Open the board",wDiscard:"Discard",
+  "home.isMark":"Already a Mark project: add it on the home page instead.","home.noParent":"The parent directory does not exist.","home.notDir":"That path is a file, not a directory.",
+  projects:"Projects",allProjects:"All projects",addProj:"Add existing project",add:"Add project",remove:"Remove from list",pRunning:"A session is running",
+  addHint:"A repository where Mark is already set up (it has .mark/config.toml). Any directory inside it works too.",aDirL:"Project directory (full path)",hTip:"Running this in a Mark project also adds it here:",
+  colName:"Name",colState:"Status",colProg:"Progress",colUpd:"Updated",nProj:"{n} projects",nProj1:"1 project",nWait:"{n} waiting on you",nRun:"{n} running",
+  openBoard:"Open board",openTab:"Open in new tab",copyPath:"Copy path",copied:"Path copied",rmAsk:"Remove \"{p}\" from the list? Nothing on disk is deleted; open its board again to bring it back.",
+  wCont:"Continue",wReplying:"Claude is replying",wWaits:"Waiting for your reply",welcome:"Welcome to Mark",welcomeHint:"Every project's tickets, decisions and sessions in one place. Start a new project, or add one you already set up.",
+  newProjD:"Pick a directory and say what you are building. Claude sets Mark up there with you.",addProjD:"A repository where /mark:init already ran.","home.already":"This project is already on the list.",
+  "home.gone":"This directory no longer exists.","home.notMark":"Not a Mark project (no .mark/config.toml there).","home.absolute":"Give the full path, like ~/code/my-app.",
+  board:"Board",timeline:"History",human:"Waiting on me",kind:"Type",allTickets:"All tickets",readonly:"read-only",live:"Live",offline:"Reconnecting…",all:"All",active:"Active",done:"Done",search:"Search tickets",
   sWait:"Waiting on you",sAgent:"Agents working",sDone:"Done",sBugs:"Open bugs",empty:"No tickets",noTickets:"No tickets yet. Start one with",ticket:"Ticket",now:"now",
   props:"Properties",status:"Status",owner:"Owner",type:"Type",branch:"Branch",worktree:"Worktree",created:"Created",elapsed:"Elapsed",moves:"moves",hours:"h",
   gates:"Gates",noGates:"No gates yet",activity:"Activity",created2:"opened the ticket as",moved:"moved it from",to:"to",uncommitted:"not committed yet",
@@ -400,7 +520,16 @@ const I18N={
   keySaved:"Saved; leave empty to keep it",save:"Save",saved:"Model: {m}. New sessions use it.",
   addProfile:"Add a model",profName:"Name (optional, shown in the list)",cancel:"Cancel",edit:"Edit",del:"Delete",delAsk:"Delete the model \"{m}\"?",
   "chat.busy":"Claude is already working on this ticket; wait for its reply.","chat.no-claude":"`claude` was not found, so nobody can reply. Continue in a terminal."},
- "zh-CN":{board:"看板",timeline:"流转历史",human:"等我处理",kind:"类型",allTickets:"全部工单",readonly:"只读",live:"实时同步中",offline:"重新连接中…",all:"全部",active:"进行中",done:"已完成",search:"搜索工单",
+ "zh-CN":{newProj:"新建项目",wHint:"Claude 会在这个目录里运行 /mark:init：先提出项目的配置方案，你在对话里确认或修改。",wDirL:"目录（完整路径，不存在会自动创建）",wTextL:"你要做什么？用什么技术栈？",wCreate:"开始",wSetting:"配置中",wOpen:"打开看板",wDiscard:"丢弃",
+  "home.isMark":"这已经是 Mark 项目了，请在首页添加。","home.noParent":"上级目录不存在。","home.notDir":"这个路径是文件，不是目录。",
+  projects:"项目",allProjects:"所有项目",addProj:"添加已有项目",add:"添加项目",remove:"从列表移除",pRunning:"有会话在运行",
+  addHint:"已经配置过 Mark 的仓库（里面有 .mark/config.toml）。填仓库里的任意子目录也可以。",aDirL:"项目目录（完整路径）",hTip:"在 Mark 项目里运行这个命令，也会把项目加到这里：",
+  colName:"名称",colState:"状态",colProg:"进度",colUpd:"更新",nProj:"{n} 个项目",nProj1:"1 个项目",nWait:"{n} 项等你处理",nRun:"{n} 个会话在运行",
+  openBoard:"打开看板",openTab:"在新标签页打开",copyPath:"复制路径",copied:"已复制路径",rmAsk:"从列表移除「{p}」？磁盘上的文件不会被删除，再打开它的看板就会回来。",
+  wCont:"继续",wReplying:"Claude 正在回复",wWaits:"等你回复",welcome:"欢迎使用 Mark",welcomeHint:"所有项目的工单、待你决定的事和后台会话，都在这里。新建一个项目，或者添加已经配置好的项目。",
+  newProjD:"选一个目录，说说你要做什么，Claude 和你一起把 Mark 配置好。",addProjD:"已经运行过 /mark:init 的仓库。","home.already":"这个项目已经在列表里了。",
+  "home.gone":"这个目录已经不存在。","home.notMark":"不是 Mark 项目（那里没有 .mark/config.toml）。","home.absolute":"请填写完整路径，例如 ~/code/my-app。",
+  board:"看板",timeline:"流转历史",human:"等我处理",kind:"类型",allTickets:"全部工单",readonly:"只读",live:"实时同步中",offline:"重新连接中…",all:"全部",active:"进行中",done:"已完成",search:"搜索工单",
   sWait:"等你处理",sAgent:"Agent 进行中",sDone:"已完成",sBugs:"未关闭 Bug",empty:"暂无工单",noTickets:"还没有工单。用这个命令建一张：",ticket:"工单",now:"现在",
   props:"属性",status:"状态",owner:"负责",type:"类型",branch:"分支",worktree:"工作区",created:"创建",elapsed:"耗时",moves:"次流转",hours:" 小时",
   gates:"评审闸门",noGates:"还没有闸门",activity:"动态",created2:"创建工单，状态",moved:"将状态从",to:"改为",uncommitted:"尚未提交",
@@ -443,6 +572,11 @@ const DOCN={en:{"requirement.md":"Requirement","bug.md":"Bug report","design.md"
 const docName=n=>(DOCN[L]||DOCN.en)[n]||n;
 const DOC_ORDER=["requirement.md","bug.md","design.md","preview.html","tech-plan.md","fix-plan.md","handoff.md","design-qa.md","verdict.md"];
 const TERMINAL=new Set(["passed","superseded"]);
+// "/" is the home page; "/p/<id>/" a project's board, whose API is relative to it
+const HOME=!/^\/p\/[0-9a-f]{10}\//.test(location.pathname);
+let projs=[];
+let wiz=null;  // the wizard shown on the home page (#w=<id>), or null
+const wizHash=()=>(location.hash.match(/^#w=([0-9a-f]{10})$/)||[])[1]||null;
 let L="en",data=null,view="board",kind="all",scope="all",only="",q="",open=null,docKey="",shownAt=Date.now(),tl="gantt",allDone=false;
 const DONE_CAP=6;  // the Done column shows the newest few until expanded
 const $=s=>document.querySelector(s);
@@ -500,13 +634,15 @@ function mermaid(root){
 }
 
 // ---- data
-const fileUrl=(t,f,name)=>`/f/${encodeURIComponent(t.dir)}/${encodeURIComponent(t.id)}/${f.src}/${(name||f.name).split("/").map(encodeURIComponent).join("/")}`;
+const fileUrl=(t,f,name)=>`f/${encodeURIComponent(t.dir)}/${encodeURIComponent(t.id)}/${f.src}/${(name||f.name).split("/").map(encodeURIComponent).join("/")}`;
 const CHIP={human:"sWait",agent:"sAgent",bug:"sBugs",done:"sDone"};
 const ONLY={human:isHuman,agent:t=>t.side==="agent",bug:t=>t.kind==="bug"&&!TERMINAL.has(t.status),done:t=>t.status==="passed"};
 function visible(){return data.tickets.filter(t=>(!only||ONLY[only](t))&&(kind==="all"||t.kind===kind)&&(scope==="all"||(scope==="done")===TERMINAL.has(t.status))&&(view!=="human"||isHuman(t))&&(!q||(t.id+" "+(t.desc||"")).toLowerCase().includes(q)))}
 const last=t=>t.history[t.history.length-1]||{};
+async function loadProjects(){try{const r=await (await fetch("/api/projects",{cache:"no-store"})).json();projs=r.projects;return r}catch{return null}}
 async function load(){
-  let next;try{next=await (await fetch("/api/board",{cache:"no-store"})).json()}catch{return}
+  if(HOME){const r=await loadProjects();if(!r)return;data={...r,home:true};L=navigator.language.startsWith("zh")?"zh-CN":"en";document.documentElement.lang=L;render();return}
+  let next;try{next=await (await fetch("api/board",{cache:"no-store"})).json()}catch{return}
   const before=data?Object.fromEntries(data.tickets.map(t=>[t.id,t.status])):null;
   data=next;L=I18N[data.locale]?data.locale:"en";
   document.documentElement.lang=L;
@@ -528,7 +664,74 @@ function card(t){
   <div class="c1">${kindIcon(t.kind)}<span class="id">${short(t.id)}</span>${who(t)}</div>
   <div class="ttl" title="${esc(t.desc||t.id)}">${esc(t.desc||t.id)}</div>
   <div class="c3"><span class="st">${icon(t.status,14)}<span class="lb">${esc(label(t.status))}</span></span><span class="time">${ago(last(t).at)}</span></div></div>`}
+const ICO={board:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="3.5" height="11" rx="1"/><rect x="6.5" y="2.5" width="3.5" height="7" rx="1"/><rect x="11" y="2.5" width="3" height="9" rx="1"/></svg>',
+  tab:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5H4a1 1 0 0 0-1 1V12a1 1 0 0 0 1 1h7.5a1 1 0 0 0 1-1V9M9.5 2.5h4v4M13.5 2.5 8 8"/></svg>',
+  copy:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"/></svg>',
+  rm:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.6a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-8.6"/></svg>',
+  plus:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>',
+  folder:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M1.5 4.5v8a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H8L6.5 3.5h-4a1 1 0 0 0-1 1Z"/></svg>',
+  dots:'<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg>'};
+function ava(p,cls=""){return `<span class="ava ${cls}" style="--h:${parseInt(p.id.slice(0,6),16)%360}">${esc((p.name[0]||"?").toUpperCase())}</span>`}
+function pname(p,cls){return `<div class="pname">${ava(p,cls)}<span class="tx"><b><span class="nm">${esc(p.name)}</span>${p.running?`<i class="rund" title="${tr("pRunning")}"></i>`:""}</b><small title="${esc(p.root||p.dir)}">${esc(p.path)}</small></span></div>`}
+function prow(p){const dots=`<button class="dots" data-pm="${esc(p.id)}" aria-haspopup="menu" aria-label="${esc(p.name)}">${ICO.dots}</button>`;
+  if(p.error){const m=tr(p.error)??p.error;return `<div class="pr">${pname(p,"off")}<div class="perr" title="${esc(m)}">${esc(m)}</div>${dots}</div>`}
+  const t=p.total||0,w=n=>t?n/t*100+"%":"0";
+  return `<div class="pr"><a class="go" href="/p/${esc(p.id)}/" aria-label="${esc(p.name)}"></a>${pname(p,"")}
+   <div class="pwait">${p.human?`<span class="tag wait">${tr("sWait")} ${p.human}</span>`:""}${p.agent?`<span class="tag run">${tr("sAgent")} ${p.agent}</span>`:""}${p.human||p.agent?"":`<span class="zero">—</span>`}</div>
+   <div class="prog" title="${tr("sDone")} ${p.done} / ${t}"><span class="trk"><i class="dn" style="width:${w(p.done)}"></i><i class="ag" style="width:${w(p.agent)}"></i><i class="hu" style="width:${w(p.human)}"></i></span><span>${p.done}/${t}</span></div>
+   <div class="pupd">${ago(p.at)||"—"}</div>${dots}</div>`}
+function wrow(w){const on=data.decide==="on";
+  return `<div class="pr wrow"><a class="go" href="#w=${esc(w.id)}" aria-label="${esc(w.name)}"></a>${pname({...w,running:false},"wz")}
+   <div class="wrun">${w.running?`<i class="rund"></i>${tr("wReplying")}`:`<span class="tag wait">${tr("wWaits")}</span>`}<span class="pupd">${ago(w.started*1000)}</span></div>
+   <div class="wact">${!w.running&&on?`<button class="btn" data-wdel="${esc(w.id)}">${tr("wDiscard")}</button>`:""}<a class="btn" href="#w=${esc(w.id)}">${tr("wCont")} →</a></div></div>`}
+function renderHome(){
+  document.body.classList.add("at-home");
+  document.querySelectorAll("[data-i]").forEach(e=>e.textContent=tr(e.dataset.i));
+  $("#crumbP").textContent="Mark";$("#vt").textContent=tr("projects");document.title="Mark";$("#hModel").textContent=data.model.label;
+  const on=data.decide==="on",ps=data.projects,ws=data.wizards,none=!ps.length&&!ws.length;
+  document.querySelectorAll(".dz").forEach(b=>b.hidden=!on||none);
+  wiz=wizHash();
+  if(wiz){pmClose();wizView();return}
+  const foot=`<div class="hfoot">127.0.0.1:<code>${esc(location.port)}</code> · ${tr(on?"canDecide":"readonly")}</div>`;
+  if(none){$("#content").innerHTML=`<div class="homeview"><div class="hempty"><div class="logo">M</div><h2>${tr("welcome")}</h2><p>${tr("welcomeHint")}</p>
+    ${on?`<div class="hacts"><button class="hact" data-wiz><span class="ic">${ICO.plus}</span><b>${tr("newProj")}</b><small>${tr("newProjD")}</small></button>
+      <button class="hact" data-padd><span class="ic">${ICO.folder}</span><b>${tr("addProj")}</b><small>${tr("addProjD")}</small></button></div>`:`<p>${esc(tr("needLogin"))}</p>`}
+    <p class="htip">${tr("hTip")} <code>/mark:board</code></p></div>${foot}</div>`;return}
+  const hum=ps.reduce((a,p)=>a+(p.human||0),0),run=ps.filter(p=>p.running).length;
+  $("#content").innerHTML=`<div class="homeview"><div class="hhead"><div><h1>${tr("projects")}</h1><div class="hsum"><span class="tag">${ps.length===1?tr("nProj1"):tr("nProj").replace("{n}",ps.length)}</span>${hum?`<span class="tag wait">${tr("nWait").replace("{n}",hum)}</span>`:""}${run?`<span class="tag run">${tr("nRun").replace("{n}",run)}</span>`:""}</div></div></div>
+   ${ws.length?`<div class="hsec"><div class="hsech">${tr("wSetting")} <b>${ws.length}</b></div><div class="ptable">${ws.map(wrow).join("")}</div></div>`:""}
+   ${ps.length?`<div class="hsec"><div class="ptable"><div class="pth"><span>${tr("colName")}</span><span>${tr("colState")}</span><span>${tr("colProg")}</span><span>${tr("colUpd")}</span><span></span></div>${ps.map(prow).join("")}</div></div>`:""}${foot}</div>`;
+  const m=$("#pm");if(m.classList.contains("on"))$(`[data-pm="${CSS.escape(m.dataset.id)}"]`)?.classList.add("on")}
+function pmOpen(btn){const p=data.projects.find(x=>x.id===btn.dataset.pm),m=$("#pm");if(!p)return;
+  if(m.classList.contains("on")&&m.dataset.id===p.id){pmClose();return}
+  pmClose();m.dataset.id=p.id;const u=`/p/${esc(p.id)}/`;
+  m.innerHTML=(p.error?"":`<a href="${u}" role="menuitem">${ICO.board}${tr("openBoard")}</a><a href="${u}" target="_blank" rel="noopener" role="menuitem">${ICO.tab}${tr("openTab")}</a>`)
+    +`<button data-pcopy role="menuitem">${ICO.copy}${tr("copyPath")}</button>`+(data.decide==="on"?`<hr><button class="bad" data-prm role="menuitem">${ICO.rm}${tr("remove")}</button>`:"");
+  m.classList.add("on");btn.classList.add("on");const r=btn.getBoundingClientRect();
+  m.style.top=(r.bottom+m.offsetHeight+8>innerHeight?r.top-m.offsetHeight-4:r.bottom+4)+"px";m.style.left=Math.max(8,r.right-m.offsetWidth)+"px";m.querySelector("a,button")?.focus()}
+function pmClose(){const m=$("#pm");if(!m)return;m.classList.remove("on");document.querySelectorAll(".dots.on").forEach(x=>x.classList.remove("on"))}
+function addOpen(){pmClose();$("#aOut").textContent="";$("#av").classList.add("on");$("#aDir").focus()}
+function wizView(){
+  if($("#wview")?.dataset.id!==wiz){
+    $("#content").innerHTML=`<div class="wview" id="wview" data-id="${esc(wiz)}"><div class="wbar"><a class="btn" href="/">← ${tr("allProjects")}</a><b id="wName"></b><code class="pp" id="wDir"></code><span class="grow"></span><span id="wOpen"></span></div>
+     <div class="chat"><div class="msgs" id="msgs"></div><div class="cin">${data.decide==="on"?`<textarea id="cText" rows="3" placeholder="${tr("chatPh")}"></textarea>
+      <div class="crow"><span class="none" id="cState"></span><span class="grow"></span><code class="none" id="cModel"></code><button class="btn" data-cstop hidden>${tr("stop")}</button><button class="btn pri" data-send>${tr("send")}</button></div>`
+      :`<div class="none">${esc(tr("needLogin"))}</div>`}</div></div></div>`;chatKey=""}
+  chatLoad({id:wiz,wiz:true})}
+function wizOpen(){const last=projs.filter(p=>!p.error).at(-1),d=$("#wnDir");
+  if(!d.value)d.value=last?last.path.replace(/[^/]+$/,""):"~/";$("#wnOut").textContent="";$("#wv").classList.add("on");d.focus();d.setSelectionRange(d.value.length,d.value.length)}
+async function wizCreate(){const text=$("#wnText").value;if(!text.trim()){$("#wnText").focus();return}
+  const b=$("[data-wcreate]");b.disabled=true;
+  let r;try{r=await (await fetch("/api/wizard",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dir:$("#wnDir").value,text})})).json()}catch{r={ok:false,text:"loadFail"}}
+  b.disabled=false;
+  if(!r.ok){$("#wnOut").textContent=tr(r.text)??r.text;if(!r.id)return}
+  $("#wnText").value="";$("#wnDir").value="";$("#wv").classList.remove("on");location.hash="w="+r.id}
+async function homePost(path,body){
+  let r;try{r=await (await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}catch{r={ok:false,text:"loadFail"}}
+  if(!r.ok){const m=tr(r.text)??r.text;if($("#av").classList.contains("on"))$("#aOut").textContent=m;else toast(esc(m));return}
+  $("#av").classList.remove("on");$("#aDir").value="";await load()}
 function render(){
+  if(HOME)return renderHome();
   document.querySelectorAll("[data-i]").forEach(e=>e.textContent=tr(e.dataset.i));
   $("#q").placeholder=tr("search");$("#pname").textContent=data.project;$("#crumbP").textContent=data.project;$("#psub").textContent=`Mark · ${data.branch}`;
   $("#port").textContent=location.port;$("#mode").textContent=tr(data.decide==="on"?"canDecide":"readonly");$("#newBtn").hidden=data.decide!=="on";$("#mLabel").textContent=data.model.label;document.title=`${data.project} · Mark`;
@@ -702,7 +905,7 @@ async function decide(verb){const t=data.tickets.find(x=>x.id===open.id);if(!t||
   return postDecision(t,body)}
 async function postDecision(t,body){
   document.querySelectorAll("[data-dec]").forEach(b=>b.disabled=true);
-  let r;try{r=await (await fetch("/api/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}catch{r={ok:false,text:tr("loadFail")}}
+  let r;try{r=await (await fetch("api/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}catch{r={ok:false,text:tr("loadFail")}}
   decMsg={id:t.id,ok:!!r.ok,text:(r.text||"")+(r.note?"\n\n"+tr(r.note).replace("{id}",t.id):"")};
   if(r.ok)decKey="";  // the ticket moved: a fresh form (or none) when the board reloads
   else document.querySelectorAll("[data-dec]").forEach(b=>b.disabled=false);
@@ -733,8 +936,10 @@ async function doc(t,files){
 // ---- chat: one headless Claude turn per message; the log is re-read on every board change
 let chatKey="";
 async function chatLoad(t){
-  let c;try{c=await (await fetch(`/api/chat/${encodeURIComponent(t.id)}`,{cache:"no-store"})).json()}catch{return}
-  if(!open||open.id!==t.id||open.tab!=="__chat")return;
+  let c;try{c=await (await fetch(t.wiz?`/api/wizard/${t.id}`:`api/chat/${encodeURIComponent(t.id)}`,{cache:"no-store"})).json()}catch{return}
+  if(t.wiz?wiz!==t.id||!$("#msgs"):!open||open.id!==t.id||open.tab!=="__chat")return;
+  if(t.wiz){$("#wName").textContent=c.dir.split("/").pop();$("#wDir").textContent=c.path;$("#wDir").title=c.dir;
+    $("#wOpen").innerHTML=c.project?`<a class="btn pri" href="/p/${esc(c.project)}/">${tr("wOpen")} →</a>`:""}
   const key=JSON.stringify(c);if(key===chatKey)return;chatKey=key;  // unchanged: keep scroll and selection
   const box=$("#msgs"),atEnd=box.scrollTop+box.clientHeight>=box.scrollHeight-8,o=[];
   for(const m of c.messages){
@@ -755,9 +960,9 @@ function askText(a){return a.questions.map((q,i)=>{const v=[...document.querySel
 async function askSend(){const a=JSON.parse(chatKey||"{}").ask;if(!a)return;const text=askText(a);
   if(!text){$("#cState").textContent=tr("askNone");return}
   return chatSend(text)}
-async function chatSend(answers){const t=data.tickets.find(x=>x.id===open?.id),ta=$("#cText"),text=answers||ta?.value;if(!t||!ta||!text?.trim())return;
+async function chatSend(answers){const t=HOME?(wiz&&{id:wiz,wiz:true}):data.tickets.find(x=>x.id===open?.id),ta=$("#cText"),text=answers||ta?.value;if(!t||!ta||!text?.trim())return;
   $("[data-send]").disabled=true;
-  let r;try{r=await (await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:t.id,text})})).json()}catch{r={ok:false,text:"loadFail"}}
+  let r;try{r=await (await fetch(t.wiz?`/api/wizard/${t.id}`:"api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:t.id,text})})).json()}catch{r={ok:false,text:"loadFail"}}
   $("#cState").textContent=r.ok?"":tr(r.text)||r.text;
   if(r.ok&&!answers)ta.value="";else if(!r.ok)$("[data-send]").disabled=false;
   chatKey="";chatLoad(t)}
@@ -782,7 +987,7 @@ function newOpen(){$("#nOut").textContent="";$("#nv").classList.add("on");$("#nT
 function newClose(){$("#nv").classList.remove("on")}
 async function create(){const text=$("#nText").value;if(!text.trim()){$("#nText").focus();return}
   const b=$("[data-create]");b.disabled=true;
-  let r;try{r=await (await fetch("/api/new",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#nKind").value,text,slug:$("#nSlug").value.trim()})})).json()}catch{r={ok:false,text:tr("loadFail")}}
+  let r;try{r=await (await fetch("api/new",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#nKind").value,text,slug:$("#nSlug").value.trim()})})).json()}catch{r={ok:false,text:tr("loadFail")}}
   b.disabled=false;
   if(!r.ok){$("#nOut").textContent=r.text||"";return}
   $("#nText").value="";$("#nSlug").value="";newClose();
@@ -806,6 +1011,14 @@ function side(t){
 
 // ---- events
 document.addEventListener("click",e=>{
+  if(!e.target.closest("#pm,[data-pm]"))pmClose();
+  const pmb=e.target.closest("[data-pm]");if(pmb){pmOpen(pmb);return}
+  if(e.target.closest("#pm a")){pmClose();return}
+  if(e.target.closest("[data-pcopy]")){const p=data.projects.find(x=>x.id===$("#pm").dataset.id);pmClose();if(p)navigator.clipboard?.writeText(p.root).then(()=>toast(esc(tr("copied"))));return}
+  if(e.target.closest("[data-prm]")){const p=data.projects.find(x=>x.id===$("#pm").dataset.id);pmClose();if(p&&confirm(tr("rmAsk").replace("{p}",p.name)))homePost("/api/projects/remove",{id:p.id});return}
+  if(e.target.closest("[data-padd]")){addOpen();return}
+  if(e.target.closest("[data-aclose]")||e.target===$("#av")){$("#av").classList.remove("on");return}
+  if(e.target.closest("[data-aadd]")){homePost("/api/projects/add",{dir:$("#aDir").value});return}
   const gw=e.target.closest("#gw");if(gw?.dataset.dragged){delete gw.dataset.dragged;return}  // the end of a pan, not a click
   const z=e.target.closest("[data-z]");if(z){zoomTo(+z.dataset.z);return}
   if(e.target.closest("[data-now]")){const g=$("#gw");g.scrollLeft=(Date.now()-gT0)*pph/36e5-(g.clientWidth-namew(g))*.8;return}
@@ -816,6 +1029,10 @@ document.addEventListener("click",e=>{
   const act=e.target.closest("[data-act]");if(act){const ov=$("#ov");if(act.dataset.act==="close")closeM();else{ov.classList.toggle(act.dataset.act==="full"?"full":"noside");if(act.dataset.act==="full")modal()}return}
   const dec=e.target.closest("[data-dec]");if(dec){decide(dec.dataset.dec);return}
   if(e.target.closest("[data-new]")){newOpen();return}
+  if(e.target.closest("[data-wiz]")){wizOpen();return}
+  if(e.target.closest("[data-wclose]")||e.target===$("#wv")){$("#wv").classList.remove("on");return}
+  if(e.target.closest("[data-wcreate]")){wizCreate();return}
+  const wd=e.target.closest("[data-wdel]");if(wd){if(confirm(tr("wDiscard")+"?"))homePost(`/api/wizard/${wd.dataset.wdel}/discard`,{});return}
   if(e.target.closest("[data-model]")){modelOpen();return}
   if(e.target.closest("[data-mclose]")||e.target===$("#mv")){$("#mv").classList.remove("on");return}
   if(e.target.closest("[data-msave]")){modelSave();return}
@@ -830,15 +1047,16 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-create]")){create();return}
   if(e.target.closest("[data-send]")){chatSend();return}
   if(e.target.closest("[data-asksend]")){askSend();return}
-  if(e.target.closest("[data-cstop]")){fetch("/api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:open.id})}).then(load);return}
-  if(e.target.closest("[data-stop]")){fetch("/api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(load);return}
+  if(e.target.closest("[data-cstop]")){fetch(HOME?`/api/wizard/${wiz}/stop`:"api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(HOME?{}:{ticket:open.id})}).then(load);return}
+  if(e.target.closest("[data-stop]")){fetch("api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(load);return}
   const tab=e.target.closest(".dtab");if(tab){open.tab=tab.dataset.tab;modal();return}
   const o=e.target.closest("[data-open]");if(o){openM(o.dataset.open,o.dataset.tab);return}
   if(e.target===$("#ov"))closeM();
 });
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){if($("#mv").classList.contains("on"))$("#mv").classList.remove("on");else if($("#nv").classList.contains("on"))newClose();else if(document.activeElement===$("#q"))$("#q").blur();else if(open)closeM()}
+  if(e.key==="Escape"){if($("#pm").classList.contains("on"))pmClose();else if($("#av").classList.contains("on"))$("#av").classList.remove("on");else if($("#wv").classList.contains("on"))$("#wv").classList.remove("on");else if($("#mv").classList.contains("on"))$("#mv").classList.remove("on");else if($("#nv").classList.contains("on"))newClose();else if(document.activeElement===$("#q"))$("#q").blur();else if(open)closeM()}
   else if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)&&document.activeElement?.id==="cText"){e.preventDefault();chatSend()}
+  else if(e.key==="Enter"&&document.activeElement?.id==="aDir")homePost("/api/projects/add",{dir:$("#aDir").value});
   else if(e.key==="Enter"&&document.activeElement?.dataset.open)openM(document.activeElement.dataset.open);
   else if(e.key==="/"&&!open&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||"")){e.preventDefault();$("#q").focus()}});
 document.querySelectorAll(".nav[data-v]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-v]").forEach(x=>x.classList.toggle("on",x===b));view=b.dataset.v;render()});
@@ -851,8 +1069,10 @@ document.addEventListener("mousemove",e=>{const el=e.target.closest("[data-tip]"
   tip.innerHTML=el.dataset.tip;tip.style.display="block";const w=tip.offsetWidth,h=tip.offsetHeight;
   tip.style.left=Math.min(e.clientX+14,innerWidth-w-8)+"px";tip.style.top=(e.clientY+h+20>innerHeight?e.clientY-h-12:e.clientY+16)+"px"});
 addEventListener("resize",()=>gRows());
+addEventListener("hashchange",()=>{if(HOME&&data)render()});
+addEventListener("scroll",pmClose,true);addEventListener("resize",pmClose);
 function connect(){
-  const es=new EventSource("/events"),live=$("#live");
+  const es=new EventSource("events"),live=$("#live");
   es.onopen=()=>{live.classList.remove("off");$("#liveText").textContent=tr("live");load()};
   es.onmessage=()=>load();
   es.onerror=()=>{live.classList.add("off");$("#liveText").textContent=tr("offline")}; // EventSource retries by itself

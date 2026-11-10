@@ -7,7 +7,7 @@ allowed-tools: Bash(mark:*)
 
 !`mark board`
 
-Tell the human, in the project's locale, that the board opened in their browser (the URL is
-above). Decisions work only in the window `mark board` opened; a URL typed or pasted by hand is
+Tell the human, in the project's locale, that the board opened in their browser on this
+project's page (the URL is above); one board serves all their projects, listed on its home page. Decisions work only in the window `mark board` opened; a URL typed or pasted by hand is
 read-only. A decision made on the board is the human's; you never decide for them there.
 `mark board --stop` stops it. Change nothing else.

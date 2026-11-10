@@ -14,7 +14,7 @@ from ..general import PREFIX as LANE_PREFIX
 from ..gitutil import checkout_root, current_branch, git
 from .common import Env
 from .. import e2e, globs, human
-from .write import cli_only_rules, scope_block, worktree_block
+from .write import cli_only_rules, home_block, scope_block, worktree_block
 
 _SEPARATORS = ("&&", "||", ";", "|", "\n")
 
@@ -254,6 +254,8 @@ def shell_write_guard(env: Env) -> str | None:
     for here, segment, words, values in _commands(command, env.cwd):
         for target in _shell_targets(here, segment, words, values):
             loc = env.locate(target)
+            if why := home_block(env, loc.path):
+                return env.t("guard.bash.shell_write", rel=str(loc.path), why=why)
             if loc.rel is None:
                 continue
             if env.role is None:

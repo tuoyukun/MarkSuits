@@ -10,6 +10,18 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGIN_ROOT = REPO_ROOT / "plugins" / "mark"
 sys.path.insert(0, str(PLUGIN_ROOT / "lib"))
 os.environ["MARK_BOARD_NO_BROWSER"] = "1"  # boards the tests start must not open a browser
+os.environ["MARK_HOME"] = tempfile.mkdtemp(prefix="mark-home-")  # never the real ~/.mark
+
+
+def fresh_home(test) -> Path:
+    """An empty MARK_HOME for this test (and the boards it starts), restored afterwards."""
+    from unittest import mock
+
+    d = Path(tempfile.mkdtemp(prefix="mark-home-"))
+    patcher = mock.patch.dict(os.environ, {"MARK_HOME": str(d)})
+    patcher.start()
+    test.addCleanup(patcher.stop)
+    return d
 
 MINIMAL_CONFIG = 'mark_schema = 1\nlocale = "zh-CN"\n'
 

@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests._support import add_ticket, make_repo
+from tests._support import add_ticket, fresh_home, make_repo
 
 from mark import chat, model, runner
 from mark.config import load_config
@@ -36,6 +36,7 @@ print(json.dumps({{"type": "result", "is_error": False, "result": "Which date fo
 
 class ChatTest(unittest.TestCase):
     def setUp(self):
+        fresh_home(self)
         self.root = make_repo()
         add_ticket(self.root, "feature", "0001-a", "drafting", gates=("ticket-approved",))
         self.cfg = load_config(self.root)

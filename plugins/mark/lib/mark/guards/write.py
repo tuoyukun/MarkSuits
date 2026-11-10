@@ -1,9 +1,10 @@
 """Guards for file writes (PreToolUse: Edit | Write | MultiEdit | NotebookEdit)."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-from .. import budget, e2e, globs, states, tickets
+from .. import budget, e2e, globs, home, states, tickets
 from ..config import MAIN
 from ..gitutil import current_branch
 from .common import Env, Location
@@ -57,8 +58,17 @@ def builtin_rules(env: Env) -> list[tuple[str, frozenset[str]]]:
     ]
 
 
+def home_block(env: Env, path: Path) -> str | None:
+    """Nobody writes MARK_HOME (`home.py`) with a tool: the board's registry, model setting and chats."""
+    base = Path(os.path.realpath(home.root()))
+    return env.t("guard.home", rel=str(path)) if path == base or path.is_relative_to(base) else None
+
+
 def scope_guard(env: Env) -> str | None:
     """Role write scopes: first matching rule wins; unmatched paths are the main thread's."""
+    fp = _file_path(env)
+    if fp and (why := home_block(env, env.locate(fp).path)):
+        return why
     loc = _located(env)
     return None if loc is None else scope_block(env, loc)
 
