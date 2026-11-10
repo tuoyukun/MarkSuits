@@ -407,6 +407,24 @@ class CliTest(unittest.TestCase):
         finally:
             board.stop(cfg)
 
+    def test_upgrade_restarts_a_board_from_another_install(self):
+        root = make_repo()
+        cfg = load_config(root)
+        port = free_port()
+        self.assertEqual(cli.main(["board", "--port", str(port)], cwd=root, out=io.StringIO(), err=io.StringIO()), 0)
+        try:
+            current = board.read_state(cfg)
+            cli.restart_board(cfg, out := io.StringIO())
+            self.assertEqual(board.read_state(cfg)["pid"], current["pid"])  # current board: left alone
+            self.assertEqual(out.getvalue(), "")
+            board.state_path(cfg).write_text(json.dumps({**current, "page": "/old/install/board.html"}))
+            cli.restart_board(cfg, out)
+            self.assertIn("restarted", out.getvalue())
+            self.assertNotEqual(board.read_state(cfg)["pid"], current["pid"])
+            self.assertEqual(board.read_state(cfg)["port"], current["port"])
+        finally:
+            board.stop(cfg)
+
     def test_bad_port_is_a_usage_error(self):
         root = make_repo()
         self.assertEqual(cli.main(["board", "--port", "x"], cwd=root, out=io.StringIO(), err=io.StringIO()), 2)

@@ -381,6 +381,15 @@ def cmd_init(cwd: Path, args: list[str], out: TextIO, err: TextIO) -> int:
     return 0
 
 
+def restart_board(cfg: MarkConfig, out: TextIO) -> None:
+    """A board started from an older plugin install serves old code: restart it on the same port."""
+    live = board.running(cfg)
+    if live and board.read_state(cfg).get("page") != str(board.PAGE):
+        port, _ = board.start(cfg, live)
+        if port:
+            _say(cfg, out, "board.restarted", url=f"http://127.0.0.1:{port}")
+
+
 def cmd_upgrade(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     """`mark upgrade [--dry-run]`: merge the installed template into a general lane."""
     if args not in ([], ["--dry-run"]):
@@ -389,6 +398,7 @@ def cmd_upgrade(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> i
     if args:
         p = upgrade.plan(cfg.root)
     else:
+        restart_board(cfg, out)
         branch, wt, p, notes = upgrade.run(cfg)
         for key, params in notes:
             _say(cfg, out, key, **params)

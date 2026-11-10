@@ -456,7 +456,8 @@ Its sources are the ones above:
 
 One board per project. The port is the first free one from 6275 up (`--port` changes the start);
 a port with any listener is skipped before binding. The server records `pid` and `port` in
-`<state>/locks/board.json` (gitignored); `mark board` reuses a live one, `--stop` ends it. The
+`<state>/locks/board.json` (gitignored); `mark board` reuses a live one, `--stop` ends it. A board started from another plugin
+install is restarted on its port by `mark board` and by `mark upgrade`. The
 child runs in its own session so it outlives the Bash call that started it. Requests whose Host
 is not `127.0.0.1`/`localhost` are refused (DNS rebinding). Markdown renders with a small built-in
 renderer; mermaid fences load mermaid from jsDelivr and stay code blocks offline.
