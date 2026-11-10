@@ -288,7 +288,7 @@ def land(cfg, worktree: Path, branch: str, log_name: str, conflict: FlowError,
         if not _catch_up(cfg, worktree, conflict):
             raise FlowError("merge.main_moved", main=main_branch)
         notes.append(("merge.caught_up", {"main": main_branch}))
-    notes.append(("merge.landed", {"branch": branch, "main": main_branch}))
+    notes.append(("merge.landed" if has_remote(cfg.root) else "merge.landed_local", {"branch": branch, "main": main_branch}))
     return notes
 
 

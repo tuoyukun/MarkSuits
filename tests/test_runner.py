@@ -17,7 +17,7 @@ from mark.config import load_config
 
 FAKE = """#!{py}
 import json, os, sys, time
-open(os.environ["FAKE_ARGS"], "w").write(json.dumps({{"argv": sys.argv[1:], "nested": os.environ.get("CLAUDECODE")}}))
+open(os.environ["FAKE_ARGS"], "w").write(json.dumps({{"argv": sys.argv[1:], "nested": os.environ.get("CLAUDECODE"), "path": os.environ["PATH"]}}))
 mode = os.environ.get("FAKE_CLAUDE", "done")
 print(json.dumps({{"type": "assistant", "message": {{"content": [
     {{"type": "tool_use", "name": "Bash", "input": {{"command": "mark next 0001-a"}}}},
@@ -47,7 +47,8 @@ class RunnerTest(unittest.TestCase):
         (bindir / "claude").write_text(FAKE.format(py=sys.executable))
         (bindir / "claude").chmod(0o755)
         self.args = bindir / "args.json"
-        env = {"PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}", "FAKE_ARGS": str(self.args), "CLAUDECODE": "1"}
+        env = {"PATH": f"/x/.claude/plugins/cache/m/mark/0.1.0/bin{os.pathsep}{bindir}{os.pathsep}{os.environ['PATH']}",
+               "FAKE_ARGS": str(self.args), "CLAUDECODE": "1"}
         patcher = mock.patch.dict(os.environ, env)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -66,6 +67,7 @@ class RunnerTest(unittest.TestCase):
         args = json.loads(self.args.read_text())
         self.assertEqual(args["argv"][:4], ["-p", "/mark:continue 0001-a", "--permission-mode", "auto"])
         self.assertIsNone(args["nested"])  # not a session nested in the one that started the board
+        self.assertNotIn("/.claude/plugins/", args["path"])  # nor running that session's (maybe older) mark
 
     def test_a_run_uses_the_model_set_when_it_starts(self):
         self.assertEqual(self.run_once()["model"], "opus")

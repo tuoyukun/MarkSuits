@@ -57,9 +57,12 @@ def running(cfg: MarkConfig) -> dict | None:
 
 
 def clean_env(environ=os.environ) -> dict[str, str]:
-    """The board may have been started from inside a Claude session: drop its markers so the
-    runner is a session of its own, not one nested in it."""
-    return {k: v for k, v in environ.items() if k not in SESSION_MARKERS}  # keeps auth such as CLAUDE_CODE_OAUTH_TOKEN
+    """The board may have been started from inside a Claude session: drop its markers and its
+    plugin paths so the runner is a session of its own, not one nested in it."""
+    env = {k: v for k, v in environ.items() if k not in SESSION_MARKERS}  # keeps auth such as CLAUDE_CODE_OAUTH_TOKEN
+    if "PATH" in env:  # that session's plugin bin/ may be an older install; claude adds the current one
+        env["PATH"] = os.pathsep.join(p for p in env["PATH"].split(os.pathsep) if "/.claude/plugins/" not in p)
+    return env
 
 
 def command(cfg: MarkConfig, ticket_id: str, claude: str, extra: list[str] = ()) -> list[str]:

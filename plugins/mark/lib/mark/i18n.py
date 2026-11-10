@@ -581,6 +581,7 @@ MESSAGES["en"].update({
         "Full log: {log}\n--- last lines ---\n{tail}"
     ),
     "merge.landed": "`{branch}` fast-forwarded into {main} and pushed.",
+    "merge.landed_local": "`{branch}` fast-forwarded into {main} (no remote, nothing pushed).",
     "merge.kept_worktree": "Could not remove worktree {wt}: {error}\nThe work is on main. Stop what still runs there (dev server, bundler), then: git worktree prune && rm -rf {wt}",
     "merge.kept_branch": "Could not delete branch {branch}. Delete it by hand.",
     "merge.kept_remote": "Could not delete origin/{branch}. Delete it by hand.",
@@ -869,6 +870,7 @@ MESSAGES["zh-CN"].update({
         "完整日志：{log}\n--- 最后几行 ---\n{tail}"
     ),
     "merge.landed": "`{branch}` 已快进合入 {main} 并推送。",
+    "merge.landed_local": "`{branch}` 已快进合入 {main}（没有远程仓库，未推送）。",
     "merge.kept_worktree": "无法删除 worktree {wt}：{error}\n改动已在 main 上。先停掉还在那里运行的进程（开发服务、打包器），再执行：git worktree prune && rm -rf {wt}",
     "merge.kept_branch": "无法删除分支 {branch}。请手工删除。",
     "merge.kept_remote": "无法删除 origin/{branch}。请手工删除。",

@@ -517,6 +517,13 @@ class MergeTest(unittest.TestCase):
         self.assertNotIn("bug/b0001-x", sh(self.root, "git", "ls-remote", "--heads", "origin"))
         self.assertEqual(ctx_next(self.root, "b0001").kind, "done")
 
+    def test_without_a_remote_it_does_not_claim_a_push(self):
+        sh(self.root, "git", "remote", "remove", "origin")
+        code, out, err = run(self.root, "merge", "b0001")
+        self.assertEqual(code, 0, err + out)
+        self.assertIn("no remote, nothing pushed", out)
+        self.assertNotIn("and pushed", out)
+
     def test_regression_output_does_not_keep_the_worktree(self):
         self.regression("touch report.html")  # untracked, not ignored
         code, out, err = run(self.root, "merge", "b0001")
