@@ -49,7 +49,7 @@ button{font:inherit;color:inherit}
 @keyframes pulse{50%{box-shadow:0 0 0 6px transparent}}
 .sbfoot code{font-family:var(--mono);font-size:11px}
 .main{display:flex;flex-direction:column;min-width:0;background:var(--bg);border-radius:8px;margin:8px 8px 8px 0;border:1px solid var(--line);overflow:hidden}
-.top{display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-bottom:1px solid var(--line);flex:none}
+.top{display:flex;align-items:center;gap:8px;height:48px;padding:0 16px 0 20px;border-bottom:1px solid var(--line);flex:none}
 .crumb{display:flex;gap:6px;align-items:center;font-weight:500;white-space:nowrap}
 .crumb span{color:var(--mute);font-weight:400}
 .seg{display:flex;gap:2px}
@@ -60,7 +60,7 @@ button{font:inherit;color:inherit}
 .search input{border:0;outline:0;background:none;flex:1;font:inherit;color:var(--text);min-width:0}
 kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--mute)}
 .content{flex:1;overflow:auto;min-height:0}
-.stats{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 16px;border-bottom:1px solid var(--line);overflow-x:auto;flex:none}
+.stats{display:flex;align-items:center;gap:6px;padding:0 0 0 10px;overflow-x:auto;flex:0 1 auto;min-width:0;scrollbar-width:none}
 .chip{height:24px;padding:0 8px;border-radius:5px;border:1px dashed var(--line);background:none;color:var(--text2);display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}
 .chip b{font-weight:500;color:var(--mute);font-variant-numeric:tabular-nums}
 .chip:hover{background:var(--hover)}
@@ -69,14 +69,14 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .chip.h.on{border-color:var(--human)}
 .chip:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 .content:has(>.board){display:flex;flex-direction:column}
-.board{display:flex;gap:10px;padding:10px 12px 24px;align-items:stretch;flex:1 0 auto}
-.col{flex:1 1 0;min-width:200px;display:flex;flex-direction:column}
-.col.slim{flex:0 0 36px;min-width:0;align-items:center;gap:8px;padding-top:9px;border-radius:6px;background:var(--app);color:var(--mute);font-size:11.5px}
+.board{display:flex;gap:12px;padding:4px 20px 24px;align-items:stretch;flex:1 0 auto;width:max-content;min-width:100%}
+.col{flex:0 0 280px;width:280px;display:flex;flex-direction:column}  /* fixed like Linear: one busy column must not fill the page */
+.col.slim{flex:0 0 36px;width:36px;align-self:flex-start;align-items:center;gap:8px;padding:12px 0;margin-top:8px;border-radius:6px;background:var(--app);color:var(--mute);font-size:11.5px}
 .col.slim span{writing-mode:vertical-rl;font-weight:500;font-size:12px;color:var(--text2)}
-.colh{display:flex;align-items:center;gap:8px;height:32px;padding:0 6px;font-weight:500;white-space:nowrap}
+.colh{display:flex;align-items:center;gap:8px;height:44px;padding:0 4px;font-weight:500;white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg)}
 .colh .cnt{font-weight:400;color:var(--mute);font-variant-numeric:tabular-nums}
-.cards{display:flex;flex-direction:column;gap:6px;padding-top:4px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 11px 10px;display:flex;flex-direction:column;gap:5px;cursor:pointer;box-shadow:var(--shadow);transition:border-color .12s}
+.cards{display:flex;flex-direction:column;gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 12px 12px;display:flex;flex-direction:column;gap:6px;cursor:pointer;box-shadow:var(--shadow);transition:border-color .12s}
 .card:hover{border-color:color-mix(in srgb,var(--text) 18%,var(--line))}
 .card.done .ttl{color:var(--text2)}
 .card:focus-visible,.nav:focus-visible,.dtab:focus-visible,.ib:focus-visible{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent);outline-offset:1px}
@@ -103,7 +103,6 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .empty-all{padding:80px 20px;text-align:center;color:var(--mute)}
 .empty-all code{font-family:var(--mono);background:var(--app);padding:2px 6px;border-radius:4px}
 .content.fill{display:flex;flex-direction:column;overflow:hidden}
-.fill .stats{flex:none}
 .tbar{display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 16px;flex-wrap:wrap;flex:none}
 .tbar .range{font-weight:500;white-space:nowrap}
 .tbar .hint{color:var(--mute);font-size:12px;display:flex;align-items:center;gap:5px;white-space:nowrap}
@@ -179,7 +178,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .modal{width:min(1240px,94vw);height:min(860px,90vh);background:var(--bg);border-radius:10px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);animation:pop .14s ease-out}
 @keyframes pop{from{transform:translateY(4px);opacity:0}}
 .ov.full .modal{width:100vw;height:100vh;border-radius:0;border:0}
-.mh{display:flex;align-items:center;gap:8px;height:44px;padding:0 8px 0 16px;border-bottom:1px solid var(--line);flex:none;min-width:0}
+.mh{display:flex;align-items:center;gap:8px;height:52px;padding:0 12px 0 20px;border-bottom:1px solid var(--line);flex:none;min-width:0}
 .mh .id{color:var(--mute);flex:none;font-variant-numeric:tabular-nums}
 .mh .t{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ib{width:28px;height:28px;border:0;background:none;border-radius:5px;display:grid;place-items:center;color:var(--mute);cursor:pointer;flex:none}
@@ -187,21 +186,21 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .ib svg{width:15px;height:15px}
 .mst{display:inline-flex;align-items:center;gap:6px;margin-left:8px;color:var(--text2);font-size:12.5px;white-space:nowrap;flex:none}
 .mh .who{margin-left:10px;flex:none}
-.mb{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 380px;min-height:0}
+.mb{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
 .ov.noside .mb{grid-template-columns:1fr}
 .mmain{display:flex;flex-direction:column;min-width:0;min-height:0}
-.dtabs{display:flex;gap:18px;padding:0 20px;border-bottom:1px solid var(--line);overflow-x:auto;flex:none}
+.dtabs{display:flex;gap:20px;padding:0 24px;border-bottom:1px solid var(--line);overflow-x:auto;flex:none}
 .dtab{display:flex;align-items:center;gap:6px;border:0;background:none;padding:11px 0 10px;color:var(--mute);font-weight:500;cursor:pointer;border-bottom:1.5px solid transparent;margin-bottom:-1px;white-space:nowrap}
 .dtab:hover{color:var(--text)}
 .dtab.on{color:var(--text);border-bottom-color:var(--text)}
 .dtab .wt{font-size:10px;padding:0 5px;border-radius:4px;background:color-mix(in srgb,var(--c-dev) 22%,transparent);color:color-mix(in srgb,var(--c-dev) 55%,var(--text))}
 .doc{flex:1;overflow:auto;min-height:0;display:flex;flex-direction:column}
-.doc .pad{padding:32px 48px 60px}
+.doc .pad{padding:40px 56px 72px}
 .doc iframe{width:100%;flex:1;border:0;display:block;background:#fff}
 .pvbar{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);color:var(--mute);font-size:12px;flex:none;min-width:0}
 .pvbar code{font-family:var(--mono);font-size:11px;background:var(--app);padding:1px 6px;border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pvbar a{color:var(--brand);text-decoration:none;white-space:nowrap}
-.md{max-width:860px;margin:0 auto;color:var(--text2);font-size:14px;line-height:1.7;word-wrap:break-word}
+.md{max-width:760px;margin:0 auto;color:var(--text2);font-size:14px;line-height:1.7;word-wrap:break-word}
 .md h1{font-size:22px;color:var(--text);letter-spacing:-.015em;margin:0 0 14px;font-weight:600}
 .md h2{font-size:15.5px;color:var(--text);margin:28px 0 8px;font-weight:600}
 .md h3,.md h4{font-size:14.5px;color:var(--text);margin:22px 0 8px;font-weight:600}
@@ -216,27 +215,28 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .md code{font-family:var(--mono);font-size:12.5px}
 .md :not(pre)>code{background:var(--app);padding:1px 5px;border-radius:4px;border:1px solid var(--line2)}
 .md pre.mermaid[data-done]{background:var(--panel);text-align:center}
-.mside{border-left:1px solid var(--line);overflow:auto;background:var(--app)}
-.mside .blk.dec{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin:12px;padding:12px 14px}
+.mside{border-left:1px solid var(--line);overflow:auto;background:var(--bg);padding-bottom:24px}
+.mside .blk.dec{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:20px 20px 4px;padding:16px;box-shadow:var(--shadow)}
 .ov.noside .mside{display:none}
-.blk{padding:14px 16px;border-bottom:1px solid var(--line)}
-.blk h5{margin:0 0 8px;font-size:11.5px;font-weight:500;color:var(--mute)}
-.prop{display:grid;grid-template-columns:84px minmax(0,1fr);align-items:center;gap:6px;padding:3px 0;font-size:12.5px}
+.blk{padding:20px 24px 4px}
+.blk h5{margin:0 0 10px;font-size:12px;font-weight:500;color:var(--mute)}
+.mside .dec h5{margin-bottom:12px}
+.prop{display:grid;grid-template-columns:88px minmax(0,1fr);align-items:center;gap:8px;min-height:32px;font-size:12.5px}
 .prop>span:first-child{color:var(--mute)}
 .prop .v{display:flex;align-items:center;gap:6px;min-width:0}
-.prop code{font-family:var(--mono);font-size:11px;color:var(--text2);overflow-wrap:anywhere}
-.gate{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:4px 0;font-size:12.5px}
+.prop code{font-family:var(--mono);font-size:11.5px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gate{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:30px;font-size:12.5px}
 .gate .ck{width:14px;height:14px;border-radius:50%;display:grid;place-items:center;font-size:9px;color:#fff;background:var(--brand);flex:none}
 .gate code{font-family:var(--mono);font-size:11.5px}
 .gate small{margin-left:auto;color:var(--mute);white-space:nowrap}
 .none{color:var(--faint);font-size:12px}
 .act{list-style:none;margin:0;padding:0;position:relative}
 .act:before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:1px;background:var(--line)}
-.act li{position:relative;display:flex;gap:10px;padding:0 0 14px}
+.act li{position:relative;display:flex;gap:12px;padding:0 0 18px}
 .act .ico{width:17px;height:17px;flex:none;background:var(--app);border-radius:50%;display:grid;place-items:center;z-index:1}
-.act .tx{font-size:12.5px;color:var(--text2);line-height:1.45;min-width:0}
+.act .tx{font-size:12.5px;color:var(--text2);line-height:1.55;min-width:0}
 .act .tx b{color:var(--text);font-weight:500}
-.act .tm{display:block;color:var(--mute);font-size:11.5px}
+.act .tm{display:block;color:var(--mute);font-size:11.5px;margin-top:2px}
 .act .note{display:block;margin-top:4px;background:var(--panel);border:1px solid var(--line2);border-radius:6px;padding:5px 8px;font-size:12px;word-break:break-word}
 .act .sha{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
 .toast{position:fixed;right:20px;bottom:20px;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow-lg);padding:10px 14px;border-radius:10px;font-size:12.5px;transform:translateY(20px);opacity:0;transition:.25s;z-index:30;pointer-events:none}
@@ -266,7 +266,21 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .ask{align-self:flex-start;width:min(560px,100%);box-sizing:border-box;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.ask .dq{margin-top:10px}.ask .dq:first-of-type{margin-top:0}.ask .dq i{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--mute);margin-right:6px}
 .nmodal{width:min(560px,94vw);height:auto;max-height:90vh}
 .nmodal .pad{padding:16px;overflow:auto;display:flex;flex-direction:column}
-.nmodal .pad>.btn{align-self:flex-end;margin:4px 0 0}
+.nmodal .pad{padding:20px}
+.plist{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
+.prow{display:flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:8px;padding-right:6px}
+.prow:hover{background:var(--hover)}
+.prow.on{border-color:var(--brand);background:var(--brand-soft)}
+.prow .pick{all:unset;flex:1;display:flex;align-items:center;gap:12px;padding:10px 12px;cursor:pointer;min-width:0}
+.prow .pick:disabled{cursor:default}.prow .pick:focus-visible{outline:2px solid var(--brand);border-radius:7px}
+.pick .rad{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--faint);flex:none;box-sizing:border-box}
+.prow.on .rad{border:4px solid var(--brand)}
+.pn{display:flex;flex-direction:column;min-width:0}
+.pn b,.pn small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pn b{font-weight:500}.pn small{color:var(--mute);font-size:11.5px;font-family:var(--mono)}
+.nmodal .pad>[data-madd]{align-self:flex-start;margin:0 0 4px}
+.pform{border-top:1px solid var(--line);padding-top:16px;margin-top:4px}
+.pform .crow{margin-top:4px}
 .nmodal .none{color:var(--text2);margin:0 0 14px;font-size:12.5px;line-height:1.55}
 .nmodal .dout{margin-top:8px}
 .mbtn{all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--text2);min-width:0}
@@ -284,8 +298,8 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .crow{display:flex;align-items:center;gap:8px}.crow .btn{margin:0}
 @media (max-width:760px){
   .app{grid-template-columns:1fr}.sb{display:none}.main{margin:0;border-radius:0;border:0}
-  .search{width:auto;flex:1}.crumb span,.crumb .p{display:none}.top{padding:0 16px}
-  .board{padding:12px 16px}.stats{padding:14px 16px 0;gap:18px}.tbar{padding:10px 16px}.gw{margin:0 16px 16px;--namew:170px}.dur{padding:0 16px 24px}
+  .search{width:auto;flex:1}.crumb span,.crumb .p{display:none}.top{padding:0 16px}.col{flex-basis:260px;width:260px}
+  .board{padding:4px 16px 16px}.top{flex-wrap:wrap;height:auto;min-height:48px;padding:8px 16px}.top .stats{order:9;flex-basis:100%;padding:0}.tbar{padding:10px 16px}.gw{margin:0 16px 16px;--namew:170px}.dur{padding:0 16px 24px}
   .dh,.dr{grid-template-columns:80px 1fr 1fr 56px}.dh>:nth-child(3),.dr>:nth-child(3){display:none}
   .mb{grid-template-columns:1fr}.mside{display:none}.doc .pad{padding:20px 16px}.modal{width:100vw;height:100vh;border-radius:0}
 }
@@ -311,7 +325,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
   </aside>
   <div class="main">
     <div class="top">
-      <div class="crumb"><span class="p" id="crumbP" style="color:var(--text);font-weight:500"></span><span>/</span><b id="vt"></b></div>
+      <div class="crumb"><span class="p" id="crumbP" style="color:var(--text);font-weight:500"></span><span>/</span><b id="vt"></b></div><div class="stats" id="stats"></div>
       <span class="grow"></span>
       <button class="btn pri" id="newBtn" data-new hidden>+ <span data-i="newT"></span></button>
       <div class="seg" id="seg"><button class="on" data-k="all" data-i="all"></button><button data-k="active" data-i="active"></button><button data-k="done" data-i="done"></button></div>
@@ -342,12 +356,17 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
     <div class="mh"><span class="t" data-i="modelH"></span><span class="grow"></span><button class="ib" data-mclose><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
     <div class="pad">
       <p class="none" data-i="modelHint"></p>
+      <div class="plist" id="mList"></div>
+      <button class="btn" data-madd type="button">+ <span data-i="addProfile"></span></button>
+      <div id="mForm" class="pform">
+      <label for="mName" data-i="profName"></label><input id="mName" maxlength="40" autocomplete="off">
       <label for="mProv" data-i="provider"></label><select id="mProv"><option value="anthropic">Anthropic (Claude Code login)</option><option value="custom" data-i="provCustom"></option></select>
       <label for="mModel" data-i="modelName"></label><input id="mModel" list="mModels" autocomplete="off"><datalist id="mModels"><option value="opus"><option value="sonnet"><option value="haiku"><option value="fable"></datalist>
       <div id="mCustom"><button class="btn" data-preset type="button" data-i="presetDs"></button>
         <label for="mUrl">Base URL</label><input id="mUrl" placeholder="https://api.deepseek.com/anthropic" autocomplete="off">
         <label for="mKey">API key</label><input id="mKey" type="password" autocomplete="off"></div>
-      <button class="btn pri" data-msave data-i="save"></button><pre class="dout bad" id="mOut"></pre>
+      <div class="crow"><button class="btn pri" data-msave data-i="save"></button><button class="btn" data-mcancel type="button" data-i="cancel"></button></div></div>
+      <pre class="dout bad" id="mOut"></pre>
     </div>
   </div>
 </div>
@@ -376,9 +395,10 @@ const I18N={
   newT:"New ticket",newText:"What to build or fix. The first line becomes the title; Claude reads it all and asks about the gaps.",newSlug:"Short name for the id (optional, a-z 0-9 -)",create:"Open and start talking",
   chat:"Discussion",chatPh:"Reply to Claude…",send:"Send",thinking:"Claude is working…",chatEmpty:"No discussion yet. Send a message to start one.",
   askSend:"Send answers",askOther:"Your own answer (optional)",askNone:"Answer at least one question.",
-  modelH:"Model",modelHint:"Board sessions (new tickets, carrying on after a decision) run Claude Code on this model. A change applies to sessions started from now on; a running session, and a ticket's ongoing discussion, keep their model.",
+  modelH:"Model",modelHint:"Board sessions (new tickets, carrying on after a decision) run Claude Code on the selected model. Click one to switch. A change applies to sessions started from now on; a running session, and a ticket's ongoing discussion, keep their model.",
   provider:"Provider",provCustom:"Anthropic-compatible endpoint (DeepSeek …)",modelName:"Model (alias such as opus, or a full name)",presetDs:"Fill in DeepSeek",
-  keySaved:"Saved; leave empty to keep it",save:"Save",saved:"Model saved: {m}. New sessions use it.",
+  keySaved:"Saved; leave empty to keep it",save:"Save",saved:"Model: {m}. New sessions use it.",
+  addProfile:"Add a model",profName:"Name (optional, shown in the list)",cancel:"Cancel",edit:"Edit",del:"Delete",delAsk:"Delete the model \"{m}\"?",
   "chat.busy":"Claude is already working on this ticket; wait for its reply.","chat.no-claude":"`claude` was not found, so nobody can reply. Continue in a terminal."},
  "zh-CN":{board:"看板",timeline:"流转历史",human:"等我处理",kind:"类型",allTickets:"全部工单",readonly:"只读",live:"实时同步中",offline:"重新连接中…",all:"全部",active:"进行中",done:"已完成",search:"搜索工单",
   sWait:"等你处理",sAgent:"Agent 进行中",sDone:"已完成",sBugs:"未关闭 Bug",empty:"暂无工单",noTickets:"还没有工单。用这个命令建一张：",ticket:"工单",now:"现在",
@@ -400,9 +420,10 @@ const I18N={
   newT:"新建工单",newText:"要做什么或修什么。第一行作为标题；Claude 会读完全部内容，再就缺的地方提问。",newSlug:"编号里的短名（可选，a-z 0-9 -）",create:"创建并开始讨论",
   chat:"讨论",chatPh:"回复 Claude…",send:"发送",thinking:"Claude 处理中…",chatEmpty:"还没有讨论。发一条消息开始。",
   askSend:"发送回答",askOther:"自己填写（可选）",askNone:"至少回答一个问题。",
-  modelH:"模型",modelHint:"看板发起的会话（新建工单、审批后续跑）用这个模型跑 Claude Code。修改只影响之后启动的会话；正在跑的会话、工单里进行中的讨论都保持原模型。",
+  modelH:"模型",modelHint:"看板发起的会话（新建工单、审批后续跑）用选中的模型跑 Claude Code，点一下即可切换。修改只影响之后启动的会话；正在跑的会话、工单里进行中的讨论都保持原模型。",
   provider:"提供方",provCustom:"Anthropic 兼容端点（DeepSeek 等）",modelName:"模型（opus 这类别名，或完整名称）",presetDs:"填入 DeepSeek",
-  keySaved:"已保存；留空则不变",save:"保存",saved:"模型已保存：{m}。新会话将使用它。",
+  keySaved:"已保存；留空则不变",save:"保存",saved:"当前模型：{m}。新会话将使用它。",
+  addProfile:"添加模型",profName:"名称（可选，显示在列表里）",cancel:"取消",edit:"编辑",del:"删除",delAsk:"删除模型「{m}」？",
   "chat.busy":"Claude 正在处理这张工单，等它回复后再发。","chat.no-claude":"没找到 `claude` 命令，没人能回复。请到终端里继续。"}};
 const LABELS={
  en:{drafting:"Drafting","review-requirement":"Requirement review",designing:"Designing","review-design":"Design review",planning:"Planning","review-plan":"Plan review",developing:"Developing","failed-impl":"Rework","design-qa":"Design QA",testing:"Testing","pending-merge":"Pending merge","blocked-plan":"Blocked: plan","blocked-spec":"Blocked: design","blocked-unclear":"Needs answer",passed:"Passed",superseded:"Superseded"},
@@ -515,15 +536,15 @@ function render(){
   $("#vt").textContent=tr(view);
   const all=data.tickets.filter(t=>kind==="all"||t.kind===kind),v=visible();
   const chip=(k,cls,n)=>n||only===k?`<button class="chip ${cls} ${only===k?"on":""}" data-only="${k}">${tr(CHIP[k])} <b>${n}</b></button>`:"";
-  const stats=`<div class="stats">${chip("human","h",all.filter(isHuman).length)}${chip("agent","",all.filter(t=>t.side==="agent").length)}${chip("bug","",all.filter(t=>t.kind==="bug"&&!TERMINAL.has(t.status)).length)}${chip("done","",all.filter(t=>t.status==="passed").length)}</div>`;
+  $("#stats").innerHTML=data.tickets.length?`${chip("human","h",all.filter(isHuman).length)}${chip("agent","",all.filter(t=>t.side==="agent").length)}${chip("bug","",all.filter(t=>t.kind==="bug"&&!TERMINAL.has(t.status)).length)}${chip("done","",all.filter(t=>t.status==="passed").length)}`:"";
   const content=$("#content"),scroll=[content.scrollLeft,content.scrollTop],gw=$("#gw");
   if(gw&&gAt==null)gAt=gT0+gw.scrollLeft/(pph/36e5);  // keep the time at the left edge across a re-render
   const gTop=gw?gw.scrollTop:0,gantt=view==="timeline"&&tl==="gantt"&&data.tickets.length;
   content.classList.toggle("fill",!!gantt);
   if(!data.tickets.length) content.innerHTML=`<div class="empty-all">${tr("noTickets")} <code>/mark:feature</code> · <code>/mark:fix</code></div>`;
-  else if(view==="timeline") content.innerHTML=stats+(tl==="gantt"?ganttView(v):durView(v));
+  else if(view==="timeline") content.innerHTML=(tl==="gantt"?ganttView(v):durView(v));
   else{const cols=view==="human"?STAGES.filter(s=>s.s.some(x=>x.startsWith("review")||x.startsWith("blocked"))):STAGES;
-    content.innerHTML=stats+`<div class="board">${cols.map(s=>{let c=v.filter(t=>stageOf(t.status)===s).sort((a,b)=>ts(last(b).at)-ts(last(a).at));const n=c.length,cap=s.k==="done"&&n>DONE_CAP;
+    content.innerHTML=`<div class="board">${cols.map(s=>{let c=v.filter(t=>stageOf(t.status)===s).sort((a,b)=>ts(last(b).at)-ts(last(a).at));const n=c.length,cap=s.k==="done"&&n>DONE_CAP;
       if(cap&&!allDone)c=c.slice(0,DONE_CAP);
       if(!n)return `<div class="col slim" title="${esc(s.n[L]||s.n.en)} · ${tr("empty")}">${icon(s.s[0])}<span>${esc(s.n[L]||s.n.en)}</span>0</div>`;
       return `<div class="col"><div class="colh">${icon(s.s[0])}${esc(s.n[L]||s.n.en)}<span class="cnt">${n}</span></div><div class="cards">${c.map(card).join("")}${cap?`<button class="more" data-more>${allDone?tr("less"):tr("showAll").replace("{n}",n)}</button>`:""}</div></div>`}).join("")}</div>`}
@@ -740,16 +761,23 @@ async function chatSend(answers){const t=data.tickets.find(x=>x.id===open?.id),t
   $("#cState").textContent=r.ok?"":tr(r.text)||r.text;
   if(r.ok&&!answers)ta.value="";else if(!r.ok)$("[data-send]").disabled=false;
   chatKey="";chatLoad(t)}
-function modelOpen(){const m=data.model;$("#mOut").textContent="";$("#mProv").value=m.provider;$("#mModel").value=m.model;
-  $("#mUrl").value=m.base_url;$("#mKey").value="";$("#mKey").placeholder=m.has_key?tr("keySaved"):"";modelProv();
-  $("[data-msave]").disabled=data.decide!=="on";if(data.decide!=="on")$("#mOut").textContent=tr(data.decide==="off"?"offDecide":"needLogin");
-  $("#mv").classList.add("on")}
+let mEdit=null;  // name of the profile in the form: "" for a new one, null when the form is closed
+function modelOpen(){$("#mOut").textContent="";mEdit=null;modelList();$("#mv").classList.add("on")}
+function modelList(){const m=data.model,ro=data.decide!=="on";
+  const ico=d=>`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  $("#mList").innerHTML=m.profiles.map((p,i)=>`<div class="prow ${p.name===m.active?"on":""}"><button class="pick" data-muse="${i}" ${ro?"disabled":""}><span class="rad"></span><span class="pn"><b>${esc(p.name)}</b><small>${esc(p.label)}</small></span></button>${ro?"":`<button class="ib" data-medit="${i}" title="${tr("edit")}">${ico('<path d="M10.5 2.5l3 3-8 8h-3v-3z"/>')}</button>${m.profiles.length>1?`<button class="ib" data-mdel="${i}" title="${tr("del")}">${ico('<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 9h5.6l.7-9"/>')}</button>`:""}`}</div>`).join("");
+  $("#mForm").hidden=mEdit===null;$("[data-madd]").hidden=ro||mEdit!==null;
+  if(ro)$("#mOut").textContent=tr(data.decide==="off"?"offDecide":"needLogin")}
+function modelForm(i){const p=i==null?{name:"",provider:"anthropic",model:"",base_url:"",has_key:false}:data.model.profiles[i];mEdit=p.name;
+  $("#mName").value=p.name;$("#mProv").value=p.provider;$("#mModel").value=p.model;$("#mUrl").value=p.base_url;$("#mKey").value="";
+  $("#mKey").placeholder=p.has_key?tr("keySaved"):"";$("#mOut").textContent="";modelProv();modelList();$("#mName").focus()}
 function modelProv(){$("#mCustom").hidden=$("#mProv").value!=="custom"}
-async function modelSave(){const b=$("[data-msave]");b.disabled=true;
-  const body={provider:$("#mProv").value,model:$("#mModel").value.trim(),base_url:$("#mUrl").value.trim(),api_key:$("#mKey").value.trim()};
+async function modelPost(body,b){if(b)b.disabled=true;
   let r;try{r=await (await fetch("/api/model",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}catch{r={ok:false,text:tr("loadFail")}}
-  b.disabled=false;if(!r.ok){$("#mOut").textContent=r.text||"";return}
-  $("#mv").classList.remove("on");await load();toast(esc(tr("saved").replace("{m}",data.model.label)))}
+  if(b)b.disabled=false;if(!r.ok){$("#mOut").textContent=r.text||"";return}
+  if(body.action!=="delete")mEdit=null;$("#mOut").textContent="";await load();modelList();toast(esc(tr("saved").replace("{m}",data.model.label)))}
+function modelSave(){modelPost({name:$("#mName").value.trim(),old:mEdit||undefined,provider:$("#mProv").value,model:$("#mModel").value.trim(),
+  base_url:$("#mUrl").value.trim(),api_key:$("#mKey").value.trim()},$("[data-msave]"))}
 function newOpen(){$("#nOut").textContent="";$("#nv").classList.add("on");$("#nText").focus()}
 function newClose(){$("#nv").classList.remove("on")}
 async function create(){const text=$("#nText").value;if(!text.trim()){$("#nText").focus();return}
@@ -791,6 +819,12 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-model]")){modelOpen();return}
   if(e.target.closest("[data-mclose]")||e.target===$("#mv")){$("#mv").classList.remove("on");return}
   if(e.target.closest("[data-msave]")){modelSave();return}
+  if(e.target.closest("[data-madd]")){modelForm();return}
+  if(e.target.closest("[data-mcancel]")){mEdit=null;modelList();return}
+  const mp=e.target.closest("[data-muse],[data-medit],[data-mdel]");if(mp){const p=data.model.profiles[+(mp.dataset.muse??mp.dataset.medit??mp.dataset.mdel)];if(!p)return;
+    if(mp.dataset.medit!=null)modelForm(+mp.dataset.medit);
+    else if(mp.dataset.mdel!=null){if(confirm(tr("delAsk").replace("{m}",p.name)))modelPost({action:"delete",name:p.name})}
+    else if(p.name!==data.model.active)modelPost({action:"use",name:p.name});return}
   if(e.target.closest("[data-preset]")){$("#mUrl").value="https://api.deepseek.com/anthropic";$("#mModel").value="deepseek-chat";return}
   if(e.target.closest("[data-nclose]")||e.target===$("#nv")){newClose();return}
   if(e.target.closest("[data-create]")){create();return}

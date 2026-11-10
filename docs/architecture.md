@@ -554,8 +554,9 @@ the answers.
 
 **Model (v0.54).** The harness is always the Claude Code CLI; the model is set on the board (the
 "Model" button in the sidebar, cookie required) and kept in `<state>/locks/model.json` (gitignored,
-mode 600). Default `{"provider": "anthropic", "model": "opus"}`: the CLI's own login with
-`--model=opus`. `"custom"` adds a base URL and an API key for an Anthropic-compatible endpoint such
+mode 600). It keeps named profiles and the one in use (v0.57: add, edit, delete, click to switch;
+a v0.54 single-settings file reads as one profile). Default profile `opus`:
+`{"provider": "anthropic", "model": "opus"}`, the CLI's own login with `--model=opus`. `"custom"` adds a base URL and an API key for an Anthropic-compatible endpoint such
 as DeepSeek: the session gets `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL` and
 the alias variables (`ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU,FABLE}_MODEL`, `CLAUDE_CODE_SUBAGENT_MODEL`)
 set to that model, so role agents and background calls go there too, and loses
@@ -563,7 +564,7 @@ set to that model, so role agents and background calls go there too, and loses
 never reach the third party. The runner and each chat read the setting when a session starts, so
 a change never touches a running session. A chat's later turns resume its conversation, so a chat
 pins the setting of its first turn (`chat-<id>.model.json`); a new ticket or a run after a decision
-takes the current one. The page never receives the key (an empty key field keeps it). Both files
+takes the current one. The page never receives a key (an empty key field keeps the edited profile's). Both files
 are CLI-only (`guards.write.cli_only_globs`): no tool call, the main thread's included, may point
 the board's sessions somewhere else. Sessions the human starts in a terminal are not affected.
 

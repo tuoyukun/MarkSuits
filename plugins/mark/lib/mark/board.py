@@ -178,7 +178,7 @@ def snapshot(cfg: MarkConfig, history: History) -> dict[str, object]:
                       "worktree": cfg.worktree_for(tk.kind, tk.id) if dirs["worktree"].is_dir() else "",
                       "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist, "wait": waits_on(cfg, tk)})
     return {"project": cfg.root.name, "locale": cfg.locale, "branch": cfg.main_branch,
-            "tickets": items + general_lanes(cfg), "run": runner.view(cfg), "model": model.public(model.load(cfg))}
+            "tickets": items + general_lanes(cfg), "run": runner.view(cfg), "model": model.public(model.store(cfg))}
 
 
 def waits_on(cfg: MarkConfig, tk: tickets.Ticket) -> dict[str, object] | None:

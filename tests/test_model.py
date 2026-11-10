@@ -37,20 +37,45 @@ class ModelTest(unittest.TestCase):
             self.assertNotIn(gone, env)
         self.assertEqual(env["X"], "1")
 
-    def test_an_empty_key_keeps_the_stored_one_and_the_page_never_sees_it(self):
-        model.save(self.cfg, DEEPSEEK)
-        self.assertEqual(model.save(self.cfg, {**DEEPSEEK, "model": "deepseek-reasoner", "api_key": ""}), (True, ""))
+    def test_an_empty_key_keeps_the_edited_profiles_key_and_the_page_never_sees_it(self):
+        model.save(self.cfg, {**DEEPSEEK, "name": "DeepSeek"})
+        self.assertEqual(model.save(self.cfg, {**DEEPSEEK, "name": "DS", "old": "DeepSeek", "model": "deepseek-reasoner",
+                                               "api_key": ""}), (True, ""))
         self.assertEqual(model.load(self.cfg)["api_key"], "sk-secret")
-        pub = model.public(model.load(self.cfg))
+        pub = model.public(model.store(self.cfg))
         self.assertNotIn("sk-secret", str(pub))
-        self.assertEqual((pub["has_key"], pub["label"]), (True, "deepseek-reasoner @ api.deepseek.com"))
-        model.save(self.cfg, {"provider": "anthropic", "model": "sonnet"})
+        self.assertEqual([p["name"] for p in pub["profiles"]], ["opus", "DS"])  # renamed in place
+        self.assertEqual((pub["active"], pub["profiles"][1]["has_key"], pub["profiles"][1]["label"]),
+                         ("DS", True, "deepseek-reasoner @ api.deepseek.com"))
+        self.assertEqual(model.save(self.cfg, {**DEEPSEEK, "name": "New", "api_key": ""}), (False, "bad request"))
+
+    def test_profiles_switch_and_delete(self):
+        model.save(self.cfg, {**DEEPSEEK, "name": "DeepSeek"})
+        model.save(self.cfg, {"provider": "anthropic", "model": "sonnet", "name": "Sonnet"})
+        self.assertEqual(model.load(self.cfg), {"provider": "anthropic", "model": "sonnet"})
+        self.assertEqual(model.save(self.cfg, {"action": "use", "name": "DeepSeek"}), (True, ""))
+        self.assertEqual(model.load(self.cfg)["model"], "deepseek-chat")
+        self.assertEqual(model.save(self.cfg, {"action": "use", "name": "nope"}), (False, "bad request"))
+        self.assertEqual(model.save(self.cfg, {"action": "delete", "name": "DeepSeek"}), (True, ""))
+        self.assertEqual(model.store(self.cfg)["active"], "opus")  # the first one left
+        model.save(self.cfg, {"action": "delete", "name": "Sonnet"})
+        self.assertEqual(model.save(self.cfg, {"action": "delete", "name": "opus"}), (False, "bad request"))
+        self.assertEqual(model.save(self.cfg, {**DEEPSEEK, "name": "Opus", "old": "opus"}), (True, ""))
+        self.assertEqual(model.save(self.cfg, {"provider": "anthropic", "model": "haiku", "name": "Opus", "old": "x"}),
+                         (False, "bad request"))  # would overwrite another profile
+
+    def test_the_old_single_settings_file_reads_as_one_profile(self):
+        model.path(self.cfg).parent.mkdir(parents=True, exist_ok=True)
+        model.path(self.cfg).write_text('{"provider": "anthropic", "model": "sonnet"}')
+        self.assertEqual(model.store(self.cfg), {"active": "sonnet", "profiles": [
+            {"name": "sonnet", "provider": "anthropic", "model": "sonnet"}]})
         self.assertEqual(model.load(self.cfg), {"provider": "anthropic", "model": "sonnet"})
 
     def test_bad_settings_are_refused(self):
         for req in ({"provider": "openai", "model": "x"}, {"provider": "anthropic", "model": ""},
                     {"provider": "anthropic", "model": "opus --dangerously"}, {"provider": "anthropic", "model": 1},
-                    {**DEEPSEEK, "base_url": "file:///etc"}, {**DEEPSEEK, "api_key": ""}, "x"):
+                    {**DEEPSEEK, "base_url": "file:///etc"}, {**DEEPSEEK, "api_key": ""}, "x",
+                    {**DEEPSEEK, "name": " pad"}, {**DEEPSEEK, "name": "a\nb"}, {**DEEPSEEK, "name": "x" * 41}):
             self.assertEqual(model.save(self.cfg, req), (False, "bad request"), req)
         self.assertFalse(model.path(self.cfg).exists())
 

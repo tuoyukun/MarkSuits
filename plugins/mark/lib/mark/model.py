@@ -1,11 +1,17 @@
 """The model the board's headless sessions run on (runner and chat), set on the board.
 
 The harness is always the Claude Code CLI. `<state>/locks/model.json` (gitignored, mode 600, only
-the board writes it) holds one of:
+the board writes it) holds named profiles and which one is in use:
 
-    {"provider": "anthropic", "model": "opus"}       the CLI's own login; an alias or a full id
-    {"provider": "custom", "model": "...", "base_url": "https://...", "api_key": "..."}
+    {"active": "DeepSeek", "profiles": [{"name": "Opus", <settings>}, {"name": "DeepSeek", <settings>}]}
+
+where <settings> is one of:
+
+    "provider": "anthropic", "model": "opus"         the CLI's own login; an alias or a full id
+    "provider": "custom", "model": "...", "base_url": "https://...", "api_key": "..."
                                                       an Anthropic-compatible endpoint (DeepSeek ...)
+
+A file holding bare settings (v0.54-v0.56) reads as one profile named after its label.
 
 Each new session reads it when it starts, so a change never touches a session in progress. A
 chat pins the settings its first turn used (`chat.py`): later turns resume that conversation.
@@ -22,6 +28,7 @@ FILE = "model.json"
 DEFAULT = {"provider": "anthropic", "model": "opus"}
 PROVIDERS = ("anthropic", "custom")
 FIELD_MAX = 2048
+NAME_MAX = 40
 ALIAS_VARS = ("ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
               "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL")
 # Anthropic credentials and provider switches must not reach (or override) a custom endpoint.
@@ -43,12 +50,37 @@ def valid(data: object) -> bool:
     return data["provider"] == "anthropic" or data["base_url"].startswith(("https://", "http://"))
 
 
-def load(cfg: MarkConfig) -> dict:
+def settings(p: dict) -> dict:
+    """A profile without its name: what a session runs on."""
+    return {k: v for k, v in p.items() if k != "name"}
+
+
+def good_name(name: object) -> bool:
+    return isinstance(name, str) and 0 < len(name.strip()) <= NAME_MAX and name == name.strip() \
+        and name.isprintable()
+
+
+def store(cfg: MarkConfig) -> dict:
+    """All profiles and the active name; a missing or broken file is the default alone."""
     try:
         data = json.loads(path(cfg).read_text())
     except (OSError, ValueError):
-        return dict(DEFAULT)
-    return data if valid(data) else dict(DEFAULT)
+        data = None
+    if valid(data):  # the old single-settings file
+        data = {"active": label(data), "profiles": [{"name": label(data), **data}]}
+    if isinstance(data, dict) and isinstance(data.get("profiles"), list):
+        profiles = [p for p in data["profiles"] if isinstance(p, dict) and good_name(p.get("name"))
+                    and valid(settings(p))]
+        if profiles:
+            names = [p["name"] for p in profiles]
+            return {"active": data.get("active") if data.get("active") in names else names[0], "profiles": profiles}
+    return {"active": DEFAULT["model"], "profiles": [{"name": DEFAULT["model"], **DEFAULT}]}
+
+
+def load(cfg: MarkConfig) -> dict:
+    """The active profile's settings."""
+    s = store(cfg)
+    return settings(next(p for p in s["profiles"] if p["name"] == s["active"]))
 
 
 def write_private(p: Path, data: dict) -> None:
@@ -63,27 +95,54 @@ def write_private(p: Path, data: dict) -> None:
 
 
 def save(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
-    """The board's form: (ok, why not). An empty api_key keeps the stored one."""
+    """The board's form: (ok, why not). `action` is "use" or "delete" a profile by `name`, or else save
+    one (and use it): `old` names the profile being edited, `name` defaults to the label, and an empty
+    api_key keeps the edited profile's key."""
     if not isinstance(req, dict):
         return False, "bad request"
+    s = store(cfg)
+    names = [p["name"] for p in s["profiles"]]
+    action, name = req.get("action"), req.get("name")
+    if action in ("use", "delete"):
+        if name not in names or (action == "delete" and len(names) == 1):
+            return False, "bad request"
+        if action == "use":
+            s["active"] = name
+        else:
+            s["profiles"] = [p for p in s["profiles"] if p["name"] != name]
+            if s["active"] == name:
+                s["active"] = s["profiles"][0]["name"]
+        write_private(path(cfg), s)
+        return True, ""
     provider = req.get("provider")
     data = {"provider": provider, "model": req.get("model")}
+    old = next((p for p in s["profiles"] if p["name"] == req.get("old")), None)
     if provider == "custom":
         key = req.get("api_key") or ""
-        if not key:
-            old = load(cfg)
-            key = old.get("api_key", "") if old.get("provider") == "custom" else ""
+        if not key and old and old["provider"] == "custom":
+            key = old["api_key"]
         data |= {"base_url": req.get("base_url"), "api_key": key}
     if not valid(data):
         return False, "bad request"
-    write_private(path(cfg), data)
+    name = name or label(data)
+    if not good_name(name) or (name in names and name != (old or {}).get("name") and req.get("old")):
+        return False, "bad request"
+    profile = {"name": name, **data}
+    keep = [p for p in s["profiles"] if p["name"] not in (name, (old or {}).get("name"))]
+    at = next((i for i, p in enumerate(s["profiles"]) if p["name"] in (name, (old or {}).get("name"))), len(keep))
+    s["profiles"] = keep[:at] + [profile] + keep[at:]
+    s["active"] = name
+    write_private(path(cfg), s)
     return True, ""
 
 
-def public(data: dict) -> dict:
-    """What the page may see: never the key."""
-    return {"provider": data["provider"], "model": data["model"], "base_url": data.get("base_url", ""),
-            "has_key": bool(data.get("api_key")), "label": label(data)}
+def public(s: dict) -> dict:
+    """What the page may see: never a key."""
+    def one(p: dict) -> dict:
+        return {"name": p["name"], "provider": p["provider"], "model": p["model"], "base_url": p.get("base_url", ""),
+                "has_key": bool(p.get("api_key")), "label": label(p)}
+    active = next(p for p in s["profiles"] if p["name"] == s["active"])
+    return {"active": s["active"], "label": active["name"], "profiles": [one(p) for p in s["profiles"]]}
 
 
 def label(data: dict) -> str:
