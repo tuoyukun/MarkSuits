@@ -6,6 +6,7 @@ import io
 import json
 import os
 import re
+import signal
 import socket
 import subprocess
 import threading
@@ -516,6 +517,44 @@ class CliTest(unittest.TestCase):
         cli.main(["board", "--stop"], cwd=a, out=out4, err=err)
         self.assertIn("stopped", out4.getvalue())
         self.assertIsNone(board.running())
+
+    def test_sighup_restarts_in_place_and_keeps_logins(self):
+        # the board opens its login URL through $BROWSER: a script that saves it
+        url_file = self.home / "url"
+        script = self.home / "browser.sh"
+        script.write_text(f'#!/bin/sh\necho "$1" > "{url_file}"\n')
+        script.chmod(0o755)
+        port = free_port()
+        with mock.patch.dict(os.environ, {"MARK_BOARD_NO_BROWSER": "0", "BROWSER": str(script),
+                                          "CLAUDE_CONFIG_DIR": str(self.home)}):  # no installed plugin: rerun this code
+            self.assertEqual(cli.main(["board", "--port", str(port)], cwd=self.home, out=io.StringIO(), err=io.StringIO()), 0)
+            for _ in range(100):
+                if url_file.exists() and "#k=" in url_file.read_text():
+                    break
+                threading.Event().wait(0.05)
+        key = url_file.read_text().strip().split("#k=")[1]
+        pid = board.read_state()["pid"]
+
+        def call(method, path, body=None, cookie=""):
+            c = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            c.request(method, path, body=json.dumps(body) if body is not None else None,
+                      headers={"Host": f"127.0.0.1:{port}", "Origin": f"http://127.0.0.1:{port}",
+                               "Content-Type": "application/json", "Cookie": cookie})
+            r = c.getresponse()
+            return r.getheader("Set-Cookie") or "", json.loads(r.read() or b"{}")
+
+        cookie = call("POST", "/api/login", {"k": key})[0].split(";")[0]
+        self.assertEqual(call("GET", "/api/projects", cookie=cookie)[1]["decide"], "on")
+        os.kill(pid, signal.SIGHUP)
+        for _ in range(100):  # down, then up again
+            threading.Event().wait(0.1)
+            try:
+                if board.read_state().get("pid") == pid and call("GET", "/api/projects", cookie=cookie)[1]:
+                    break
+            except OSError:
+                pass
+        self.assertEqual(board.read_state()["pid"], pid)  # same process, new code
+        self.assertEqual(call("GET", "/api/projects", cookie=cookie)[1]["decide"], "on")
 
     def test_a_board_from_another_install_is_replaced(self):
         port = free_port()

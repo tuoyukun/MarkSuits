@@ -862,7 +862,8 @@ def state_path() -> Path:
 
 
 def serve(start: int = DEFAULT_PORT) -> int:
-    """Run the board in this process until SIGTERM / Ctrl-C."""
+    """Run the board in this process until SIGTERM / Ctrl-C. SIGHUP restarts it in place on the
+    newest installed plugin (else this code), handing the session secret over."""
     server = bind(start)
     if server is None:
         return 1
@@ -877,6 +878,12 @@ def serve(start: int = DEFAULT_PORT) -> int:
         state["service"] = os.environ[SERVICE_ENV]
     path.write_text(json.dumps(state) + "\n")
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown).start())
+
+    def rerun(*_) -> None:  # the menu bar app's restart after an update: logins survive it
+        board.updater.restart = upkeep.newer_install() or MARK_BIN
+        threading.Thread(target=server.shutdown).start()
+
+    signal.signal(signal.SIGHUP, rerun)
     threading.Thread(target=board.watch, daemon=True).start()
     threading.Thread(target=board.updater.poll, args=(board.stop,), daemon=True).start()
     threading.Thread(target=upkeep.open_lanes, args=(board.touch, general_lanes), daemon=True).start()
@@ -893,7 +900,7 @@ def serve(start: int = DEFAULT_PORT) -> int:
         server.server_close()
         if read_state().get("pid") == os.getpid():
             path.unlink(missing_ok=True)
-    if board.updater.restart:  # the plugin updated: the same process (and pid) runs the new code
+    if board.updater.restart:  # the plugin updated (or SIGHUP): the same process (and pid) runs the new code
         r, w = os.pipe()
         os.write(w, board.secret.encode())
         os.close(w)

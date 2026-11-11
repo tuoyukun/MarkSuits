@@ -60,19 +60,26 @@ class Updater:
 
     def run(self, shutdown, update=app.update, run=subprocess.run) -> None:
         key, params = update()
-        entry = app.plugin_entry()
-        root = Path(str(entry[1].get("installPath") or "")) if entry else None
-        newer = entry and upgrade._ver(str(entry[1].get("version") or "")) > upgrade._ver(scaffold.version())
-        # "current" too: the menu bar app may have updated the plugin already
-        if not (newer and root and (root / "bin" / "mark").is_file()):
+        target = newer_install()  # "current" too: the menu bar app may have updated the plugin already
+        if not target:
             self.state, self.error = "failed", t("en", key, **params)
             self.touch()
             return
         if sys.platform == "darwin" and app.app_path().exists():
-            run([sys.executable, str(root / "bin" / "mark"), "app", "install", "--no-open"],
+            run([sys.executable, str(target), "app", "install", "--no-open"],
                 capture_output=True, stdin=subprocess.DEVNULL, timeout=600)
-        self.restart = root / "bin" / "mark"
+        self.restart = target
         shutdown()
+
+
+def newer_install() -> Path | None:
+    """`bin/mark` of the installed plugin when it is newer than the code running here, else None."""
+    entry = app.plugin_entry()
+    if not entry:
+        return None
+    target = Path(str(entry[1].get("installPath") or "")) / "bin" / "mark"
+    newer = upgrade._ver(str(entry[1].get("version") or "")) > upgrade._ver(scaffold.version())
+    return target if newer and target.is_file() else None
 
 
 def is_upgrade(lane: dict) -> bool:

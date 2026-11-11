@@ -2,7 +2,7 @@
 // gates wait on the human, and offers Open / Check for Updates / Preferences / Quit. Once a day (or on
 // Check for Updates, which reports the result) it updates the Claude
 // plugin (`mark app update`); when that moved, it rebuilds itself from the new plugin and restarts
-// the board once no session runs. Built by `mark app install` (lib/mark/app.py), which writes
+// the board (SIGHUP: in place, logins kept) once no session runs. Built by `mark app install` (lib/mark/app.py), which writes
 // Info.plist with MarkCLI (the launcher, ~/.local/bin/mark) and MarkApp (this binary, for the
 // login item). macOS only; AppKit + Foundation, no dependencies.
 import AppKit
@@ -174,7 +174,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.show(human)
                 if self.restartPending, !projects.contains(where: { $0["running"] as? Bool == true }) {
                     self.restartPending = false
-                    self.board?.terminate()  // its termination handler starts the new plugin's board
+                    // the board re-executes on the new plugin in place, keeping logins; a board from before
+                    // v0.67.1 dies of the signal instead, and its termination handler starts the new one
+                    if let p = self.board, p.isRunning { kill(p.processIdentifier, SIGHUP) }
                 }
             }
         }.resume()
