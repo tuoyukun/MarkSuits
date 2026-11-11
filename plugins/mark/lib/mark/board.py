@@ -28,7 +28,8 @@ project adds it there. The page (`board.html`) is one file with two views:
       POST api/decide                  approve or reject, with the cookie
       POST api/void {ticket, reason}   void an unfinished ticket for the human (with the cookie)
       POST api/merge {ticket}          `mark merge` a pending-merge ticket in the background (with the cookie)
-      POST api/stop                    stop the headless session, or with {"ticket"} its chat turn (with the cookie)
+      POST api/stop {ticket}           stop the ticket's headless session and chat turn (with the cookie)
+      POST api/continue {ticket}       start a headless session on a stalled ticket (with the cookie)
       POST api/new                     open a ticket and start talking it through (with the cookie)
       POST api/chat                    send the next message in a ticket's chat (with the cookie)
       POST api/lane {branch, verb}     merge or drop an upgrade lane (`upkeep.py`, with the cookie)
@@ -193,13 +194,15 @@ def snapshot(cfg: MarkConfig, history: History) -> dict[str, object]:
             mtime = _dt.datetime.fromtimestamp(tk.path.stat().st_mtime).astimezone().isoformat(timespec="seconds") if tk.exists else ""
             hist.append({"sha": "", "at": mtime, "status": tk.status, "owner": tk.get("owner"),
                          "updater": tk.get("updater"), "note": tk.note})
-        items.append({**tk.as_dict(), "dir": states.KIND_DIRS[tk.kind], "side": tk.side,
+        stuck = stalled(cfg, tk)
+        items.append({**tk.as_dict(), "dir": states.KIND_DIRS[tk.kind], "side": "human" if stuck else tk.side,
+                      "stalled": stuck, "run": runner.view(cfg, tk.id) if tk.side != "terminal" else None,
                       "branch": cfg.branch_for(tk.kind, tk.id),
                       "worktree": cfg.worktree_for(tk.kind, tk.id) if dirs["worktree"].is_dir() else "",
                       "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist, "wait": waits_on(cfg, tk),
                       "merge": merge_view(cfg, tk)})
     return {"project": cfg.root.name, "locale": cfg.locale, "branch": cfg.main_branch,
-            "tickets": items + general_lanes(cfg), "run": runner.view(cfg), "model": model.public(model.store(cfg))}
+            "tickets": items + general_lanes(cfg), "model": model.public(model.store(cfg))}
 
 
 def waits_on(cfg: MarkConfig, tk: tickets.Ticket) -> dict[str, object] | None:
@@ -357,8 +360,7 @@ def void(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
     if _known(cfg, ticket) is None or not isinstance(reason, str) or len(reason) > human.TEXT_MAX:
         return False, "bad request"
     chat.stop(cfg, ticket)
-    if (runner.running(cfg) or {}).get("ticket") == ticket:
-        runner.stop(cfg)
+    runner.stop(cfg, ticket)
     token = human.grant(cfg, "void", ticket, [], reason, source="board")
     out = io.StringIO()
     try:
@@ -395,7 +397,7 @@ def merge_view(cfg: MarkConfig, tk: tickets.Ticket) -> dict[str, str] | None:
         return None
     if merging(cfg, tk.id):
         return {"state": "running", "text": ""}
-    if chat.running(cfg, tk.id) or (runner.running(cfg) or {}).get("ticket") == tk.id:
+    if chat.running(cfg, tk.id) or runner.running(cfg, tk.id):
         return {"state": "busy", "text": ""}  # a session on it merges by itself
     blocked = flow.merge_blockers(cfg, tk)
     if blocked:
@@ -432,6 +434,39 @@ def start_merge(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
     return True, ""
 
 
+STALL_SECONDS = 600  # a terminal session pauses between steps; the board says "stalled" only after this
+
+
+def stalled(cfg: MarkConfig, tk: tickets.Ticket) -> bool:
+    """It is the agents' turn, yet nothing moves the ticket on: no headless session, chat turn,
+    role or merge, and nothing it touched changed for STALL_SECONDS. Drafting waits on the
+    human's chat reply and pending-merge has its Merge button, so neither stalls."""
+    if tk.side != "agent" or tk.status in (states.DRAFTING, states.MERGE):
+        return False
+    ctx = flow.Ctx(cfg, tk)
+    if not ctx.has_gate(flow.TICKET_GATE) or runner.running(cfg, tk.id) or chat.running(cfg, tk.id) \
+            or flow.running_roles(ctx):
+        return False
+    times = [tk.path.stat().st_mtime] if tk.exists else []
+    prefixes = (f"{tk.id}.", f"chat-{tk.id}.", f"run-{tk.id}-", f"runner-{tk.id}.")
+    try:
+        times += [e.stat().st_mtime for e in os.scandir(cfg.state_dir / "locks") if e.name.startswith(prefixes)]
+    except OSError:
+        pass
+    return time.time() - max(times, default=0) > STALL_SECONDS
+
+
+def carry_on_stalled(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
+    """The human's Continue button on a stalled ticket: a headless `/mark:continue`."""
+    ticket = req.get("ticket")
+    if _known(cfg, ticket) is None:
+        return False, "bad request"
+    if not stalled(cfg, flow.load(cfg, ticket).ticket):
+        return False, "run.notStalled"
+    started, why = runner.start(cfg, ticket)
+    return started, "" if started else f"run.{why}"
+
+
 RUN_AFTER = ("review", "blocked")  # opening and drafting need the human in the conversation
 
 
@@ -456,10 +491,11 @@ def summary(cfg: MarkConfig) -> dict[str, object]:
     tks = tickets.all_tickets(cfg)
     live = [tk for tk in tks if tk.side != "terminal"]
     times = [tk.path.stat().st_mtime for tk in tks if tk.exists]
+    stuck = sum(stalled(cfg, tk) for tk in live)
     return {"name": cfg.root.name, "locale": cfg.locale, "total": len(tks),
-            "human": sum(tk.side == "human" for tk in tks), "agent": sum(tk.side == "agent" for tk in tks),
+            "human": sum(tk.side == "human" for tk in tks) + stuck, "agent": sum(tk.side == "agent" for tk in tks) - stuck,
             "done": len(tks) - len(live),
-            "running": runner.running(cfg) is not None or any(chat.running(cfg, tk.id) for tk in live),
+            "running": any(runner.running(cfg, tk.id) or chat.running(cfg, tk.id) for tk in live),
             "at": _dt.datetime.fromtimestamp(max(times)).astimezone().isoformat(timespec="seconds") if times else ""}
 
 
@@ -754,7 +790,14 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 self._json(200 if ok else 409, {"ok": ok, "text": text})
             elif path == "/api/stop":
                 tid = body.get("ticket")
-                self._json(200, {"ok": chat.stop(cfg, tid) if isinstance(tid, str) else runner.stop(cfg)})
+                if _known(cfg, tid) is None:
+                    self._json(409, {"ok": False, "text": "bad request"})
+                else:  # both, not `or`: stop whatever runs on the ticket
+                    self._json(200, {"ok": chat.stop(cfg, tid) | runner.stop(cfg, tid)})
+            elif path == "/api/continue":
+                with board.lock:
+                    ok, text = carry_on_stalled(cfg, body)
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
             elif path == "/api/new":
                 with board.lock:
                     ok, text, tid = new_ticket(cfg, body)

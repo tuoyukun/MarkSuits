@@ -129,7 +129,7 @@ def start(cfg: MarkConfig, kind: str, ticket_id: str, text: str, claude: str | N
     """Send one message: (started, why not). Never two turns on a ticket, nor a turn on a ticket
     the headless runner is carrying on. `first` replaces the opening prompt and `note` the system
     note (the new-project wizard, `wizard.py`, which has no ticket)."""
-    if running(cfg, ticket_id) or (runner.running(cfg) or {}).get("ticket") == ticket_id:
+    if running(cfg, ticket_id) or runner.running(cfg, ticket_id):
         return False, "busy"
     claude = claude or runner.find_claude()
     if not claude:

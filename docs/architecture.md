@@ -542,14 +542,18 @@ means a live session.
 waiter (checked before deciding), the board starts `claude -p "/mark:continue <id>"
 --permission-mode <[board] permission_mode> --output-format stream-json --verbose` in the main
 checkout (`lib/mark/runner.py`), its own process group, without the parent session's markers
-(`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, ...). One runner per project: `<state>/locks/runner.json`
-`{pid, ticket, log, started}`; a second decision while one runs says so and leaves the ticket to
-the terminal. `/mark:continue` loops like `/mark:approve` with agents and `mark merge` in the
+(`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, ...). One runner per ticket (v0.68; one per project
+before): `<state>/locks/runner-<id>.json` `{pid, ticket, log, started}`, so tickets move on side
+by side: each has its own worktree, main commits retry on git locks, merges queue on the merge
+lock, simulators on the device lock. `/mark:continue` loops like `/mark:approve` with agents and `mark merge` in the
 foreground (a `-p` session ends background work when it exits) and never starts `mark wait`. The
 log is `<state>/locks/run-<id>-<time>.jsonl`; the board shows the commands and agents it ran, and
 from the last `result` event how it ended: `permission_denials` (the commands that needed
 approval), `is_error`, or a clean stop. The page's stop button sends SIGTERM to the group
-(`POST /api/stop`, cookie required). Opening approvals and moves back to `drafting` start
+(`POST /api/stop {ticket}`, cookie required). A ticket is **stalled** when it is the agents' turn
+(not drafting, not pending-merge) but no runner, chat turn or role runs on it and nothing it
+touched changed for 10 minutes: the board flags it as waiting on the human and offers Continue
+(`POST /api/continue`), which starts its runner. Opening approvals and moves back to `drafting` start
 nothing: they need the human in the conversation. `[board] run = "off"` only decides. The runner
 uses the `claude` on the board's PATH and the plugin as installed. Design and experiments:
 [board-two-way.md](board-two-way.md).

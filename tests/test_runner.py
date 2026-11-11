@@ -32,9 +32,9 @@ print(json.dumps(res))
 """
 
 
-def wait_dead(cfg, seconds=10):
+def wait_dead(cfg, ticket="0001-a", seconds=10):
     deadline = time.monotonic() + seconds
-    while runner.running(cfg) and time.monotonic() < deadline:
+    while runner.running(cfg, ticket) and time.monotonic() < deadline:
         time.sleep(0.05)
 
 
@@ -53,13 +53,14 @@ class RunnerTest(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, env)
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.addCleanup(runner.stop, self.cfg)
+        self.addCleanup(runner.stop, self.cfg, "0001-a")
+        self.addCleanup(runner.stop, self.cfg, "0002-b")
 
     def run_once(self, mode="done"):
         os.environ["FAKE_CLAUDE"] = mode
         self.assertEqual(runner.start(self.cfg, "0001-a"), (True, ""))
         wait_dead(self.cfg)
-        return runner.view(self.cfg)
+        return runner.view(self.cfg, "0001-a")
 
     def test_a_clean_run_stops_at_the_next_gate(self):
         v = self.run_once()
@@ -87,14 +88,19 @@ class RunnerTest(unittest.TestCase):
             {"tool_name": "Bash", "tool_input": {"command": "mark wait 0001-a"}}]}
         self.assertEqual(runner.outcome(waited, False)["kind"], "done")  # wait_guard's refusal is not a permission
 
-    def test_one_runner_per_project_and_stop(self):
+    def test_one_runner_per_ticket_side_by_side_and_stop(self):
         os.environ["FAKE_CLAUDE"] = "sleep"
         self.assertTrue(runner.start(self.cfg, "0001-a")[0])
         self.assertEqual(runner.start(self.cfg, "0001-a"), (False, "busy"))
-        self.assertEqual(runner.view(self.cfg)["kind"], "running")
-        self.assertTrue(runner.stop(self.cfg))
+        self.assertEqual(runner.start(self.cfg, "0002-b"), (True, ""))  # another ticket runs alongside
+        self.assertEqual(runner.view(self.cfg, "0001-a")["kind"], "running")
+        self.assertEqual(runner.view(self.cfg, "0002-b")["ticket"], "0002-b")
+        self.assertTrue(runner.stop(self.cfg, "0001-a"))
         wait_dead(self.cfg)
-        self.assertIsNone(runner.running(self.cfg))
+        self.assertIsNone(runner.running(self.cfg, "0001-a"))
+        self.assertIsNotNone(runner.running(self.cfg, "0002-b"))  # stopping one leaves the other
+        self.assertTrue(runner.stop(self.cfg, "0002-b"))
+        wait_dead(self.cfg, "0002-b")
 
     def test_no_claude(self):
         with mock.patch("mark.runner.find_claude", return_value=None):
@@ -124,7 +130,7 @@ class RunnerTest(unittest.TestCase):
         cfg_path.write_text(cfg_path.read_text(encoding="utf-8") + '\n[board]\nrun = "off"\n', encoding="utf-8")
         cfg = load_config(self.root)
         self.assertEqual(board.carry_on(cfg, "0001-a", {"kind": "review"}, had_waiter=False), "run.terminal")
-        self.assertIsNone(runner.read(cfg).get("pid"))
+        self.assertIsNone(runner.read(cfg, "0001-a").get("pid"))
 
 
 

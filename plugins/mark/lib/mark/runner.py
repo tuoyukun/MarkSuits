@@ -1,7 +1,8 @@
 """Headless runner: after a board decision with no session waiting, carry the ticket on.
 
 The board server starts `claude -p "/mark:continue <id>"` in the main checkout and records it in
-`<state>/locks/runner.json` `{pid, ticket, log, started}`: one runner per project. The session's
+`<state>/locks/runner-<id>.json` `{pid, ticket, log, started}`: one runner per ticket, so tickets
+move on side by side (each has its own worktree; main commits retry on git locks; merges queue). The session's
 stream-json goes to `<state>/locks/run-<id>-<time>.jsonl` (gitignored). Its last `result` event
 says how it ended: permission denials (a command needed approval), an error, or a clean stop at
 the next gate. Nothing here approves anything: the decision was made before the runner starts.
@@ -22,7 +23,6 @@ from pathlib import Path
 from . import model
 from .config import MarkConfig
 
-STATE_FILE = "runner.json"
 WAIT_RE = re.compile(r"(^|[\s;&|/])mark\s+wait\b")
 TAIL_BYTES = 256 * 1024
 # stderr the CLI prints for a model name it does not know (DeepSeek and co.); it runs on it anyway
@@ -31,13 +31,13 @@ LINES_KEPT = 40
 SESSION_MARKERS = frozenset({"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_SSE_PORT"})
 
 
-def state_path(cfg: MarkConfig) -> Path:
-    return cfg.state_dir / "locks" / STATE_FILE
+def state_path(cfg: MarkConfig, ticket_id: str) -> Path:
+    return cfg.state_dir / "locks" / f"runner-{ticket_id}.json"
 
 
-def read(cfg: MarkConfig) -> dict:
+def read(cfg: MarkConfig, ticket_id: str) -> dict:
     try:
-        data = json.loads(state_path(cfg).read_text())
+        data = json.loads(state_path(cfg, ticket_id).read_text())
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
@@ -53,8 +53,8 @@ def _alive(pid: object) -> bool:
         return False
 
 
-def running(cfg: MarkConfig) -> dict | None:
-    st = read(cfg)
+def running(cfg: MarkConfig, ticket_id: str) -> dict | None:
+    st = read(cfg, ticket_id)
     return st if _alive(st.get("pid")) else None
 
 
@@ -81,8 +81,8 @@ def command(cfg: MarkConfig, ticket_id: str, claude: str, extra: list[str] = ())
 
 
 def start(cfg: MarkConfig, ticket_id: str, claude: str | None = None) -> tuple[bool, str]:
-    """(started, why not). Never two runners in one project."""
-    if running(cfg):
+    """(started, why not). Never two runners on one ticket."""
+    if running(cfg, ticket_id):
         return False, "busy"
     claude = claude or find_claude()
     if not claude:
@@ -97,14 +97,14 @@ def start(cfg: MarkConfig, ticket_id: str, claude: str | None = None) -> tuple[b
         proc = subprocess.Popen(command(cfg, ticket_id, claude, extra), cwd=cfg.root, env=env,
                                 stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT,
                                 start_new_session=True)  # its own group: stop ends the agents it started too
-    state_path(cfg).write_text(json.dumps({"pid": proc.pid, "ticket": ticket_id, "log": log.name,
+    state_path(cfg, ticket_id).write_text(json.dumps({"pid": proc.pid, "ticket": ticket_id, "log": log.name,
                                            "started": time.time(), "model": model.label(settings)}) + "\n")
     threading.Thread(target=proc.wait, daemon=True).start()  # reap it, so a finished run reads as dead
     return True, ""
 
 
-def stop(cfg: MarkConfig) -> bool:
-    st = running(cfg)
+def stop(cfg: MarkConfig, ticket_id: str) -> bool:
+    st = running(cfg, ticket_id)
     if not st:
         return False
     try:
@@ -149,9 +149,9 @@ def outcome(result: dict | None, alive: bool) -> dict[str, object]:
     return {"kind": "done", "text": str(result.get("result") or "")}
 
 
-def view(cfg: MarkConfig) -> dict[str, object] | None:
-    """The last (or current) run for the board: ticket, start, trimmed log, outcome."""
-    st = read(cfg)
+def view(cfg: MarkConfig, ticket_id: str) -> dict[str, object] | None:
+    """The ticket's last (or current) run for the board: start, trimmed log, outcome."""
+    st = read(cfg, ticket_id)
     if not st.get("log"):
         return None
     lines, result = [], None

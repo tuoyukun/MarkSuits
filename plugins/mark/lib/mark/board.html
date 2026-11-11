@@ -545,7 +545,7 @@ const I18N={
   runH:"Headless session",running:"running",runBlocked:"needs approval",runFailed:"failed",runDone:"stopped at the next gate",stop:"Stop",
   runBlockedHint:"A command needed your approval. Continue in a terminal with /mark:continue {id}, or allow the command in .claude/settings.json.",
   "run.session":"Your open Claude session picks this up.","run.started":"Started a headless session to carry on.","run.terminal":"Say \"continue\" in your Claude session to carry on.",
-  "run.busy":"Another headless session is running; carry on with /mark:continue {id} in a terminal.","run.no-claude":"`claude` was not found; carry on with /mark:continue {id} in a terminal.",
+  "run.busy":"A background session is already running on this ticket.","run.notStalled":"Something is moving this ticket on again.",stalled:"Stalled",stallH:"Stalled",stallHint:"It is the agents' turn, but no session has moved this ticket on for 10 minutes. Continue starts a background session that carries it to the next point where you decide.",stallGo:"Continue","run.no-claude":"`claude` was not found; carry on with /mark:continue {id} in a terminal.",
   needLogin:"Read-only in this window. Run `mark board` (or /mark:board) and decide in the window it opens.",offDecide:"Deciding on the board is off ([board] decide = false).",
   newT:"New ticket",newText:"What to build or fix. The first line becomes the title; Claude reads it all and asks about the gaps.",newSlug:"Short name for the id (optional, a-z 0-9 -)",create:"Open and start talking",
   chat:"Discussion",chatPh:"Reply to Claude…",send:"Send",chatEmpty:"No discussion yet. Send a message to start one.",
@@ -591,7 +591,7 @@ const I18N={
   runH:"后台会话",running:"运行中",runBlocked:"需要授权",runFailed:"失败",runDone:"已停在下一个关卡",stop:"停止",
   runBlockedHint:"有条命令需要你授权。在终端里用 /mark:continue {id} 继续，或在 .claude/settings.json 里放行该命令。",
   "run.session":"你开着的 Claude 会话会接着干。","run.started":"已启动一个后台会话接着干。","run.terminal":"在 Claude 会话里说一声\"继续\"即可接着干。",
-  "run.busy":"已有另一个后台会话在运行；请在终端用 /mark:continue {id} 继续。","run.no-claude":"没找到 `claude` 命令；请在终端用 /mark:continue {id} 继续。",
+  "run.busy":"这张工单已经有后台会话在跑。","run.notStalled":"这张工单又有会话在推进了。",stalled:"停住了",stallH:"停住了",stallHint:"轮到 agent 处理，但已经 10 分钟没有会话推进这张工单。点「继续」会起一个后台会话，把它推到下一个需要你决定的地方。",stallGo:"继续","run.no-claude":"没找到 `claude` 命令；请在终端用 /mark:continue {id} 继续。",
   needLogin:"此窗口只读。运行 `mark board`（或 /mark:board），在它打开的窗口里处理。",offDecide:"看板处理已关闭（[board] decide = false）。",
   newT:"新建工单",newText:"要做什么或修什么。第一行作为标题；Claude 会读完全部内容，再就缺的地方提问。",newSlug:"编号里的短名（可选，a-z 0-9 -）",create:"创建并开始讨论",
   chat:"讨论",chatPh:"回复 Claude…",send:"发送",chatEmpty:"还没有讨论。发一条消息开始。",
@@ -675,6 +675,13 @@ function mergeBlk(t){const m=t.merge;
     :m.state==="blocked"?`<pre class="dout bad">${esc(m.text)}</pre>`
     :`<button class="btn pri" data-merge>${tr(m.state==="failed"?"mergeRetry":"mergeGo")}</button>${m.state==="failed"?`<pre class="dout bad">${esc(m.text)}</pre>`:""}`;
   return `<div class="blk dec"><h5>${tr("mergeH")}</h5><div class="dq">${tr("mergeHint")}</div>${body}</div>`}
+function stallBlk(t){
+  const body=data.decide==="on"?`<button class="btn pri" data-cont>${tr("stallGo")}</button>`:`<div class="none">${esc(tr(data.decide==="off"?"offDecide":"needLogin"))}</div>`;
+  return `<div class="blk dec"><h5>${tr("stallH")}</h5><div class="dq">${tr("stallHint")}</div>${body}</div>`}
+async function contAct(b){const id=open?.id;if(!id)return;b.disabled=true;
+  let r;try{r=await (await fetch("api/continue",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:id})})).json()}catch{r={ok:false,text:"loadFail"}}
+  if(!r.ok){toast(esc((tr(r.text)??r.text).replace("{id}",id)));b.disabled=false}
+  await load()}
 const $=s=>document.querySelector(s);
 const tr=k=>(I18N[L]||I18N.en)[k]??I18N.en[k];
 const label=s=>(LABELS[L]||LABELS.en)[s]||s||"?";
@@ -754,6 +761,7 @@ function toast(html){const el=$("#toast");el.innerHTML=html;el.classList.add("sh
 
 // ---- views
 function who(t){const r=runOf(t);
+  if(t.stalled)return `<span class="who need"><i></i>${tr("stalled")}</span>`;
   if(isHuman(t))return `<span class="who need"><i></i>${tr("waiting")}</span>`;
   if(r&&r.kind==="blocked")return `<span class="who need"><i></i>${tr("runBlocked")}</span>`;
   if(TERMINAL.has(t.status)||!t.owner)return "";
@@ -992,7 +1000,7 @@ function modal(){
   runBlk(t);
 }
 const RUNK={running:"running",blocked:"runBlocked",failed:"runFailed",done:"runDone"};
-function runOf(t){const r=data.run;return r&&r.ticket===t.id?r:null}
+function runOf(t){return t.run||null}
 function runBlk(t){const r=runOf(t),el=$("#run");if(!r){el.innerHTML="";return}
   const log=el.querySelector(".runlog"),atEnd=!log||log.scrollTop+log.clientHeight>=log.scrollHeight-4;
   el.innerHTML=`<div class="blk dec"><h5>${tr("runH")} · ${tr(RUNK[r.kind])} · ${fmt(r.started*1000)}${r.model?` · <code>${esc(r.model)}</code>`:""}</h5>
@@ -1005,6 +1013,7 @@ function runBlk(t){const r=runOf(t),el=$("#run");if(!r){el.innerHTML="";return}
 let decKey="",decMsg=null;
 function decBlk(t){if(t.upgrade){decKey="";$("#dec").innerHTML=laneBlk(t);return}
   if(t.merge){decKey="";$("#dec").innerHTML=mergeBlk(t);return}
+  if(t.stalled){decKey="";$("#dec").innerHTML=stallBlk(t);return}
   const w=t.wait,msg=decMsg&&decMsg.id===t.id?decMsg:null,key=JSON.stringify([t.id,t.status,w,data.decide]);
   if(key===decKey)return;decKey=key;
   const out=msg?`<pre class="dout ${msg.ok?"":"bad"}">${esc(msg.text)}</pre>`:"";
@@ -1195,7 +1204,8 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-send]")){chatSend();return}
   if(e.target.closest("[data-asksend]")){askSend();return}
   if(e.target.closest("[data-cstop]")){fetch(HOME?`/api/wizard/${wiz}/stop`:"api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(HOME?{}:{ticket:open.id})}).then(load);return}
-  if(e.target.closest("[data-stop]")){fetch("api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(load);return}
+  if(e.target.closest("[data-stop]")){fetch("api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:open?.id})}).then(load);return}
+  {const c=e.target.closest("[data-cont]");if(c){contAct(c);return}}
   const tab=e.target.closest(".dtab");if(tab){open.tab=tab.dataset.tab;modal();return}
   const o=e.target.closest("[data-open]");if(o){openM(o.dataset.open,o.dataset.tab);return}
   if(e.target===$("#ov"))closeM();

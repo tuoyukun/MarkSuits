@@ -333,6 +333,52 @@ class DecideTest(unittest.TestCase):
             self.assertEqual(board.merge_view(self.cfg, tk())["state"], "blocked")
             self.assertEqual(board.start_merge(self.cfg, {"ticket": "0004-d"})[0], False)
 
+    def test_a_ticket_nothing_moves_on_is_stalled_and_continue_starts_its_runner(self):
+        d = add_ticket(self.root, "feature", "0005-e", "developing", gates=("ticket-approved",))
+        cfg = load_config(self.root)
+        tk = lambda: flow.load(cfg, "0005-e").ticket
+        snap = lambda: next(t for t in board.snapshot(cfg, board.History(cfg))["tickets"] if t["id"] == "0005-e")
+        self.assertFalse(board.stalled(cfg, tk()))  # just moved: a terminal session may be between steps
+        old = os.path.getmtime(d / "status.md") - board.STALL_SECONDS - 60
+        os.utime(d / "status.md", (old, old))
+        self.assertTrue(board.stalled(cfg, tk()))
+        self.assertEqual((snap()["stalled"], snap()["side"]), (True, "human"))
+        self.assertEqual(board.summary(cfg)["human"], 3)  # 0001-a and 0002-b wait on a gate, 0005-e is stalled
+        with mock.patch.object(board.chat, "running", return_value=1):
+            self.assertFalse(board.stalled(cfg, tk()))
+        with mock.patch.object(board.runner, "running", return_value={"pid": 1}):
+            self.assertFalse(board.stalled(cfg, tk()))
+        with mock.patch.object(board.flow, "running_roles", return_value=["coder-impl"]):
+            self.assertFalse(board.stalled(cfg, tk()))
+        locks = self.root / ".mark" / "locks"
+        locks.mkdir(exist_ok=True)
+        (locks / "0005-e.coder-impl.result.json").write_text("{}")  # a fresh result: something moved
+        self.assertFalse(board.stalled(cfg, tk()))
+        os.utime(locks / "0005-e.coder-impl.result.json", (old, old))
+
+        self.assertEqual(self.post(self.p + "/api/continue", {"ticket": "0005-e"})[0], 403)
+        cookie = self.login()
+        code, res, _ = self.post(self.p + "/api/continue", {"ticket": "0001-a"}, cookie=cookie)
+        self.assertEqual((code, res["text"]), (409, "run.notStalled"))  # waits on the human, not stalled
+        code, res, _ = self.post(self.p + "/api/continue", {"ticket": "0005-e"}, cookie=cookie)
+        self.assertEqual(code, 200, res)
+        self.run_start.assert_called_once_with(cfg, "0005-e")
+
+    def test_drafting_and_pending_merge_never_stall(self):
+        for tid, status in (("0006-f", "drafting"), ("0007-g", "pending-merge")):
+            d = add_ticket(self.root, "feature", tid, status, gates=("ticket-approved",), leftover="0")
+            os.utime(d / "status.md", (1, 1))
+            self.assertFalse(board.stalled(self.cfg, flow.load(self.cfg, tid).ticket), tid)
+
+    def test_stop_is_per_ticket(self):
+        cookie = self.login()
+        with mock.patch.object(board.runner, "stop", return_value=True) as stop, \
+                mock.patch.object(board.chat, "stop", return_value=False):
+            code, res, _ = self.post(self.p + "/api/stop", {"ticket": "0001-a"}, cookie=cookie)
+            self.assertEqual((code, res["ok"]), (200, True))
+            stop.assert_called_once_with(load_config(self.root), "0001-a")
+            self.assertEqual(self.post(self.p + "/api/stop", {}, cookie=cookie)[0], 409)
+
     def test_after_a_decision_a_waiting_session_carries_on_else_a_runner_starts(self):
         cookie = self.login()
         wait.path(self.cfg, "0001-a").parent.mkdir(parents=True, exist_ok=True)
