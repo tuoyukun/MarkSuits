@@ -557,6 +557,8 @@ const I18N={
   collapse:"Collapse",expand:"Expand",updTip:"Mark {new} is out (you have {old}). Click to update.",updAsk:"Update Mark {old} → {new}? The board restarts on the new version; projects whose files the new version changes get an upgrade lane to review.",
   updRunning:"Updating Mark… the board restarts when it is done.",updFail:"The update failed.","update.busy":"A Claude session is running. Update when it has finished.","update.running":"An update is already running.",
   upgH:"Mark upgrade",upgHint:"The new Mark version changes this project's Mark files. Merging runs the regression, then lands the change on main.",upgMerge:"Approve and merge",upgDrop:"Drop",upgDropAsk:"Drop this upgrade? `mark status` keeps reminding you; /mark:upgrade opens a new one.",
+  mergeH:"Merge",mergeHint:"Tests passed. Merging brings in the latest main, runs the regression, then lands the branch on main and pushes it.",mergeGo:"Merge",mergeRetry:"Retry merge",mergeAsk:"Merge {id} into main? The regression runs first.",
+  mergeRunning:"Merging: the regression is running…",mergeBusy:"A session is working on this ticket; it merges by itself.","merge.running":"This ticket is already merging.","merge.busy":"A session is working on this ticket; it merges by itself.","merge.notReady":"Only a ticket pending merge can be merged.",
   upgMerging:"Merging: the regression is running…",upgConf:"The upgrade clashes with your edits in these files. Resolve them in the lane's worktree (or ask Claude: /mark:upgrade), then merge:","lane.running":"This lane is already merging.",
   "chat.busy":"Claude is already working on this ticket; wait for its reply.","chat.no-claude":"`claude` was not found, so nobody can reply. Continue in a terminal."},
  "zh-CN":{dep_python:"Python 3.11 或更新版本",depH_python:"Mark 的 hooks 用 python3 运行。安装方式举例：",dep_git:"git",depH_git:"git 由 Xcode 命令行工具提供。",dep_claude:"Claude Code",depH_claude:"看板里的会话要运行 claude。用它的官方安装器安装，之后会自动更新。",dep_model:"可用的模型",depH_model:"在终端里登录 Claude，或添加一个自带 API key 的其他模型（DeepSeek 等兼容 Anthropic 接口的服务）。登录命令：",depAddModel:"添加模型",dep_plugin:"用户级 Mark 插件",depH_plugin:"Claude 会话从这里加载 Mark。",dep_app:"菜单栏应用",depH_app:"不开终端也能让看板一直运行，并每天更新一次 Mark。",depT:"这台电脑还差几步",depBlock:"新建项目需要先完成标记的几项。",depOpt:"可选。",depFix:"安装",depRunning:"安装中…",depRecheck:"重新检查",depHide:"暂不",depCopy:"复制",depRun:"正在运行：",depFail:"失败（退出码 {c}）：",depDone:"已完成：",depNeed:"请先完成页面顶部的环境配置。",depAppAsk:"菜单栏应用会接管看板：本页会自动重连，之后点它菜单里的 Open 重新登录。现在安装？",copiedCmd:"已复制命令","deps.busy":"另一个安装正在进行，请等它完成。",newProj:"新建项目",wHint:"Claude 会在这个目录里运行 /mark:init：先提出项目的配置方案，你在对话里确认或修改。",wDirL:"目录（完整路径，不存在会自动创建）",wTextL:"你要做什么、用什么技术栈（可选）",wPick:"选择…",wProfL:"项目类型",
@@ -601,6 +603,8 @@ const I18N={
   collapse:"收起",expand:"展开",updTip:"Mark {new} 已发布（当前 {old}），点击升级。",updAsk:"把 Mark 从 {old} 升级到 {new}？看板会在新版本上重启；新版本改动了文件的项目会各得到一张升级工单，等你审批。",
   updRunning:"正在升级 Mark…完成后看板会自动重启。",updFail:"升级失败。","update.busy":"有 Claude 会话正在运行，等它结束再升级。","update.running":"已经在升级了。",
   upgH:"Mark 升级",upgHint:"新版本的 Mark 改动了这个项目里的 Mark 文件。合并会先跑回归测试，再把改动落到主分支。",upgMerge:"批准并合并",upgDrop:"丢弃",upgDropAsk:"丢弃这次升级？`mark status` 会继续提醒；之后可以用 /mark:upgrade 重新生成。",
+  mergeH:"合并",mergeHint:"测试已通过。合并会先合入最新的主分支、跑回归测试，通过后落到主分支并推送。",mergeGo:"合并",mergeRetry:"重试合并",mergeAsk:"把 {id} 合并到主分支？会先跑回归测试。",
+  mergeRunning:"合并中：正在跑回归测试…",mergeBusy:"有会话正在处理这张工单，它会自己合并。","merge.running":"这张工单已经在合并了。","merge.busy":"有会话正在处理这张工单，它会自己合并。","merge.notReady":"只有待合并的工单可以合并。",
   upgMerging:"合并中：正在跑回归测试…",upgConf:"升级和你对下面这些文件的改动冲突。请在该通道的 worktree 里解决（或让 Claude 处理：/mark:upgrade），再合并：","lane.running":"这个通道已经在合并了。",
   "chat.busy":"Claude 正在处理这张工单，等它回复后再发。","chat.no-claude":"没找到 `claude` 命令，没人能回复。请到终端里继续。"}};
 const LABELS={
@@ -658,6 +662,19 @@ function laneBlk(t){const j=t.job,c=t.conflicts||[];
    ${c.length?`<div class="none">${tr("upgConf")}</div><pre class="dout bad">${esc(c.join("\n"))}</pre>`:""}
    ${busy?`<div class="none">${tr("upgMerging")}</div>`:`<button class="btn pri" data-lane="merge"${c.length?" disabled":""}>${tr("upgMerge")}</button><button class="btn" data-lane="drop">${tr("upgDrop")}</button>`}
    ${j?.state==="failed"?`<pre class="dout bad">${esc(j.error)}</pre>`:""}</div>`}
+async function mergeAct(){const t=data.tickets.find(x=>x.id===open?.id);if(!t?.merge)return;
+  if(!confirm(tr("mergeAsk").replace("{id}",short(t.id))))return;
+  document.querySelectorAll("[data-merge]").forEach(b=>b.disabled=true);
+  let r;try{r=await (await fetch("api/merge",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:t.id})})).json()}catch{r={ok:false,text:"loadFail"}}
+  if(!r.ok){toast(esc(tr(r.text)??r.text));document.querySelectorAll("[data-merge]").forEach(b=>b.disabled=false)}
+  await load()}
+function mergeBlk(t){const m=t.merge;
+  if(data.decide!=="on")return `<div class="blk"><h5>${tr("mergeH")}</h5><div class="none">${esc(tr(data.decide==="off"?"offDecide":"needLogin"))}</div></div>`;
+  const body=m.state==="running"?`<div class="crow"><span class="spin"></span><span class="none">${tr("mergeRunning")}</span></div>`
+    :m.state==="busy"?`<div class="none">${tr("mergeBusy")}</div>`
+    :m.state==="blocked"?`<pre class="dout bad">${esc(m.text)}</pre>`
+    :`<button class="btn pri" data-merge>${tr(m.state==="failed"?"mergeRetry":"mergeGo")}</button>${m.state==="failed"?`<pre class="dout bad">${esc(m.text)}</pre>`:""}`;
+  return `<div class="blk dec"><h5>${tr("mergeH")}</h5><div class="dq">${tr("mergeHint")}</div>${body}</div>`}
 const $=s=>document.querySelector(s);
 const tr=k=>(I18N[L]||I18N.en)[k]??I18N.en[k];
 const label=s=>(LABELS[L]||LABELS.en)[s]||s||"?";
@@ -987,6 +1004,7 @@ function runBlk(t){const r=runOf(t),el=$("#run");if(!r){el.innerHTML="";return}
 // The decision form is rebuilt only when the ticket's state changes, so a live refresh never eats what the human typed.
 let decKey="",decMsg=null;
 function decBlk(t){if(t.upgrade){decKey="";$("#dec").innerHTML=laneBlk(t);return}
+  if(t.merge){decKey="";$("#dec").innerHTML=mergeBlk(t);return}
   const w=t.wait,msg=decMsg&&decMsg.id===t.id?decMsg:null,key=JSON.stringify([t.id,t.status,w,data.decide]);
   if(key===decKey)return;decKey=key;
   const out=msg?`<pre class="dout ${msg.ok?"":"bad"}">${esc(msg.text)}</pre>`:"";
@@ -1145,6 +1163,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-upd]")){e.preventDefault();startUpdate();return}  // it sits inside the "all projects" link
   {const f=e.target.closest("[data-fold]");if(f){toggleFold(f.dataset.fold);return}}
   {const l=e.target.closest("[data-lane]");if(l){laneAct(l.dataset.lane);return}}
+  if(e.target.closest("[data-merge]")){mergeAct();return}
   const ch=e.target.closest("[data-only]");if(ch){only=only===ch.dataset.only?"":ch.dataset.only;render();return}
   if(e.target.id==="follow"){follow=e.target.checked;gRows();return}
   const act=e.target.closest("[data-act]");if(act){const ov=$("#ov");if(act.dataset.act==="close")closeM();else{ov.classList.toggle(act.dataset.act==="full"?"full":"noside");if(act.dataset.act==="full")modal()}return}

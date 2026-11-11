@@ -27,6 +27,7 @@ project adds it there. The page (`board.html`) is one file with two views:
       api/chat/<ticket>                a ticket's chat (`chat.py`)
       POST api/decide                  approve or reject, with the cookie
       POST api/void {ticket, reason}   void an unfinished ticket for the human (with the cookie)
+      POST api/merge {ticket}          `mark merge` a pending-merge ticket in the background (with the cookie)
       POST api/stop                    stop the headless session, or with {"ticket"} its chat turn (with the cookie)
       POST api/new                     open a ticket and start talking it through (with the cookie)
       POST api/chat                    send the next message in a ticket's chat (with the cookie)
@@ -62,7 +63,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import chat, deps, flow, general, home, human, model, propose, runner, scaffold, states, tickets, upkeep, wizard
+from . import chat, deps, flow, general, home, human, merge, model, propose, runner, scaffold, states, tickets, upkeep, wizard
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .gitutil import git, worktrees
 from .i18n import t
@@ -195,7 +196,8 @@ def snapshot(cfg: MarkConfig, history: History) -> dict[str, object]:
         items.append({**tk.as_dict(), "dir": states.KIND_DIRS[tk.kind], "side": tk.side,
                       "branch": cfg.branch_for(tk.kind, tk.id),
                       "worktree": cfg.worktree_for(tk.kind, tk.id) if dirs["worktree"].is_dir() else "",
-                      "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist, "wait": waits_on(cfg, tk)})
+                      "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist, "wait": waits_on(cfg, tk),
+                      "merge": merge_view(cfg, tk)})
     return {"project": cfg.root.name, "locale": cfg.locale, "branch": cfg.main_branch,
             "tickets": items + general_lanes(cfg), "run": runner.view(cfg), "model": model.public(model.store(cfg))}
 
@@ -365,6 +367,69 @@ def void(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
     finally:
         token.unlink(missing_ok=True)
     return code == 0, out.getvalue().strip()
+
+
+MARK_BIN = Path(__file__).resolve().parents[2] / "bin" / "mark"
+
+
+def _merge_pid_path(cfg: MarkConfig, ticket_id: str) -> Path:
+    return cfg.state_dir / "locks" / f"{ticket_id}.merge.board.json"
+
+
+def merging(cfg: MarkConfig, ticket_id: str) -> bool:
+    """A `mark merge` of this ticket is running: the one the board started (queued or not), or
+    any other holding the merge lock."""
+    for path in (_merge_pid_path(cfg, ticket_id), cfg.state_dir / "locks" / merge.LOCK_NAME):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict) and data.get("owner", ticket_id) == ticket_id and runner._alive(data.get("pid")):
+            return True
+    return False
+
+
+def merge_view(cfg: MarkConfig, tk: tickets.Ticket) -> dict[str, str] | None:
+    """The Merge button on a `pending-merge` ticket: running | busy | blocked | failed | ready."""
+    if tk.status != states.MERGE:
+        return None
+    if merging(cfg, tk.id):
+        return {"state": "running", "text": ""}
+    if chat.running(cfg, tk.id) or (runner.running(cfg) or {}).get("ticket") == tk.id:
+        return {"state": "busy", "text": ""}  # a session on it merges by itself
+    blocked = flow.merge_blockers(cfg, tk)
+    if blocked:
+        return {"state": "blocked", "text": t(cfg.locale, blocked.key, **blocked.params)}
+    failed = flow.last_result(flow.Ctx(cfg, tk), "merge")
+    return {"state": "failed" if failed else "ready", "text": (failed or {}).get("reason", "")}
+
+
+def start_merge(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
+    """The human's Merge button: `mark merge <id>` in a process of its own, so the regression
+    never holds a request and survives a board restart. Call under `board.lock`."""
+    ticket = req.get("ticket")
+    if _known(cfg, ticket) is None:
+        return False, "bad request"
+    view = merge_view(cfg, flow.load(cfg, ticket).ticket)
+    if view is None:
+        return False, "merge.notReady"
+    if view["state"] not in ("ready", "failed"):
+        return False, view["text"] or f"merge.{view['state']}"
+    locks = cfg.state_dir / "locks"
+    locks.mkdir(parents=True, exist_ok=True)
+    pid_path = _merge_pid_path(cfg, ticket)
+    env = {**os.environ, "PATH": os.pathsep.join([str(MARK_BIN.parent), os.environ.get("PATH", "")])}
+    with open(locks / f"{ticket}.merge.board.log", "w") as fh:
+        proc = subprocess.Popen([sys.executable, str(MARK_BIN), "merge", ticket], cwd=cfg.root, env=env,
+                                stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT, start_new_session=True)
+    pid_path.write_text(json.dumps({"pid": proc.pid}), encoding="utf-8")
+
+    def reap() -> None:  # a finished merge reads as dead, and its pid is never mistaken for a later process
+        proc.wait()
+        pid_path.unlink(missing_ok=True)
+
+    threading.Thread(target=reap, daemon=True).start()
+    return True, ""
 
 
 RUN_AFTER = ("review", "blocked")  # opening and drafting need the human in the conversation
@@ -682,6 +747,10 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
             elif path == "/api/void":
                 with board.lock:
                     ok, text = void(cfg, body)
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
+            elif path == "/api/merge":
+                with board.lock:
+                    ok, text = start_merge(cfg, body)
                 self._json(200 if ok else 409, {"ok": ok, "text": text})
             elif path == "/api/stop":
                 tid = body.get("ticket")

@@ -15,7 +15,8 @@ Argument: `$ARGUMENTS`
 2. Loop as after `/mark:approve` (`mark next`, dispatch, record, merge) until the next human
    gate, a stop, or `passed`, reporting each step in one line. The human's decision, if any, is
    already recorded; this command carries no approval of its own. If `mark next` asks for a
-   human decision, report it and stop.
+   human decision, report it and stop. `pending-merge` is not a human decision: when `mark next`
+   says merge, run `mark merge <id>` yourself; never ask the human to merge.
 3. Run every agent and `mark merge` in the **foreground**: wait for each to finish before the
    next step. A headless session ends when you stop, and anything still running in the
    background ends with it.

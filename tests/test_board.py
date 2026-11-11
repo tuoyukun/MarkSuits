@@ -284,6 +284,54 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(code, 409)
         self.no_tokens_left()
 
+    def test_merge_button_starts_mark_merge_in_the_background(self):
+        add_ticket(self.root, "feature", "0004-d", "pending-merge", gates=("ticket-approved",), leftover="0")
+        view = lambda: next(t["merge"] for t in board.snapshot(self.cfg, board.History(self.cfg))["tickets"]
+                            if t["id"] == "0004-d")
+        self.assertEqual(view(), {"state": "ready", "text": ""})
+        self.assertIsNone(next(t["merge"] for t in board.snapshot(self.cfg, board.History(self.cfg))["tickets"]
+                               if t["id"] == "0001-a"))
+        self.assertEqual(self.post(self.p + "/api/merge", {"ticket": "0004-d"})[0], 403)
+        cookie = self.login()
+        self.assertEqual(self.post(self.p + "/api/merge", {"ticket": "0001-a"}, cookie=cookie)[1]["text"], "merge.notReady")
+
+        done = threading.Event()
+        proc = mock.Mock(pid=os.getpid(), wait=lambda: done.wait(5))  # alive until the test lets it finish
+        # patch only the merge launch: git still uses the real Popen
+        real = board.subprocess.Popen
+        launch = lambda argv, **kw: proc if argv[-2:-1] == ["merge"] else real(argv, **kw)
+        with mock.patch.object(board.subprocess, "Popen", side_effect=launch) as popen:
+            code, res, _ = self.post(self.p + "/api/merge", {"ticket": "0004-d"}, cookie=cookie)
+            self.assertEqual(code, 200, res)
+            call = next(c for c in popen.call_args_list if c.args[0][-2:-1] == ["merge"])
+            self.assertEqual(call.args[0][-2:], ["merge", "0004-d"])
+            self.assertTrue(call.kwargs["start_new_session"])
+            self.assertEqual(board.merge_view(self.cfg, flow.load(self.cfg, "0004-d").ticket)["state"], "running")
+            self.assertEqual(self.post(self.p + "/api/merge", {"ticket": "0004-d"}, cookie=cookie)[1]["text"],
+                             "merge.running")
+            self.assertEqual(sum(c.args[0][-2:-1] == ["merge"] for c in popen.call_args_list), 1)
+        done.set()
+        pid_file = self.root / ".mark" / "locks" / "0004-d.merge.board.json"
+        for _ in range(50):
+            if not pid_file.exists():
+                break
+            threading.Event().wait(0.05)
+        self.assertEqual(view()["state"], "ready")
+
+        # a failed merge shows its reason and offers a retry
+        (self.root / ".mark" / "locks" / "0004-d.merge.result.json").write_text(
+            json.dumps({"at": 9e12, "result": "FAILED", "reason": "regression red"}))
+        self.assertEqual(view(), {"state": "failed", "text": "regression red"})
+
+    def test_merge_button_waits_for_a_session_and_for_merge_after(self):
+        add_ticket(self.root, "feature", "0004-d", "pending-merge", gates=("ticket-approved",), leftover="0")
+        tk = lambda: flow.load(load_config(self.root), "0004-d").ticket
+        with mock.patch.object(board.chat, "running", return_value=123):
+            self.assertEqual(board.merge_view(self.cfg, tk())["state"], "busy")
+        with mock.patch.object(board.flow, "merge_blockers", return_value=flow.FlowError("merge.waiting", id="0004-d", deps="0001-a")):
+            self.assertEqual(board.merge_view(self.cfg, tk())["state"], "blocked")
+            self.assertEqual(board.start_merge(self.cfg, {"ticket": "0004-d"})[0], False)
+
     def test_after_a_decision_a_waiting_session_carries_on_else_a_runner_starts(self):
         cookie = self.login()
         wait.path(self.cfg, "0001-a").parent.mkdir(parents=True, exist_ok=True)
