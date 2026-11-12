@@ -1,5 +1,5 @@
 // Mark menu bar app: runs the board server (`mark board --serve`) while it runs, shows how many
-// gates wait on the human, and offers Open / Check for Updates / Preferences / Quit. Once a day (or on
+// gates wait on the human, and offers Open / Check for Updates / Preferences / About / Quit. Once a day (or on
 // Check for Updates, which reports the result) it updates the Claude
 // plugin (`mark app update`); when that moved, it rebuilds itself from the new plugin and restarts
 // the board (SIGHUP: in place, logins kept) once no session runs. Built by `mark app install` (lib/mark/app.py), which writes
@@ -92,7 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var port: Int?
     var prefs: NSWindow?
     var loginBox: NSButton?
-    var noteLabel: NSTextField?
+    var projects: Int?
 
     func applicationDidFinishLaunching(_ note: Notification) {
         if NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).count > 1 {
@@ -107,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Open", action: #selector(open), keyEquivalent: "o")
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkNow), keyEquivalent: "")
         menu.addItem(withTitle: "Preferences…", action: #selector(showPrefs), keyEquivalent: ",")
+        menu.addItem(withTitle: "About Mark", action: #selector(showAbout), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Mark", action: #selector(quit), keyEquivalent: "q")
         item.menu = menu
@@ -170,6 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async {
                 guard let self, let obj else { self?.show(nil); return }
                 let projects = obj["projects"] as? [[String: Any]] ?? []
+                self.projects = projects.count
                 let human = projects.reduce(0) { $0 + ($1["human"] as? Int ?? 0) }
                 self.show(human)
                 if self.restartPending, !projects.contains(where: { $0["running"] as? Bool == true }) {
@@ -186,7 +188,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.title = (human ?? 0) > 0 ? " \(human!)" : ""
         item.button?.toolTip = human == nil ? "Mark: board starting…"
             : human! > 0 ? "Mark: \(human!) waiting on you" : "Mark: nothing waits on you"
-        noteLabel?.stringValue = prefsNote()
     }
 
     @objc func open() { _ = mark(["board"], wait: false) }  // opens the browser signed in
@@ -198,35 +199,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 
-    // MARK: Preferences
+    // MARK: About
 
-    func prefsNote() -> String {
-        "Mark \(markVersion)" + (port.map { " · board on 127.0.0.1:\($0)" } ?? "")
-            + "\nUpdates the Claude plugin once a day."
+    /// Versions, the board and where Mark keeps its state; `mark --version` runs off the main thread.
+    @objc func showAbout() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let plugin = markVersionNow()
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.icon = logo(64, template: false)
+                alert.messageText = "Mark \(markVersion)"
+                alert.informativeText = [
+                    "Plugin: " + (plugin.isEmpty ? "not found" : plugin)
+                        + (plugin.isEmpty || plugin.hasSuffix(markVersion) ? "" : " (this app takes it at its next launch)"),
+                    "Board: " + (self.port.map { "127.0.0.1:\($0)" } ?? "starting…")
+                        + (self.projects.map { " · \($0) project\($0 == 1 ? "" : "s")" } ?? ""),
+                    "State: " + markHome().path,
+                    "Updates the Claude plugin once a day.",
+                ].joined(separator: "\n")
+                alert.addButton(withTitle: "OK")
+                alert.addButton(withTitle: "GitHub")
+                NSApp.activate(ignoringOtherApps: true)
+                if alert.runModal() == .alertSecondButtonReturn,
+                   let url = URL(string: "https://github.com/tuoyukun/MarkSuits") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
     }
+
+    // MARK: Preferences
 
     @objc func showPrefs() {
         if prefs == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 150), styleMask: [.titled, .closable],
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 60), styleMask: [.titled, .closable],
                              backing: .buffered, defer: false)
             w.title = "Mark Preferences"
             w.isReleasedWhenClosed = false
             let box = NSButton(checkboxWithTitle: "Launch Mark at login", target: self, action: #selector(toggleLogin))
-            let label = NSTextField(wrappingLabelWithString: "")
-            label.isSelectable = true
-            label.textColor = .secondaryLabelColor
-            let stack = NSStackView(views: [box, label])
+            let stack = NSStackView(views: [box])
             stack.orientation = .vertical
             stack.alignment = .leading
             stack.spacing = 12
             stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
             w.contentView = stack
-            label.widthAnchor.constraint(equalToConstant: 400).isActive = true
-            (prefs, loginBox, noteLabel) = (w, box, label)
+            (prefs, loginBox) = (w, box)
             w.center()
         }
         loginBox?.state = FileManager.default.fileExists(atPath: loginPlist.path) ? .on : .off
-        noteLabel?.stringValue = prefsNote()
         NSApp.activate(ignoringOtherApps: true)
         prefs?.makeKeyAndOrderFront(nil)
     }

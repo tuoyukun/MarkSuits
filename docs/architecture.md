@@ -605,7 +605,7 @@ run it (`MARK_WRITES`). In live runs Claude used it 6/6 times with valid JSON an
 the answers.
 
 **Model (v0.54).** The harness is always the Claude Code CLI; the model is set on the board (the
-"Model" button in the sidebar or on the home page, cookie required) and kept in `MARK_HOME/model.json` (mode 600; one
+"Model" button on the home page, cookie required) and kept in `MARK_HOME/model.json` (mode 600; one
 setting for every project since v0.58, seeded from the first project's old `<state>/locks/model.json`). It keeps named profiles and the one in use (v0.57: add, edit, delete, click to switch;
 a v0.54 single-settings file reads as one profile). Default profile `opus`:
 `{"provider": "anthropic", "model": "opus"}`, the CLI's own login with `--model=opus`. `"custom"` adds a base URL and an API key for an Anthropic-compatible endpoint such

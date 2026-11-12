@@ -490,11 +490,16 @@ def summary(cfg: MarkConfig) -> dict[str, object]:
     """A project's card on the home page: counts only, no git history."""
     tks = tickets.all_tickets(cfg)
     live = [tk for tk in tks if tk.side != "terminal"]
-    times = [tk.path.stat().st_mtime for tk in tks if tk.exists]
+    mtimes = {tk.id: tk.path.stat().st_mtime for tk in tks if tk.exists}
+    times = list(mtimes.values())
     stuck = sum(stalled(cfg, tk) for tk in live)
+    week = _dt.datetime.now().timestamp() - 7 * 86400
     return {"name": cfg.root.name, "locale": cfg.locale, "total": len(tks),
             "human": sum(tk.side == "human" for tk in tks) + stuck, "agent": sum(tk.side == "agent" for tk in tks) - stuck,
             "done": len(tks) - len(live),
+            # a finished ticket's status file is last written when it finishes
+            "done7": sum(mtimes.get(tk.id, 0) > week for tk in tks if tk.side == "terminal"),
+            "kinds": {k: sum(tk.kind == k for tk in live) for k in states.KINDS},
             "running": any(runner.running(cfg, tk.id) or chat.running(cfg, tk.id) for tk in live),
             "at": _dt.datetime.fromtimestamp(max(times)).astimezone().isoformat(timespec="seconds") if times else ""}
 

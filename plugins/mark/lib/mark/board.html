@@ -313,8 +313,7 @@ a.ws:hover .sub{display:none}
 .hsech{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--text2);margin:0 0 8px;padding:0 2px}
 .hsech b{font-weight:500;color:var(--mute);font-variant-numeric:tabular-nums}
 .ptable{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
-.pth,.pr{display:grid;grid-template-columns:minmax(0,1fr) 210px 150px 88px 36px;align-items:center;gap:16px;padding:0 10px 0 16px}
-.pth{height:34px;font-size:11.5px;color:var(--mute);border-bottom:1px solid var(--line)}
+.pr{display:grid;grid-template-columns:minmax(0,1fr) 210px 150px 88px 36px;align-items:center;gap:16px;padding:0 10px 0 16px}
 .pr{position:relative;min-height:60px;border-bottom:1px solid var(--line2);transition:background .12s}
 .pr:last-child{border-bottom:0}
 .pr:hover{background:var(--hover)}
@@ -342,6 +341,23 @@ a.ws:hover .sub{display:none}
 .dots{width:28px;height:28px;border:0;background:none;border-radius:6px;display:grid;place-items:center;color:var(--mute);cursor:pointer;opacity:0;transition:opacity .12s}
 .pr:hover .dots,.dots:focus-visible,.dots.on{opacity:1}.dots:hover,.dots.on{background:var(--line);color:var(--text)}
 .wrow{grid-template-columns:minmax(0,1fr) auto auto}
+.hstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:0 0 28px}
+.hst{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.hst small{font-size:11.5px;color:var(--mute)}.hst b{font-size:22px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.hst.wait b{color:var(--human)}.hst.run b{color:var(--brand)}.hst.ok b{color:var(--ok)}
+.pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:14px}
+.pc{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:14px;transition:border-color .12s,background .12s}
+.pc:hover{border-color:var(--faint)}
+.pc .go{position:absolute;inset:0;z-index:0;border-radius:inherit}
+.pc .go:focus-visible{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent);outline-offset:-2px}
+.pc>*{position:relative;pointer-events:none}.pc>.go{position:absolute;pointer-events:auto}.pc .dots,.pc .perr{pointer-events:auto}
+.pc:hover .dots{opacity:1}
+.pch{display:flex;align-items:center;gap:8px;min-width:0}.pch .pname{flex:1}
+.pcn{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pcn div{display:flex;flex-direction:column;gap:2px}.pcn small{font-size:11px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcn b{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}.pcn .hu b{color:var(--human)}.pcn .ag b{color:var(--brand)}.pcn .zero b{color:var(--faint)}
+.pcf{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--mute);border-top:1px solid var(--line2);padding-top:12px}
+.pc .perr{grid-column:auto;white-space:normal}
 .wrun{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
 .wact{display:flex;gap:6px}
 .pmenu{position:fixed;z-index:40;min-width:200px;background:var(--panel);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow-lg);padding:4px;display:none}
@@ -391,8 +407,6 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
 .wbar .pp{min-width:0}
 .content:has(>.wview){overflow:hidden}
 .whint{color:var(--mute);font-size:12px;margin:0 0 12px}
-.mbtn{all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--text2);min-width:0}
-.mbtn:hover{color:var(--text)}.mbtn code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chat{flex:1;display:flex;flex-direction:column;min-height:0}
 .msgs{flex:1;overflow:auto;padding:20px 28px;display:flex;flex-direction:column;gap:10px}
 .msg{max-width:760px;border-radius:10px;padding:10px 14px;font-size:13.5px;line-height:1.6;word-wrap:break-word}
@@ -411,7 +425,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
   .search{width:auto;flex:1}.crumb span,.crumb .p{display:none}.top{padding:0 16px}.col{flex-basis:260px;width:260px}
   .board{padding:4px 16px 16px}.top{flex-wrap:wrap;height:auto;min-height:48px;padding:8px 16px}.top .stats{order:9;flex-basis:100%;padding:0}.tbar{padding:10px 16px}.gw{margin:0 16px 16px;--namew:170px}.dur{padding:0 16px 24px}
   .dh,.dr{grid-template-columns:80px 1fr 1fr 56px}.dh>:nth-child(3),.dr>:nth-child(3){display:none}
-  .homeview{padding:20px 16px 40px}.drow{grid-template-columns:18px minmax(0,1fr)}.dacts{grid-column:2;justify-content:flex-start}.pth{display:none}.pr{grid-template-columns:minmax(0,1fr) auto 36px;gap:10px}.pr .prog,.pr .pupd{display:none}.perr{grid-column:2/3}.hacts{grid-template-columns:1fr}.top .hbtn span{display:none}
+  .homeview{padding:20px 16px 40px}.drow{grid-template-columns:18px minmax(0,1fr)}.dacts{grid-column:2;justify-content:flex-start}.pr{grid-template-columns:minmax(0,1fr) auto 36px;gap:10px}.pr .prog,.pr .pupd{display:none}.perr{grid-column:2/3}.hacts{grid-template-columns:1fr}.top .hbtn span{display:none}
   .mb{grid-template-columns:1fr}.mside{display:none}.doc .pad{padding:20px 16px}.modal{width:100vw;height:100vh;border-radius:0}
 }
 </style>
@@ -429,7 +443,6 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
     <button class="nav po kf" data-k="bug"><svg viewBox="0 0 16 16" fill="none" stroke="var(--bad)" stroke-width="1.5" style="color:var(--bad)"><rect x="2.5" y="2.5" width="11" height="11" rx="3"/><circle cx="8" cy="8" r="1.6" fill="var(--bad)" stroke="none"/></svg>Bug</button>
     <button class="nav po kf" data-k="general"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="3"/><path d="M5.5 8h5" stroke-linecap="round"/></svg>General</button>
     <div class="sbfoot">
-      <button class="mbtn" data-model title=""><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="3.5" width="9" height="9" rx="2"/><path d="M6 1.5v2M10 1.5v2M6 12.5v2M10 12.5v2M1.5 6h2M1.5 10h2M12.5 6h2M12.5 10h2"/></svg><span data-i="modelH"></span> <code id="mLabel"></code></button>
       <span class="live" id="live"><i></i><span id="liveText"></span></span>
       <span>127.0.0.1:<code id="port"></code> · <span id="mode"></span></span>
     </div>
@@ -525,7 +538,7 @@ const I18N={
   "home.isMark":"Already a Mark project: add it on the home page instead.","home.noParent":"The parent directory does not exist.","home.notDir":"That path is a file, not a directory.",
   projects:"Projects",allProjects:"All projects",addProj:"Add existing project",add:"Add project",remove:"Remove from list",pRunning:"A session is running",
   addHint:"A repository where Mark is already set up (it has .mark/config.toml). Any directory inside it works too.",aDirL:"Project directory (full path)",hTip:"Running this in a Mark project also adds it here:",
-  colName:"Name",colState:"Status",colProg:"Progress",colUpd:"Updated",nProj:"{n} projects",nProj1:"1 project",nWait:"{n} waiting on you",nRun:"{n} running",
+  stProj:"Projects",stRun:"Sessions running",stDone7:"Done in 7 days",pcUpd:"Updated {t}",
   openBoard:"Open board",openTab:"Open in new tab",copyPath:"Copy path",copied:"Path copied",langSw:"中文",void:"Void",voidAsk:"Void {id}? It stops here for good: its worktree and branch are removed (the commit is printed so it can be recovered). Reason (optional):",rmAsk:"Remove \"{p}\" from the list? Nothing on disk is deleted; open its board again to bring it back.",
   wCont:"Continue",wReplying:"Claude is replying",wWaits:"Waiting for your reply",welcome:"Welcome to Mark",welcomeHint:"Every project's tickets, decisions and sessions in one place. Start a new project, or add one you already set up.",
   newProjD:"Pick a directory and say what you are building. Claude sets Mark up there with you.",addProjD:"A repository where /mark:init already ran.","home.already":"This project is already on the list.",
@@ -571,7 +584,7 @@ const I18N={
   "home.isMark":"这已经是 Mark 项目了，请在首页添加。","home.noParent":"上级目录不存在。","home.notDir":"这个路径是文件，不是目录。",
   projects:"项目",allProjects:"所有项目",addProj:"添加已有项目",add:"添加项目",remove:"从列表移除",pRunning:"有会话在运行",
   addHint:"已经配置过 Mark 的仓库（里面有 .mark/config.toml）。填仓库里的任意子目录也可以。",aDirL:"项目目录（完整路径）",hTip:"在 Mark 项目里运行这个命令，也会把项目加到这里：",
-  colName:"名称",colState:"状态",colProg:"进度",colUpd:"更新",nProj:"{n} 个项目",nProj1:"1 个项目",nWait:"{n} 项等你处理",nRun:"{n} 个会话在运行",
+  stProj:"项目",stRun:"运行中的会话",stDone7:"近 7 天完成",pcUpd:"{t}更新",
   openBoard:"打开看板",openTab:"在新标签页打开",copyPath:"复制路径",copied:"已复制路径",langSw:"EN",void:"作废",voidAsk:"作废 {id}？工单就此终止，worktree 和分支会被删除（会打印末端提交，可恢复）。原因（可选）：",rmAsk:"从列表移除「{p}」？磁盘上的文件不会被删除，再打开它的看板就会回来。",
   wCont:"继续",wReplying:"Claude 正在回复",wWaits:"等你回复",welcome:"欢迎使用 Mark",welcomeHint:"所有项目的工单、待你决定的事和后台会话，都在这里。新建一个项目，或者添加已经配置好的项目。",
   newProjD:"选一个目录，说说你要做什么，Claude 和你一起把 Mark 配置好。",addProjD:"已经运行过 /mark:init 的仓库。","home.already":"这个项目已经在列表里了。",
@@ -780,13 +793,13 @@ const ICO={board:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" str
   dots:'<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg>'};
 function ava(p,cls=""){return `<span class="ava ${cls}" style="--h:${parseInt(p.id.slice(0,6),16)%360}">${esc((p.name[0]||"?").toUpperCase())}</span>`}
 function pname(p,cls){return `<div class="pname">${ava(p,cls)}<span class="tx"><b><span class="nm">${esc(p.name)}</span>${p.running?`<i class="rund" title="${tr("pRunning")}"></i>`:""}</b><small title="${esc(p.root||p.dir)}">${esc(p.path)}</small></span></div>`}
-function prow(p){const dots=`<button class="dots" data-pm="${esc(p.id)}" aria-haspopup="menu" aria-label="${esc(p.name)}">${ICO.dots}</button>`;
-  if(p.error){const m=tr(p.error)??p.error;return `<div class="pr">${pname(p,"off")}<div class="perr" title="${esc(m)}">${esc(m)}</div>${dots}</div>`}
-  const t=p.total||0,w=n=>t?n/t*100+"%":"0";
-  return `<div class="pr"><a class="go" href="/p/${esc(p.id)}/" aria-label="${esc(p.name)}"></a>${pname(p,"")}
-   <div class="pwait">${p.human?`<span class="tag wait">${tr("sWait")} ${p.human}</span>`:""}${p.agent?`<span class="tag run">${tr("sAgent")} ${p.agent}</span>`:""}${p.human||p.agent?"":`<span class="zero">—</span>`}</div>
+function pcard(p){const dots=`<button class="dots" data-pm="${esc(p.id)}" aria-haspopup="menu" aria-label="${esc(p.name)}">${ICO.dots}</button>`;
+  if(p.error){const m=tr(p.error)??p.error;return `<div class="pc"><div class="pch">${pname(p,"off")}${dots}</div><div class="perr" title="${esc(m)}">${esc(m)}</div></div>`}
+  const t=p.total||0,w=n=>t?n/t*100+"%":"0",n=(c,k,v)=>`<div class="${v?c:"zero"}"><small>${tr(k)}</small><b>${v}</b></div>`,ks=p.kinds||{};
+  return `<div class="pc"><a class="go" href="/p/${esc(p.id)}/" aria-label="${esc(p.name)}"></a><div class="pch">${pname(p,"")}${dots}</div>
+   <div class="pcn">${n("hu","sWait",p.human)}${n("ag","sAgent",p.agent)}${n("dn","sDone",p.done)}</div>
    <div class="prog" title="${tr("sDone")} ${p.done} / ${t}"><span class="trk"><i class="dn" style="width:${w(p.done)}"></i><i class="ag" style="width:${w(p.agent)}"></i><i class="hu" style="width:${w(p.human)}"></i></span><span>${p.done}/${t}</span></div>
-   <div class="pupd">${ago(p.at)||"—"}</div>${dots}</div>`}
+   <div class="pcf">${Object.entries(ks).filter(([,v])=>v).map(([k,v])=>`<span class="tag">${k[0].toUpperCase()+k.slice(1)} ${v}</span>`).join("")}<span class="grow"></span><span>${p.at?tr("pcUpd").replace("{t}",ago(p.at)):"—"}</span></div></div>`}
 function wrow(w){const on=data.decide==="on";
   return `<div class="pr wrow"><a class="go" href="#w=${esc(w.id)}" aria-label="${esc(w.name)}"></a>${pname({...w,running:false},"wz")}
    <div class="wrun">${w.running?`<i class="rund"></i>${tr("wReplying")}`:`<span class="tag wait">${tr("wWaits")}</span>`}<span class="pupd">${ago(w.started*1000)}</span></div>
@@ -804,10 +817,11 @@ function renderHome(){
     ${on?`<div class="hacts"><button class="hact" data-wiz><span class="ic">${ICO.plus}</span><b>${tr("newProj")}</b><small>${tr("newProjD")}</small></button>
       <button class="hact" data-padd><span class="ic">${ICO.folder}</span><b>${tr("addProj")}</b><small>${tr("addProjD")}</small></button></div>`:`<p>${esc(tr("needLogin"))}</p>`}
     <p class="htip">${tr("hTip")} <code>/mark:board</code></p></div>${foot}</div>`;return}
-  const hum=ps.reduce((a,p)=>a+(p.human||0),0),run=ps.filter(p=>p.running).length;
-  $("#content").innerHTML=`<div class="homeview"><div class="hhead"><div><h1>${tr("projects")}</h1><div class="hsum"><span class="tag">${ps.length===1?tr("nProj1"):tr("nProj").replace("{n}",ps.length)}</span>${hum?`<span class="tag wait">${tr("nWait").replace("{n}",hum)}</span>`:""}${run?`<span class="tag run">${tr("nRun").replace("{n}",run)}</span>`:""}</div></div></div>${depsBox(on)}
+  const sum=k=>ps.reduce((a,p)=>a+(p[k]||0),0),st=(c,k,v)=>`<div class="hst ${v?c:""}"><small>${tr(k)}</small><b>${v}</b></div>`;
+  $("#content").innerHTML=`<div class="homeview"><div class="hhead"><div><h1>${tr("projects")}</h1></div></div>${depsBox(on)}
+   ${ps.length?`<div class="hstats">${st("","stProj",ps.length)}${st("wait","sWait",sum("human"))}${st("run","stRun",ps.filter(p=>p.running).length)}${st("run","sAgent",sum("agent"))}${st("ok","stDone7",sum("done7"))}</div>`:""}
    ${ws.length?`<div class="hsec"><div class="hsech">${tr("wSetting")} <b>${ws.length}</b></div><div class="ptable">${ws.map(wrow).join("")}</div></div>`:""}
-   ${ps.length?`<div class="hsec"><div class="ptable"><div class="pth"><span>${tr("colName")}</span><span>${tr("colState")}</span><span>${tr("colProg")}</span><span>${tr("colUpd")}</span><span></span></div>${ps.map(prow).join("")}</div></div>`:""}${foot}</div>`;
+   ${ps.length?`<div class="hsec"><div class="pcards">${ps.map(pcard).join("")}</div></div>`:""}${foot}</div>`;
   const m=$("#pm");if(m.classList.contains("on"))$(`[data-pm="${CSS.escape(m.dataset.id)}"]`)?.classList.add("on")}
 const DEPCMD={python:"brew install python",model:"claude auth login"};
 let deps=null,depTimer=0;
@@ -870,7 +884,7 @@ function render(){
   if(HOME)return renderHome();
   document.querySelectorAll("[data-i]").forEach(e=>e.textContent=tr(e.dataset.i));
   $("#q").placeholder=tr("search");$("#pname").textContent=data.project;$("#crumbP").textContent=data.project;$("#psub").textContent=`Mark · ${data.branch}`;
-  $("#port").textContent=location.port;$("#mode").textContent=tr(data.decide==="on"?"canDecide":"readonly");$("#newBtn").hidden=data.decide!=="on";$("#mLabel").textContent=data.model.label;document.title=`${data.project} · Mark`;
+  $("#port").textContent=location.port;$("#mode").textContent=tr(data.decide==="on"?"canDecide":"readonly");$("#newBtn").hidden=data.decide!=="on";document.title=`${data.project} · Mark`;
   $("#nAll").textContent=data.tickets.length;const nh=data.tickets.filter(isHuman).length;$("#nHuman").textContent=nh;$("#nHuman").classList.toggle("zero",!nh);
   $("#vt").textContent=tr(view);
   const all=data.tickets.filter(t=>kind==="all"||t.kind===kind),v=visible();

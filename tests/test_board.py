@@ -333,6 +333,16 @@ class DecideTest(unittest.TestCase):
             self.assertEqual(board.merge_view(self.cfg, tk())["state"], "blocked")
             self.assertEqual(board.start_merge(self.cfg, {"ticket": "0004-d"})[0], False)
 
+    def test_the_home_card_counts_live_tickets_by_kind_and_tickets_finished_this_week(self):
+        add_ticket(self.root, "feature", "0006-f", "passed")
+        d = add_ticket(self.root, "feature", "0007-g", "passed")
+        old = os.path.getmtime(d / "status.md") - 8 * 86400
+        os.utime(d / "status.md", (old, old))
+        s = board.summary(load_config(self.root))
+        self.assertEqual(s["done7"], 1)
+        self.assertEqual(s["kinds"]["feature"], s["total"] - s["done"])
+        self.assertEqual(s["kinds"]["bug"], 0)
+
     def test_a_ticket_nothing_moves_on_is_stalled_and_continue_starts_its_runner(self):
         d = add_ticket(self.root, "feature", "0005-e", "developing", gates=("ticket-approved",))
         cfg = load_config(self.root)
