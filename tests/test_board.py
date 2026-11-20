@@ -402,6 +402,15 @@ class DecideTest(unittest.TestCase):
         self.run_start.assert_called_once_with(self.cfg, "0002-b")
         self.assertEqual(self.post(self.p + "/api/stop", {})[0], 403)
 
+    def test_a_merge_rejection_carries_on_with_a_runner(self):
+        add_ticket(self.root, "feature", "0004-d", "pending-merge", gates=("ticket-approved",), leftover="0")
+        code, res, _ = self.post(self.p + "/api/decide", {"ticket": "0004-d", "verb": "reject",
+                                                          "items": ["move covers into the test block"]},
+                                 cookie=self.login())
+        self.assertEqual(code, 200, res)
+        self.assertEqual((self.status("0004-d"), res["note"]), ("failed-impl", "run.started"))
+        self.run_start.assert_called_once_with(self.cfg, "0004-d")
+
     def test_reject_records_each_line_as_an_item(self):
         code, res, _ = self.post(self.p + "/api/decide", {"ticket": "0001-a", "verb": "reject", "items": ["too big", "split it"]},
                                  cookie=self.login())

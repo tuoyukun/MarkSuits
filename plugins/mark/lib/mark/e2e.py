@@ -131,8 +131,27 @@ def _strip(text: str) -> str:
 class Block:
     title: str
     modifier: str       # "" or only / skip / fixme / ...
-    body: str           # source text of the whole call, comments and strings kept
+    body: str           # the whole call plus the comment lines directly above it
     code: str           # the same span with comments and string contents blanked
+
+
+def _comment_start(text: str, start: int) -> int:
+    """Where a test's own comment block starts: the contiguous `//` or `/* */` lines
+    directly above it, where its `covers:` may sit instead of inside the call."""
+    pos = start
+    while pos > 0:
+        begin = text.rfind("\n", 0, pos - 1) + 1
+        line = text[begin:pos].strip()
+        if line.startswith("//"):
+            pos = begin
+        elif line.endswith("*/"):
+            at = text.rfind("/*", 0, pos)
+            if at < 0 or text[text.rfind("\n", 0, at) + 1:at].strip():
+                break
+            pos = text.rfind("\n", 0, at) + 1
+        else:
+            break
+    return pos
 
 
 def extract_tests(text: str) -> list[Block]:
@@ -140,7 +159,7 @@ def extract_tests(text: str) -> list[Block]:
     code = _strip(text)
     blocks: list[Block] = []
     for m in _TEST_START.finditer(code):
-        start = m.start()
+        start = _comment_start(text, m.start())
         title_m = re.match(r"\s*(['\"`])(.*?)\1", text[m.end():], re.S)
         title = title_m.group(2) if title_m else ""
         depth, end = 0, None

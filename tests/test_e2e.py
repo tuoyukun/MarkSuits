@@ -119,6 +119,15 @@ class SourceRulesTest(unittest.TestCase):
 
 
 class LayoutCoverageTest(unittest.TestCase):
+    def test_a_covers_comment_above_the_test_belongs_to_it(self):
+        spec = ('// covers: 0001/AC-1\n'
+                'test("one", async ({ page }) => {\n  await page.goto("/");\n});\n'
+                '/* covers: 0001/AC-2 */\ntest("two", async ({ page }) => {\n  await page.goto("/");\n});\n')
+        bodies = {b.title: b.body for b in e2e.extract_tests(spec)}
+        self.assertIn("covers: 0001/AC-1", bodies["one"])
+        self.assertNotIn("AC-2", bodies["one"])
+        self.assertIn("covers: 0001/AC-2", bodies["two"])
+
     def test_layout_allows_regression_and_the_own_ticket_only(self):
         self.assertTrue(e2e.in_layout("tests/regression/a.spec.ts", "tests"))
         self.assertTrue(e2e.in_layout("tests/tickets/0001-a/a.spec.ts", "tests"))

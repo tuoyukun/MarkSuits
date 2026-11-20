@@ -124,6 +124,8 @@ class RunnerTest(unittest.TestCase):
         os.environ["FAKE_CLAUDE"] = "done"
         self.assertEqual(board.carry_on(self.cfg, "0001-a", review, had_waiter=False), "run.started")
         wait_dead(self.cfg)
+        self.assertEqual(board.carry_on(self.cfg, "0001-a", {"kind": "merge"}, had_waiter=False), "run.started")
+        wait_dead(self.cfg)
 
     def test_run_off(self):
         cfg_path = self.root / ".mark" / "config.toml"

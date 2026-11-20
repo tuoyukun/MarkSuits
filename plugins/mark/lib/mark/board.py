@@ -467,7 +467,9 @@ def carry_on_stalled(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
     return started, "" if started else f"run.{why}"
 
 
-RUN_AFTER = ("review", "blocked")  # opening and drafting need the human in the conversation
+# Kinds after which a board decision starts a headless session: opening and drafting need
+# the human in the conversation, while a rejected merge goes back to the agents.
+RUN_AFTER = ("review", "blocked", "merge")
 
 
 def carry_on(cfg: MarkConfig, ticket: str, before: dict | None, had_waiter: bool) -> str:
@@ -783,7 +785,10 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                     before = wait.state(cfg, tid) if isinstance(tid, str) else None
                     had_waiter = isinstance(tid, str) and wait.waiter(cfg, tid) is not None
                     ok, text = decide(cfg, body)
-                    note = carry_on(cfg, tid, before[1] if before else None, had_waiter) if ok else ""
+                    prior = before[1] if before else None
+                    if before and prior is None and before[0] == states.MERGE:
+                        prior = {"kind": "merge"}  # a rejected merge: carry the ticket on
+                    note = carry_on(cfg, tid, prior, had_waiter) if ok else ""
                 self._json(200 if ok else 409, {"ok": ok, "text": text, "note": note})
             elif path == "/api/void":
                 with board.lock:
