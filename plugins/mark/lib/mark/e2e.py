@@ -506,16 +506,18 @@ def acceptance_tests(root, tests_dir: str, ticket_id: str, profile: str) -> dict
     return out
 
 
-def coverage_problems(plan_text: str, tests: dict[str, tuple[str, str]], ref: str) -> list[Problem]:
+def coverage_problems(plan_text: str, tests: dict[str, tuple[str, str]], ref: str,
+                      full_id: str = "") -> list[Problem]:
     """Strict one test per criterion: every non-unit AC has exactly one acceptance test, and
-    each test declares exactly one of this ticket's criteria in its `covers:`."""
+    each test declares exactly one of this ticket's criteria in its `covers:`, naming either
+    its short ref (`0001`) or its full id (`0001-skeleton`)."""
     acs = criteria(plan_text)
     if not acs:
         return []
     by_ac: dict[str, list[str]] = {ac: [] for ac in acs}
     out: list[Problem] = []
     for title, (_, body) in sorted(tests.items()):
-        own = sorted({ac for ticket, ac in _COVER.findall(body) if ticket == ref and ac in acs})
+        own = sorted({ac for ticket, ac in _COVER.findall(body) if ticket in (ref, full_id) and ac in acs})
         if len(own) != 1:
             out.append(Problem("e2e.ac_not_one", title))
         for ac in own:

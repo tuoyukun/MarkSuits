@@ -143,6 +143,12 @@ class LayoutCoverageTest(unittest.TestCase):
         self.assertEqual(e2e.criteria(text), {"AC-1": False, "AC-2": False, "AC-3": True})
         self.assertEqual(e2e.coverage_problems(text, tests, "0001"), [])
 
+    def test_covers_may_name_the_full_ticket_id(self):
+        text = acceptance("AC-1")
+        tests = {"one": ("tests/tickets/0001-a/a.spec.ts", "// covers: 0001-a/AC-1\n")}
+        self.assertEqual(e2e.coverage_problems(text, tests, "0001", "0001-a"), [])
+        self.assertEqual([p.key for p in e2e.coverage_problems(text, tests, "0001")], ["e2e.ac_not_one", "e2e.ac_uncovered"])
+
     def test_coverage_names_the_missing_shared_and_multi_criteria_tests(self):
         text = acceptance("AC-1", "AC-2", "AC-3")
         tests = {"one": ("tests/tickets/0001-a/a.spec.ts", "// covers: 0001/AC-1\n"),

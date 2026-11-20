@@ -236,7 +236,7 @@ def _e2e_check(cfg, worktree: Path, base: str, ticket_id: str | None = None,
     if ticket_id and plan_text:
         problems = e2e.coverage_problems(
             plan_text, e2e.acceptance_tests(worktree, tests_dir, ticket_id, profile),
-            tickets.ref_of(kind, ticket_id))
+            tickets.ref_of(kind, ticket_id), ticket_id)
         if problems:
             raise FlowError("merge.e2e_coverage",
                             problems="\n".join(f"  - {t(cfg.locale, p.key)}: {p.where}" for p in problems))
