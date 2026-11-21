@@ -30,7 +30,7 @@ project adds it there. The page (`board.html`) is one file with two views:
       POST api/merge {ticket}          `mark merge` a pending-merge ticket in the background (with the cookie)
       POST api/stop {ticket}           stop the ticket's headless session and chat turn (with the cookie)
       POST api/continue {ticket}       start a headless session on a stalled ticket (with the cookie)
-      POST api/new                     open a ticket and start talking it through (with the cookie)
+      POST api/new                     open a ticket (or a general lane) and start talking it through (with the cookie)
       POST api/chat                    send the next message in a ticket's chat (with the cookie)
       POST api/lane {branch, verb}     merge or drop an upgrade lane (`upkeep.py`, with the cookie)
 
@@ -66,7 +66,7 @@ from urllib.parse import unquote
 
 from . import chat, deps, flow, general, home, human, merge, model, propose, runner, scaffold, states, tickets, upkeep, wizard
 from .config import ConfigError, MarkConfig, find_project_root, load_config
-from .gitutil import git, worktrees
+from .gitutil import git, ref_exists, worktrees
 from .i18n import t
 from .ports import in_use
 
@@ -82,6 +82,7 @@ SECRET_FD_ENV = "MARK_BOARD_SECRET_FD"  # a restart hands the session secret ove
 SERVICE_ENV = "MARK_SERVICE"  # set by the menu bar app (macos/Mark.swift): `mark board` never replaces or stops that board
 PAGE = Path(__file__).with_name("board.html")
 SOURCES = ("main", "worktree")
+GENERAL = "general"
 
 
 # --------------------------------------------------------------------------
@@ -233,6 +234,7 @@ def general_lanes(cfg: MarkConfig) -> list[dict[str, object]]:
     items = []
     for branch in out.splitlines():
         stamp = branch.removeprefix(general.PREFIX)
+        lane_id = f"general-{stamp}"
         try:
             at = _dt.datetime.strptime(stamp, "%Y%m%d-%H%M%S").astimezone().isoformat(timespec="seconds")
         except ValueError:
@@ -247,7 +249,8 @@ def general_lanes(cfg: MarkConfig) -> list[dict[str, object]]:
             job = upkeep.job(cfg, branch)
             extra = {"upgrade": True, "conflicts": general._conflict_markers(cfg, branch), "job": job,
                      "side": "agent" if job and job["state"] == "running" else "human"}
-        items.append({"kind": "general", "id": f"general-{stamp}", "status": "developing", "desc": subject or branch,
+        items.append({"kind": "general", "id": lane_id, "status": "developing",
+                      "desc": subject or chat.title(cfg, lane_id) or branch,
                       "owner": "orchestrator", "updater": "orchestrator", "note": note, "dir": "", "side": "",
                       "branch": branch, "worktree": os.path.relpath(wt, cfg.root) if wt else "",
                       "files": [], "gates": [], **extra, "history": [{"sha": "", "at": at, "status": "developing",
@@ -289,19 +292,48 @@ def resolve_file(cfg: MarkConfig, parts: list[str]) -> Path | None:
 
 
 def _known(cfg: MarkConfig, ticket: object) -> str | None:
-    """The ticket's kind, or None if no such ticket."""
+    """The ticket's kind, or None if no such ticket (a general lane's id stands for its branch)."""
     if not isinstance(ticket, str):
         return None
-    return next((k for k in states.KINDS if ticket in tickets.ticket_dirs(cfg, k)), None)
+    kind = next((k for k in states.KINDS if ticket in tickets.ticket_dirs(cfg, k)), None)
+    if kind is not None:
+        return kind
+    if ticket.startswith("general-") and ref_exists(cfg.root, f"refs/heads/chore/{ticket}"):
+        return GENERAL
+    return None
+
+
+def _lane_worktree(cfg: MarkConfig, lane_id: str) -> Path | None:
+    branch = f"chore/{lane_id}"
+    return next((p for p, b in worktrees(cfg.root) if b == branch), None)
+
+
+def general_note(branch: str, wt: Path) -> str:
+    """The system note for a general lane's chat: the board already opened the lane, so the skill
+    must not open another one."""
+    return (
+        "This is a headless session: you are talking with the human through the Mark web board, not a "
+        "terminal. They read your reply there and answer in their next message. AskUserQuestion does "
+        "not exist here: ask everything, choices included, as plain text (a short numbered list works). "
+        "When you need the human, end your turn; never start `mark wait`.\n"
+        f"A general lane is already open for this change: branch `{branch}`, worktree {wt}. Do not run "
+        "`mark general new`. Edit files in that worktree with absolute paths under it, never in the "
+        f"main checkout; commit there, then land it with `mark general merge {branch}`. If the change "
+        "turns out to need code, tests or UI, stop and tell the human it belongs in a feature or bug "
+        "ticket instead."
+    )
 
 
 def new_ticket(cfg: MarkConfig, req: dict) -> tuple[bool, str, str]:
-    """Open a ticket for the human, as their `/mark:feature` or `/mark:fix` would (a token for the
-    opening, then `claim`), and send their text as the first chat message. (ok, text, id)."""
+    """Open a ticket for the human, as their `/mark:feature`, `/mark:fix` or `/mark:general` would,
+    and send their text as the first chat message. A General ticket gets its lane cut here first,
+    so the chat has a card to live on. (ok, text, id)."""
     kind, text, slug = req.get("kind"), req.get("text"), req.get("slug") or None
-    if kind not in states.KINDS or not isinstance(text, str) or not text.strip() or len(text) > chat.TEXT_MAX \
-            or not (slug is None or isinstance(slug, str)):
+    if kind not in (*states.KINDS, GENERAL) or not isinstance(text, str) or not text.strip() \
+            or len(text) > chat.TEXT_MAX or not (slug is None or isinstance(slug, str)):
         return False, "bad request", ""
+    if kind == GENERAL:
+        return _new_lane(cfg, text.strip())
     desc = next(line.strip() for line in text.splitlines() if line.strip())[:tickets.DESC_MAX]
     verb = "feature" if kind == states.FEATURE else "fix"
     token = human.grant(cfg, verb, "", [], desc, source="board")
@@ -317,13 +349,36 @@ def new_ticket(cfg: MarkConfig, req: dict) -> tuple[bool, str, str]:
     return True, "" if started else f"chat.{why}", ticket.id
 
 
+def _new_lane(cfg: MarkConfig, text: str) -> tuple[bool, str, str]:
+    """The board's General ticket: cut the lane, then start `/mark:general` on it."""
+    try:
+        branch, wt, _ = general.new(cfg)
+    except flow.FlowError as exc:
+        return False, t(cfg.locale, exc.key, **exc.params), ""
+    except OSError as exc:
+        return False, str(exc), ""
+    lane_id = branch.removeprefix("chore/")
+    started, why = chat.start(cfg, GENERAL, lane_id, text, first=f"/mark:general {text}",
+                              note=general_note(branch, wt))
+    return True, "" if started else f"chat.{why}", lane_id
+
+
 def send(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
-    """The human's next chat message on a ticket: (started, why not)."""
+    """The human's next chat message on a ticket (or general lane): (started, why not)."""
     ticket, text = req.get("ticket"), req.get("text")
     kind = _known(cfg, ticket)
     if kind is None or not isinstance(text, str) or not text.strip() or len(text) > chat.TEXT_MAX:
         return False, "bad request"
-    started, why = chat.start(cfg, kind, ticket, text.strip())
+    text = text.strip()
+    if kind == GENERAL:
+        wt = _lane_worktree(cfg, ticket)
+        if wt is None:
+            return False, "bad request"
+        branch = f"chore/{ticket}"
+        started, why = chat.start(cfg, kind, ticket, text, first=f"/mark:general {text}",
+                                  note=general_note(branch, wt))
+    else:
+        started, why = chat.start(cfg, kind, ticket, text)
     return started, "" if started else f"chat.{why}"
 
 
@@ -809,8 +864,11 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                     ok, text = carry_on_stalled(cfg, body)
                 self._json(200 if ok else 409, {"ok": ok, "text": text})
             elif path == "/api/new":
-                with board.lock:
+                if body.get("kind") == GENERAL:  # [worktree] setup can take minutes: not under the lock
                     ok, text, tid = new_ticket(cfg, body)
+                else:
+                    with board.lock:
+                        ok, text, tid = new_ticket(cfg, body)
                 self._json(200 if ok else 409, {"ok": ok, "text": text, "id": tid})
             elif path == "/api/chat":
                 with board.lock:

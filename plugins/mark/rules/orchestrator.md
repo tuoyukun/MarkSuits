@@ -127,7 +127,8 @@ A change that belongs to no ticket (docs, prompts, role files, config) goes thro
 `/mark:general`: you edit it yourself on a throwaway lane (`mark general new`), commit there,
 and land it with `mark general merge <branch>`. A lane that will not land is removed with
 `mark general drop <branch>`; add `--force` only when the human says to discard its work. Code, tests and UI never go this way; they
-need `/mark:fix` or `/mark:feature`.
+need `/mark:fix` or `/mark:feature`. When the board opens a **General** ticket, it cuts the lane
+first: its note names the branch and worktree, so skip `mark general new` and work in that lane.
 
 When `mark status` or `mark next` says the project files are older than the plugin, tell the
 human once and offer `/mark:upgrade`; never land an upgrade lane without the human's yes.

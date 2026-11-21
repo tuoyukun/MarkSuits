@@ -41,12 +41,15 @@ to use another one with its own API key (DeepSeek or any Anthropic-compatible se
 - **New project**: pick a directory (a new one, or an existing repository without Mark) and say
   what you are building. Claude runs `/mark:init` there with you in a chat: it proposes the
   setup (stack, modules, tests), you confirm or correct it, and the project joins the board.
-- **Add existing project**: a repository that already uses Mark; paste its path.
+- **Add existing project**: a repository that already uses Mark; paste its path, or pick the
+  folder with Choose on macOS.
 
-**4. Start work.** Open the project and click **+ New ticket**. Talk the requirement through with
-Claude in the ticket's chat; when the requirement, the design and the plan are ready, approve
-them on the board. The rest runs on its own up to the merge. Prefer the terminal? In Claude
-Code inside the repository, `/mark:feature <what>` does the same.
+**4. Start work.** Open the project and click **+ New ticket**. Pick Feature, Bug or General and
+talk it through with Claude in the ticket's chat; when the requirement, the design and the plan
+are ready, approve them on the board. A General change (docs, config, prompts) skips the
+pipeline: the board opens a throwaway lane and Claude edits and lands it there. The rest runs on
+its own up to the merge. Prefer the terminal? In Claude Code inside the repository,
+`/mark:feature <what>` does the same.
 
 **5. Come back later.** Click the Mark icon in the menu bar, then **Open**; or run `mark board`.
 

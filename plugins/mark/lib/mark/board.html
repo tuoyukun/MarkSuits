@@ -472,7 +472,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
   <div class="modal nmodal dec" role="dialog" aria-modal="true">
     <div class="mh"><span class="t" data-i="newT"></span><span class="grow"></span><button class="ib" data-nclose><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
     <div class="pad">
-      <label for="nKind" data-i="type"></label><select id="nKind"><option value="feature">Feature</option><option value="bug">Bug</option></select>
+      <label for="nKind" data-i="type"></label><select id="nKind"><option value="feature">Feature</option><option value="bug">Bug</option><option value="general">General</option></select>
       <label for="nText" data-i="newText"></label><textarea id="nText" rows="8"></textarea>
       <label for="nSlug" data-i="newSlug"></label><input id="nSlug" maxlength="40" pattern="[a-z0-9-]*" placeholder="due-dates">
       <button class="btn pri" data-create data-i="create"></button><pre class="dout bad" id="nOut"></pre>
@@ -515,7 +515,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
     <div class="mh"><span class="t" data-i="addProj"></span><span class="grow"></span><button class="ib" data-aclose aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
     <div class="pad">
       <p class="whint" data-i="addHint"></p>
-      <label for="aDir" data-i="aDirL"></label><input id="aDir" placeholder="~/code/my-app" autocomplete="off" spellcheck="false">
+      <label for="aDir" data-i="aDirL"></label><div class="wdir"><input id="aDir" placeholder="~/code/my-app" autocomplete="off" spellcheck="false"><button class="btn" data-apick hidden data-i="wPick"></button></div>
       <pre class="dout bad" id="aOut"></pre>
       <div class="crow aact"><button class="btn pri" data-aadd data-i="add"></button><button class="btn" data-aclose type="button" data-i="cancel"></button></div>
       <p class="htip"><span data-i="hTip"></span> <code>/mark:board</code></p>
@@ -724,6 +724,8 @@ function icon(status,size=14){
 }
 const KSVG=(c,inner)=>`<svg class="kicon" viewBox="0 0 16 16" fill="none" stroke="${c}" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="3"/>${inner}</svg>`;
 const kindIcon=k=>k==="general"?KSVG("var(--mute)",'<path d="M5.5 8h5" stroke-linecap="round"/>'):k==="bug"?KSVG("var(--bad)",'<circle cx="8" cy="8" r="1.6" fill="var(--bad)" stroke="none"/>'):KSVG("var(--mute)",'<path d="M8 5.5v5M5.5 8h5" stroke-linecap="round"/>');
+// a general lane talks in the chat tab too; an upgrade lane uses its merge panel instead
+const canChat=t=>t.kind!=="general"||(!t.upgrade&&!!t.worktree);
 function av(role){if(!role)return"";const ini=role.split(/[-_ ]/).map(w=>w[0]||"").join("").slice(0,2).toUpperCase();
   return `<span class="av" title="${esc(role)}">${esc(ini)}</span>`}
 
@@ -863,7 +865,7 @@ function pmOpen(btn){const p=data.projects.find(x=>x.id===btn.dataset.pm),m=$("#
   m.classList.add("on");btn.classList.add("on");const r=btn.getBoundingClientRect();
   m.style.top=(r.bottom+m.offsetHeight+8>innerHeight?r.top-m.offsetHeight-4:r.bottom+4)+"px";m.style.left=Math.max(8,r.right-m.offsetWidth)+"px";m.querySelector("a,button")?.focus()}
 function pmClose(){const m=$("#pm");if(!m)return;m.classList.remove("on");document.querySelectorAll(".dots.on").forEach(x=>x.classList.remove("on"))}
-function addOpen(){pmClose();$("#aOut").textContent="";$("#av").classList.add("on");$("#aDir").focus()}
+function addOpen(){pmClose();$("#aOut").textContent="";$("[data-apick]").hidden=!data.pick;$("#av").classList.add("on");$("#aDir").focus()}
 function wizView(){
   if($("#wview")?.dataset.id!==wiz){
     $("#content").innerHTML=`<div class="wview" id="wview" data-id="${esc(wiz)}"><div class="wbar"><a class="btn" href="/">← ${tr("allProjects")}</a><b id="wName"></b><code class="pp" id="wDir"></code><span class="grow"></span><span id="wOpen"></span></div>
@@ -876,8 +878,10 @@ function wizOpen(){const last=projs.filter(p=>!p.error).at(-1),d=$("#wnDir");
   if(!$("#wnProf").innerHTML)$("#wnProf").innerHTML=PROFILES.map(p=>`<label class="dopt"><input type="radio" name="wprof" value="${p}"${p?"":" checked"}><span><b>${tr("wProf_"+p)}</b><small>${tr("wProfD_"+p)}</small></span></label>`).join("");
   $("#wv").classList.add("on");d.focus();d.setSelectionRange(d.value.length,d.value.length)}
 const PROFILES=["","web-fullstack","web-frontend","service","mobile-fullstack","mobile"];  // scaffold.PROFILES
-async function wizPick(b){b.disabled=true;let r;try{r=await (await fetch("/api/pickdir",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json()}catch{r={}}
-  b.disabled=false;if(r.ok)$("#wnDir").value=r.path}
+async function pickDir(input,b){b.disabled=true;let r;try{r=await (await fetch("/api/pickdir",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json()}catch{r={}}
+  b.disabled=false;if(r.ok&&r.path)input.value=r.path}
+async function wizPick(b){return pickDir($("#wnDir"),b)}
+async function addPick(b){return pickDir($("#aDir"),b)}
 async function wizCreate(){const text=$("#wnText").value,profile=document.querySelector("[name=wprof]:checked")?.value||"";if(!text.trim()&&!profile){$("#wnText").focus();return}
   const b=$("[data-wcreate]");b.disabled=true;
   let r;try{r=await (await fetch("/api/wizard",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dir:$("#wnDir").value,profile,text})})).json()}catch{r={ok:false,text:"loadFail"}}
@@ -1004,18 +1008,18 @@ function durView(v){
 const sortFiles=fs=>fs.slice().sort((a,b)=>{const i=x=>{const k=DOC_ORDER.indexOf(x.name);return k<0?99:k};return i(a)-i(b)||a.name.localeCompare(b.name)});
 function openM(id,tab){const t=data.tickets.find(x=>x.id===id);if(!t)return;
   const newest=t.files.slice().sort((a,b)=>b.mtime-a.mtime)[0];
-  open={id,tab:tab||(newest?newest.name:"__hist")};docKey="";const ov=$("#ov");ov.classList.add("on");ov.classList.remove("full","noside");modal();$("#mh .ib:last-child")?.focus()}
+  open={id,tab:tab||(canChat(t)&&t.kind==="general"?"__chat":newest?newest.name:"__hist")};docKey="";const ov=$("#ov");ov.classList.add("on");ov.classList.remove("full","noside");modal();$("#mh .ib:last-child")?.focus()}
 function closeM(){open=null;docKey="";decKey="";decMsg=null;$("#dec").innerHTML="";$("#ov").classList.remove("on");$("#doc").innerHTML=""}
 function modal(){
   const t=data.tickets.find(x=>x.id===open.id);if(!t){closeM();return}
   const ov=$("#ov"),files=sortFiles(t.files);
-  if(open.tab!=="__hist"&&!(open.tab==="__chat"&&t.kind!=="general")&&!files.some(f=>f.name===open.tab))open.tab="__hist";
+  if(open.tab!=="__hist"&&!(open.tab==="__chat"&&canChat(t))&&!files.some(f=>f.name===open.tab))open.tab="__hist";
   $("#mh").innerHTML=`${kindIcon(t.kind)}<span class="id">${short(t.id)}</span><span class="t">${esc(t.desc||t.id)}</span><span class="mst">${icon(t.status,14)}${esc(label(t.status))}</span>${isHuman(t)?`<span class="who need"><i></i>${tr("waiting")}</span>`:""}<span class="grow"></span>
    ${data.decide==="on"&&t.kind!=="general"&&!TERMINAL.has(t.status)?`<button class="btn void" data-void>${tr("void")}</button>`:""}
    <button class="ib" title="${tr("sidebar")}" data-act="side"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11"/></svg></button>
    <button class="ib" title="${tr("fullscreen")}" data-act="full"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">${ov.classList.contains("full")?'<path d="M6 2.5V6H2.5M10 2.5V6h3.5M6 13.5V10H2.5M10 13.5V10h3.5"/>':'<path d="M2.5 6V2.5H6M13.5 6V2.5H10M2.5 10v3.5H6M13.5 10v3.5H10"/>'}</svg></button>
    <button class="ib" title="${tr("close")}" data-act="close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>`;
-  $("#tabs").innerHTML=files.map(f=>`<button class="dtab ${open.tab===f.name?"on":""}" data-tab="${esc(f.name)}" title="${esc(f.name)}">${esc(docName(f.name))}${f.draft?`<span class="wt">${tr("draft")}</span>`:""}</button>`).join("")+(t.kind!=="general"?`<button class="dtab ${open.tab==="__chat"?"on":""}" data-tab="__chat">${tr("chat")}</button>`:"")+`<button class="dtab ${open.tab==="__hist"?"on":""}" data-tab="__hist">${tr("history")}</button>`;
+  $("#tabs").innerHTML=files.map(f=>`<button class="dtab ${open.tab===f.name?"on":""}" data-tab="${esc(f.name)}" title="${esc(f.name)}">${esc(docName(f.name))}${f.draft?`<span class="wt">${tr("draft")}</span>`:""}</button>`).join("")+(canChat(t)?`<button class="dtab ${open.tab==="__chat"?"on":""}" data-tab="__chat">${tr("chat")}</button>`:"")+`<button class="dtab ${open.tab==="__hist"?"on":""}" data-tab="__hist">${tr("history")}</button>`;
   doc(t,files);
   side(t);
   decBlk(t);
@@ -1150,7 +1154,8 @@ async function modelPost(body,b){if(b)b.disabled=true;
   if(body.action!=="delete")mEdit=null;$("#mOut").textContent="";await load();if(HOME)loadDeps();modelList();toast(esc(tr("saved").replace("{m}",data.model.label)))}
 function modelSave(){modelPost({name:$("#mName").value.trim(),old:mEdit||undefined,provider:$("#mProv").value,model:$("#mModel").value.trim(),
   base_url:$("#mUrl").value.trim(),api_key:$("#mKey").value.trim()},$("[data-msave]"))}
-function newOpen(){$("#nOut").textContent="";$("#nv").classList.add("on");$("#nText").focus()}
+function newKind(){const g=$("#nKind").value==="general";$("#nSlug").hidden=g;$('label[for="nSlug"]').hidden=g}
+function newOpen(){$("#nOut").textContent="";newKind();$("#nv").classList.add("on");$("#nText").focus()}
 function newClose(){$("#nv").classList.remove("on")}
 async function create(){const text=$("#nText").value;if(!text.trim()){$("#nText").focus();return}
   const b=$("[data-create]");b.disabled=true;
@@ -1211,6 +1216,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-wclose]")||e.target===$("#wv")){$("#wv").classList.remove("on");return}
   if(e.target.closest("[data-wcreate]")){wizCreate();return}
   {const b=e.target.closest("[data-wpick]");if(b){wizPick(b);return}}
+  {const b=e.target.closest("[data-apick]");if(b){addPick(b);return}}
   const wd=e.target.closest("[data-wdel]");if(wd){if(confirm(tr("wDiscard")+"?"))homePost(`/api/wizard/${wd.dataset.wdel}/discard`,{});return}
   if(e.target.closest("[data-model]")){modelOpen();return}
   if(e.target.closest("[data-mclose]")||e.target===$("#mv")){$("#mv").classList.remove("on");return}
@@ -1243,7 +1249,7 @@ document.addEventListener("keydown",e=>{
 document.querySelectorAll(".nav[data-v]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-v]").forEach(x=>x.classList.toggle("on",x===b));view=b.dataset.v;render()});
 document.querySelectorAll(".kf").forEach(b=>b.onclick=()=>{document.querySelectorAll(".kf").forEach(x=>x.classList.toggle("on",x===b));kind=b.dataset.k;render()});
 document.querySelectorAll("#seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#seg button").forEach(x=>x.classList.toggle("on",x===b));scope=b.dataset.k;render()});
-document.addEventListener("change",e=>{if(e.target.id==="mProv")modelProv();if(e.target.name==="dOpt"){$("#dPick").hidden=e.target.value==="other";$("#dPlain").hidden=e.target.value!=="other"}});
+document.addEventListener("change",e=>{if(e.target.id==="mProv")modelProv();if(e.target.id==="nKind")newKind();if(e.target.name==="dOpt"){$("#dPick").hidden=e.target.value==="other";$("#dPlain").hidden=e.target.value!=="other"}});
 $("#q").oninput=e=>{q=e.target.value.toLowerCase();render()};
 const tip=$("#tip");
 document.addEventListener("mousemove",e=>{const el=e.target.closest("[data-tip]");if(!el||$("#gw.drag")){tip.style.display="none";return}

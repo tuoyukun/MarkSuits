@@ -19,6 +19,8 @@ ticket, no subagents, no review gates. You edit the files yourself, on a throwaw
 2. **Agree on the change** with the human when it is not obvious from the request.
 3. **Open a lane.** `mark general new` prints the branch and worktree. It runs the project's
    `[worktree] setup` first, which can take minutes; if setup fails, no lane is left: report it and stop.
+   Skip this step when the lane is already open: the Mark board cuts one for a **General** ticket
+   and its note names the branch and worktree. Never run `mark general new` then.
 4. **Edit in the lane** with absolute paths under that worktree, never in the main checkout.
 5. **Commit in the lane**: `git -C "<worktree>" add -A && git -C "<worktree>" commit -m "<message>"`.
 6. **Land it.** `mark general merge <branch>` merges the latest main in, runs the project's

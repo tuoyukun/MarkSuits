@@ -10,7 +10,8 @@ When a ticket waits on the human (`review-*`, `blocked-*`, opening not yet appro
 reads its documents on the board, decides there, and Mark carries on to the next gate **without
 the human typing in a terminal**.
 
-Out of scope: opening tickets, editing documents, merging, `/mark:general` from the board.
+Out of scope at the time: opening tickets, editing documents, merging, `/mark:general` from the
+board. Opening tickets and chat came in v0.50, merging in v0.67, general tickets in v0.71.
 `/mark:approve` and `/mark:reject` in the terminal stay as they are; whichever comes first wins.
 
 ## 2. What the experiments showed

@@ -1,9 +1,10 @@
 """Board chat: talk a ticket through with Claude on the board, one headless turn per message.
 
 Each message the human sends starts `claude -p` in the main checkout. The first opens the ticket's
-skill (`/mark:feature <id>` or `/mark:fix <id>`) with the human's text; later ones `--resume` the
-same session, so it is one conversation. The skill decides what happens, exactly as in a terminal:
-a feature stops at its review gates, a bug runs its chain once the report is agreed.
+skill (`/mark:feature <id>`, `/mark:fix <id>`, or `/mark:general` for a general lane) with the
+human's text; later ones `--resume` the same session, so it is one conversation. The skill decides
+what happens, exactly as in a terminal: a feature stops at its review gates, a bug runs its chain
+once the report is agreed, a general lane is edited and landed through the regression.
 
 Everything goes to `<state>/locks/chat-<id>.jsonl` (gitignored): each human message as a
 `{"type": "human"}` line, then that turn's stream-json. `chat-<id>.json` holds the pid of the turn
@@ -121,7 +122,19 @@ def command(cfg: MarkConfig, sid: str | None, claude: str, extra: list[str] = ()
 def prompt(kind: str, ticket_id: str, text: str, first: bool) -> str:
     if not first:
         return text
+    if kind == "general":
+        return f"/mark:general {text}"
     return f"/mark:{'feature' if kind == states.FEATURE else 'fix'} {ticket_id}\n\n{text}"
+
+
+def title(cfg: MarkConfig, ticket_id: str) -> str:
+    """The first line of the first human message: a lane with no commit yet shows what it is for."""
+    for e in _events(cfg, ticket_id):
+        if isinstance(e, dict) and e.get("type") == "human":
+            for line in str(e.get("text") or "").splitlines():
+                if line.strip():
+                    return line.strip()[:200]
+    return ""
 
 
 def start(cfg: MarkConfig, kind: str, ticket_id: str, text: str, claude: str | None = None,

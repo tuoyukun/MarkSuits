@@ -121,6 +121,15 @@ class ChatTest(unittest.TestCase):
     def test_bugs_open_the_fix_skill(self):
         self.assertTrue(chat.prompt("bug", "b0001-x", "Crash.", first=True).startswith("/mark:fix b0001-x\n\n"))
 
+    def test_a_general_lane_opens_the_general_skill(self):
+        self.assertEqual(chat.prompt("general", "general-20260101-120000", "Tidy the docs.", first=True),
+                         "/mark:general Tidy the docs.")
+
+    def test_a_lane_with_no_commit_takes_its_title_from_the_first_human_line(self):
+        self.turn("Tidy the release notes.\nAnd the README.")
+        self.assertEqual(chat.title(self.cfg, "0001-a"), "Tidy the release notes.")
+        self.assertEqual(chat.title(self.cfg, "0001-nope"), "")
+
     def test_no_claude(self):
         with mock.patch("mark.runner.find_claude", return_value=None):
             self.assertEqual(chat.start(self.cfg, "feature", "0001-a", "hi"), (False, "no-claude"))

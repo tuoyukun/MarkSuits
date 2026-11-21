@@ -454,6 +454,50 @@ class DecideTest(unittest.TestCase):
         start.assert_called_once_with(self.cfg, "feature", tid, "Due dates\nOverdue ones in red.")
         self.no_tokens_left()
 
+    def test_new_general_ticket_opens_a_lane_and_starts_the_chat(self):
+        text = "Tidy the release notes.\nAnd the README."
+        with mock.patch.object(board.chat, "start", return_value=(True, "")) as start:
+            code, res, _ = self.post(self.p + "/api/new", {"kind": "general", "text": text}, cookie=self.login())
+        self.assertEqual((code, res["ok"]), (200, True), res)
+        lane = res["id"]
+        self.assertRegex(lane, r"^general-\d{8}-\d{6}$")
+        wt = self.root / ".claude" / "worktrees" / lane
+        self.assertTrue(wt.is_dir())
+        self.assertIn(f"chore/{lane}", sh(self.root, "git", "branch", "--list", f"chore/{lane}"))
+        args, kwargs = start.call_args
+        self.assertEqual(args, (self.cfg, "general", lane, text))
+        self.assertEqual(kwargs["first"], f"/mark:general {text}")
+        self.assertIn(f"chore/{lane}", kwargs["note"])
+        self.assertIn(str(wt), kwargs["note"])
+        card = next(t for t in board.snapshot(self.cfg, board.History(self.cfg))["tickets"] if t["id"] == lane)
+        self.assertEqual((card["kind"], card["status"]), ("general", "developing"))
+        self.no_tokens_left()
+
+    def test_a_general_lane_can_be_talked_through_and_stopped_on_the_board(self):
+        lane, branch = "general-20260101-120000", "chore/general-20260101-120000"
+        wt = self.root / ".claude" / "worktrees" / lane
+        sh(self.root, "git", "worktree", "add", "-q", "-b", branch, str(wt), "main")
+        cookie = self.login()
+        with mock.patch.object(board.chat, "start", return_value=(True, "")) as start:
+            code, res, _ = self.post(self.p + "/api/chat", {"ticket": lane, "text": " Add a note. "}, cookie=cookie)
+        self.assertEqual((code, res["ok"]), (200, True), res)
+        args, kwargs = start.call_args
+        self.assertEqual(args, (self.cfg, "general", lane, "Add a note."))
+        self.assertEqual(kwargs["first"], "/mark:general Add a note.")
+        self.assertIn(branch, kwargs["note"])
+        self.assertEqual(json.loads(self._get(self.p + f"/api/chat/{lane}")),
+                         {"running": False, "messages": [], "ask": None, "model": ""})
+        with mock.patch.object(board.chat, "stop", return_value=True) as stop:
+            self.assertEqual(self.post(self.p + "/api/stop", {"ticket": lane}, cookie=cookie)[0], 200)
+        stop.assert_called_once_with(self.cfg, lane)
+
+    def test_pickdir_is_the_macs_folder_dialog(self):
+        self.assertEqual(self.post("/api/pickdir", {})[0], 403)
+        with mock.patch.object(board.wizard, "pick_dir", return_value="/tmp/picked") as pick:
+            code, res, _ = self.post("/api/pickdir", {}, cookie=self.login())
+        self.assertEqual((code, res), (200, {"ok": True, "path": "/tmp/picked"}))
+        pick.assert_called_once_with()
+
     def test_new_ticket_and_chat_need_the_cookie_and_a_good_request(self):
         with mock.patch.object(board.chat, "start", return_value=(True, "")) as start:
             self.assertEqual(self.post(self.p + "/api/new", {"kind": "bug", "text": "Crash"})[0], 403)

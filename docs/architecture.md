@@ -405,6 +405,10 @@ commits. There is no ticket, status or result file; a failed merge keeps the lan
 remote branch, through `merge.cleanup`); it refuses while the lane holds uncommitted files or
 commits not on main, unless `--force`, which the rules reserve for a human's explicit "discard".
 
+A **General** ticket on the board (v0.71) is the same lane with a chat: `POST /api/new` cuts it
+before the first turn, and the chat runs `/mark:general` with a note naming the branch and
+worktree, so a skill launched from the board does not cut a second lane.
+
 "Non-code only" needs no new guard: `[[write_rules]]` already keep code, tests and UI paths
 to their roles, and the main thread is `main`. The worktree guard's refusal on the main
 checkout points to `mark general new`, and the bash guard refuses `git merge chore/general-…`
@@ -478,10 +482,11 @@ as a list (counts by side, progress, whether a session runs, the last move; a go
 unreadable config shows its error), wizards still setting up above it, and a menu per project (open,
 copy the path, remove). A project's page (`/p/<id>/`) shows only that project; its logo, top left,
 leads back to `/`. A project's config is reloaded when
-`config.toml` changes. With the cookie the human can register an existing Mark project by path,
-forget one (nothing on disk changes), or start **New project**: a full path (made if missing, its
-parent must exist; not already a Mark project; on macOS a Choose button opens the Finder folder
-dialog through `osascript`), a profile or "let Claude suggest", and what they are building. The wizard
+`config.toml` changes. With the cookie the human can register an existing Mark project by path
+(on macOS a Choose button opens the Finder folder dialog), forget one (nothing on disk
+changes), or start **New project**: a full path (made if missing, its
+parent must exist; not already a Mark project; picked with that same dialog where available),
+a profile or "let Claude suggest", and what they are building. The wizard
 (`lib/mark/wizard.py`) runs the board chat's turns (`chat.py`) in that directory with no ticket:
 state in `MARK_HOME/wizards/<wid>/`, first turn `/mark:init [Profile: <name>] <text>`, a system note that says to
 ask in plain text (no `mark ask` without a ticket). The skill proposes the answers and stops; the
@@ -561,13 +566,17 @@ uses the `claude` on the board's PATH and the plugin as installed. Design and ex
 **Board chat (v0.50).** The human opens a ticket on the board and talks it through there
 (`lib/mark/chat.py`). `POST /api/new {kind, text, slug?}` grants a `feature`/`fix` token with
 `source = "board"`, claims the ticket (the first line of the text is its `desc`) and deletes the
-token, as `decide` does. Then every message (`POST /api/chat {ticket, text}`, cookie required)
-runs one `claude -p` turn in the main checkout: the first sends `/mark:feature <id>` (or
-`/mark:fix <id>`) plus the text, later ones `--resume` the session id the log last reported, so it
-is one conversation. The prompt goes in on stdin, so the human's text is never a CLI option;
-`--append-system-prompt` tells the session the human reads it on the board and decides with its
-buttons. The skill runs as in a terminal: a feature stops at `review-requirement`, a bug runs its
-chain once `bug.md` is agreed. One turn per ticket, none while the runner carries that ticket on;
+token, as `decide` does. With `kind = "general"` it cuts a `chore/general-*` lane first
+(`general.new`, outside the board lock: `[worktree] setup` can take minutes) and starts
+`/mark:general` on it with a system note naming the branch and worktree, so the skill skips
+`mark general new`. Then every message on a ticket or general lane (`POST /api/chat {ticket, text}`,
+cookie required) runs one `claude -p` turn in the main checkout: the first sends `/mark:feature <id>`
+(or `/mark:fix <id>`, or `/mark:general`) plus the text, later ones `--resume` the session id the
+log last reported, so it is one conversation. The prompt goes in on stdin, so the human's text is
+never a CLI option; `--append-system-prompt` tells the session the human reads it on the board and
+decides with its buttons. The skill runs as in a terminal: a feature stops at `review-requirement`,
+a bug runs its chain once `bug.md` is agreed, a general lane is edited and landed through the
+regression. One turn per ticket, none while the runner carries that ticket on;
 the log is `<state>/locks/chat-<id>.jsonl` (the human's lines plus each turn's stream-json), the
 pid `chat-<id>.json`; `GET /api/chat/<id>` turns it into messages, and `POST /api/stop {ticket}`
 ends a turn. Turns are unattended, so nothing typed in the chat is a human command.
