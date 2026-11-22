@@ -176,7 +176,8 @@ def cards() -> list[dict[str, object]]:
 
 
 def signature() -> tuple:
-    """Changes when any wizard's chat does (the home page then reloads)."""
+    """Changes when any wizard's chat does (the home page then reloads). A turn's end writes no
+    file, so its liveness counts too: otherwise the card keeps saying "replying"."""
     sig = []
     for wid, data in all_wizards():
         for f in (base() / wid / "locks").glob("chat-*"):
@@ -185,5 +186,6 @@ def signature() -> tuple:
                 sig.append((str(f), st.st_mtime_ns, st.st_size))
             except OSError:
                 pass
+        sig.append((wid, "live", chat.running(Spot(Path(data["dir"]), base() / wid), TICKET) is not None))
         sig.append((data["dir"], (Path(data["dir"]) / ".mark" / "config.toml").is_file()))
     return tuple(sig)

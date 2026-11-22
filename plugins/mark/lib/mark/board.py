@@ -275,6 +275,29 @@ def signature(cfg: MarkConfig) -> tuple:
     return tuple(sig)
 
 
+def live_turns(cfg: MarkConfig) -> tuple:
+    """`(state file, pid, alive)` for every chat turn and headless run in the project.
+
+    A turn's end writes no file: the last event is already on disk when the process exits. Without
+    this, a page whose last read landed just before that exit keeps the turn "running" (and hides
+    `mark ask`'s form) until something else happens to change a file."""
+    out = []
+    try:
+        entries = sorted(os.scandir(cfg.state_dir / "locks"), key=lambda e: e.name)
+    except OSError:
+        return ()
+    for e in entries:
+        if not (e.name.endswith(".json") and e.name.startswith(("chat-", "runner-"))):
+            continue  # chat-<id>.model.json holds no pid
+        try:
+            pid = json.loads(Path(e.path).read_text()).get("pid")
+        except (OSError, ValueError, AttributeError):
+            continue
+        if isinstance(pid, int):
+            out.append((e.name, pid, runner._alive(pid)))
+    return tuple(out)
+
+
 # --------------------------------------------------------------------------
 # Server
 # --------------------------------------------------------------------------
@@ -687,7 +710,7 @@ class Board:
                 if p is None:
                     continue
                 try:
-                    key = (p.mtime, signature(p.cfg))
+                    key = (p.mtime, signature(p.cfg), live_turns(p.cfg))
                 except OSError:
                     continue
                 if last.get(pid) != key:

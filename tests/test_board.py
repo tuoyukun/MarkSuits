@@ -9,7 +9,9 @@ import re
 import signal
 import socket
 import subprocess
+import sys
 import threading
+import time
 import unittest
 from unittest import mock
 
@@ -115,6 +117,51 @@ class GeneralLaneTest(unittest.TestCase):
         lane = lanes[0]
         self.assertEqual((lane["id"], lane["desc"], lane["status"]), ("general-20260101-120000", "Tidy the notes", "developing"))
         self.assertTrue(lane["history"][0]["at"].startswith("2026-01-01T12:00:00"))
+
+
+class LiveTurnsTest(unittest.TestCase):
+    def test_the_watch_pushes_an_update_when_a_chat_turn_ends(self):
+        fresh_home(self)
+        root = make_repo()
+        add_ticket(root, "feature", "0001-a", "drafting", gates=("ticket-approved",))
+        home.add(root)
+        cfg = load_config(root)
+        locks = cfg.state_dir / "locks"
+        locks.mkdir(parents=True, exist_ok=True)
+        proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        self.addCleanup(lambda: proc.poll() is None and proc.kill())
+        (locks / "chat-0001-a.json").write_text(json.dumps({"pid": proc.pid, "started": time.time()}))
+        b = board.Board()
+        self.addCleanup(b.stop.set)
+        threading.Thread(target=b.watch, daemon=True).start()
+        deadline = time.monotonic() + 10
+        while b.version == 0 and time.monotonic() < deadline:
+            time.sleep(0.05)
+        seen = b.version
+        self.assertGreater(seen, 0)
+        proc.terminate()
+        proc.wait(timeout=10)
+        while b.version == seen and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertGreater(b.version, seen)  # the page is told to read again, so the form can appear
+
+    def test_a_turn_ending_is_visible_even_though_it_writes_no_file(self):
+        root = make_repo()
+        add_ticket(root, "feature", "0001-a", "drafting", gates=("ticket-approved",))
+        cfg = load_config(root)
+        locks = cfg.state_dir / "locks"
+        locks.mkdir(parents=True, exist_ok=True)
+        (locks / "chat-0001-a.model.json").write_text('{"name": "opus", "label": "opus"}')  # no pid: not a turn
+        proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        self.addCleanup(lambda: proc.poll() is None and proc.kill())
+        state = locks / "chat-0001-a.json"
+        state.write_text(json.dumps({"pid": proc.pid, "started": time.time()}))
+        self.assertEqual(board.live_turns(cfg), (("chat-0001-a.json", proc.pid, True),))
+        sig = board.signature(cfg)
+        proc.terminate()
+        proc.wait(timeout=10)
+        self.assertEqual(board.signature(cfg), sig)  # the files did not move: only the process went
+        self.assertEqual(board.live_turns(cfg), (("chat-0001-a.json", proc.pid, False),))
 
 
 class ServerTest(unittest.TestCase):

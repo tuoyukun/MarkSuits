@@ -74,6 +74,18 @@ class WizardTest(unittest.TestCase):
         _, _, wid = wizard.start({"dir": str(self.parent / "b"), "profile": "mobile", "text": " Flutter. "})
         self.assertEqual(self.wait(wid)["stdin"], "/mark:init Profile: mobile\n\nFlutter.")
 
+    def test_a_wizard_turn_ending_changes_the_signature(self):
+        os.environ["FAKE_CLAUDE"] = "sleep"
+        target = self.parent / "shop"
+        self.assertEqual(wizard.start({"dir": str(target), "text": "A shop."})[:2], (True, ""))
+        wid = next(w for w, _ in wizard.all_wizards())
+        self.assertIn((wid, "live", True), wizard.signature())
+        self.assertTrue(wizard.stop(wid))
+        deadline = time.monotonic() + 10
+        while chat.running(wizard.spot(wid), wizard.TICKET) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertIn((wid, "live", False), wizard.signature())
+
     def test_pick_dir(self):
         ok = mock.Mock(return_value=mock.Mock(returncode=0, stdout="/tmp/x/app/\n"))
         cancel = mock.Mock(return_value=mock.Mock(returncode=1, stdout=""))

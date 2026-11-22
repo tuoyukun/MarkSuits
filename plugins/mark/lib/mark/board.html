@@ -1105,10 +1105,14 @@ async function doc(t,files){
   el.scrollTop=top;mermaid(el);
 }
 // ---- chat: one headless Claude turn per message; the log is re-read on every board change
-let chatKey="";
+let chatKey="",chatSeq=0,chatTimer=0;
+const chatOpen=t=>t.wiz?wiz===t.id&&!!$("#msgs"):!!open&&open.id===t.id&&open.tab==="__chat";
 async function chatLoad(t){
+  const seq=++chatSeq;
   let c;try{c=await (await fetch(t.wiz?`/api/wizard/${t.id}`:`api/chat/${encodeURIComponent(t.id)}`,{cache:"no-store"})).json()}catch{return}
-  if(t.wiz?wiz!==t.id||!$("#msgs"):!open||open.id!==t.id||open.tab!=="__chat")return;
+  if(seq!==chatSeq||!chatOpen(t))return;  // a newer read, or the human left: that one wins
+  clearTimeout(chatTimer);chatTimer=0;
+  if(c.running)chatTimer=setTimeout(()=>{if(chatOpen(t))chatLoad(t)},2000); // a turn can end with no file change: look again
   if(t.wiz){$("#wName").textContent=c.dir.split("/").pop();$("#wDir").textContent=c.path;$("#wDir").title=c.dir;
     $("#wOpen").innerHTML=c.project?`<a class="btn pri" href="/p/${esc(c.project)}/">${tr("wOpen")} →</a>`:""}
   const key=JSON.stringify(c);if(key===chatKey)return;chatKey=key;  // unchanged: keep scroll and selection

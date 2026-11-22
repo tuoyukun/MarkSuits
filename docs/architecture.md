@@ -459,8 +459,10 @@ Its sources are the ones above:
   worktree copy is marked as a draft. `/f/<features|bugs>/<id>/<main|worktree>/<path>` serves
   them, resolved inside that ticket dir only, so a preview's relative assets load; HTML opens
   in a sandboxed iframe. Gates come from `<state>/gates/<id>.*`.
-- **Live**: one thread fingerprints those dirs (mtime, size) plus HEAD every second;
-  `/events` (server-sent events) tells the page to refetch `/api/board`.
+- **Live**: one thread fingerprints those dirs (mtime, size) plus HEAD every second, and checks
+  whether each chat turn's or headless run's process is still alive (a turn's end writes no file);
+  `/events` (server-sent events) tells the page to refetch `/api/board`. The chat re-reads its view
+  while a turn runs, and a slow answer never overwrites a newer one.
 
 One board per user (v0.58; before, one per project). The port is the first free one from 6275 up (`--port` changes the start);
 a port with any listener is skipped before binding. The server records `pid`, `port` and its page in
