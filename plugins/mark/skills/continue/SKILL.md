@@ -17,9 +17,10 @@ Argument: `$ARGUMENTS`
    already recorded; this command carries no approval of its own. If `mark next` asks for a
    human decision, report it and stop. `pending-merge` is not a human decision: when `mark next`
    says merge, run `mark merge <id>` yourself; never ask the human to merge.
-3. Run every agent and `mark merge` in the **foreground**: wait for each to finish before the
-   next step. A headless session ends when you stop, and anything still running in the
-   background ends with it.
+3. Run every agent and `mark merge` in the **foreground**: call the Agent tool with
+   `run_in_background: false` and wait for each to finish before the next step. A headless
+   session ends when you stop, and anything still running in the background is stopped ten
+   minutes later.
 4. Do not start `mark wait` at the gate: the board shows the ticket waiting, and the next
    decision starts a new session.
 5. If a command is refused for lack of permission, do not try another way: report which

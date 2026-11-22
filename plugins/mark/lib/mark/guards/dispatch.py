@@ -18,6 +18,17 @@ def staffed_guard(env: Env) -> str | None:
     return None
 
 
+def background_guard(env: Env) -> str | None:
+    """A pipeline role runs in the foreground: the turn that dispatched it must wait for its
+    result. A background subagent is stopped ten minutes after a headless turn ends, and the
+    ticket then sits on its lock until a human notices."""
+    if env.dispatch_role not in env.cfg.roles:
+        return None
+    if env.tool_input.get("run_in_background") is False:
+        return None
+    return env.t("guard.dispatch.background", role=env.dispatch_role)
+
+
 def _pipeline_target(env: Env) -> Target | str | None:
     """Target for a pipeline dispatch; None for non-pipeline agents."""
     if env.dispatch_role not in env.cfg.roles:
@@ -151,8 +162,8 @@ def dedup_guard(env: Env) -> str | None:
     return locks.acquire(env, target, env.dispatch_role)
 
 
-PRE_DISPATCH = [staffed_guard, target_guard, status_guard, gate_guard,branch_guard, status_commit_guard, brief_guard,
-                dedup_guard]
+PRE_DISPATCH = [staffed_guard, target_guard, status_guard, gate_guard, branch_guard, status_commit_guard,
+                brief_guard, background_guard, dedup_guard]
 
 
 def status_reminder(env: Env) -> str | None:

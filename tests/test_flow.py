@@ -1314,6 +1314,7 @@ class DispatchTest(unittest.TestCase):
         self.assertIn("Created branch feature/0001-a from origin/main", err)
         head, prompt = out.split("--- prompt ---\n")
         self.assertIn("subagent_type: mark:coder-plan", head)  # the plugin's agent
+        self.assertIn("run_in_background: false", head)  # a headless turn must wait for it
         self.assertTrue(prompt.startswith("<!-- mark:ticket features/0001-a -->"))
         wt = self.root / ".claude/worktrees/feature-0001-a"
         self.assertIn(f"Work on 0001-a in {wt}/.mark/features/0001-a.", prompt)
@@ -1324,7 +1325,8 @@ class DispatchTest(unittest.TestCase):
         # The prompt as printed passes every pre-dispatch guard.
         code, err = hook("pre-dispatch", {"hook_event_name": "PreToolUse", "tool_name": "Agent",
                                           "cwd": str(self.root),
-                                          "tool_input": {"subagent_type": "coder-plan", "prompt": prompt}})
+                                          "tool_input": {"subagent_type": "coder-plan", "prompt": prompt,
+                                                         "run_in_background": False}})
         self.assertEqual(code, 0, err)
         # Idempotent: a second dispatch reuses everything (the lock now says wait).
         self.assertIn("still working", run(self.root, "dispatch", "0001")[2])
@@ -1343,12 +1345,14 @@ class DispatchTest(unittest.TestCase):
         edited = prompt.replace(".claude/worktrees/feature-0001-a", ".claude/worktrees/elsewhere", 1)
         self.assertNotEqual(edited, prompt)
         payload = {"hook_event_name": "PreToolUse", "tool_name": "Agent", "cwd": str(self.root)}
-        code, err = hook("pre-dispatch", {**payload, "tool_input": {"subagent_type": "coder-plan", "prompt": edited}})
+        code, err = hook("pre-dispatch", {**payload, "tool_input": {"subagent_type": "coder-plan", "prompt": edited,
+                                                                    "run_in_background": False}})
         self.assertEqual(code, 2)
         self.assertIn("unchanged", err)
         self.assertFalse((self.root / ".mark/locks/0001-a.coder-plan.lock").exists())
         code, err = hook("pre-dispatch", {**payload, "tool_input": {"subagent_type": "coder-plan",
-                                                                    "prompt": prompt.strip() + "\n\n"}})
+                                                                    "prompt": prompt.strip() + "\n\n",
+                                                                    "run_in_background": False}})
         self.assertEqual(code, 0, err)
 
     def test_merge_failure_reason_is_the_previous_step(self):

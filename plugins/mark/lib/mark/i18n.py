@@ -180,6 +180,12 @@ MESSAGES["en"].update({
         "or the ticket path `{state}/features/<id>/`. Prompt templates include the anchor."
     ),
     "guard.dispatch.unstaffed": "This project has no `{role}` (`roles` / `profile` in .mark/config.toml), so it cannot be dispatched.",
+    "guard.dispatch.background": (
+        "`{role}` is a pipeline role: call the Agent tool again with `run_in_background: false` and\n"
+        "wait for its result in this same turn. A background subagent is stopped ten minutes after\n"
+        "the headless turn that dispatched it ends, and the ticket stalls with its lock still taken.\n"
+        "Change nothing else: same `subagent_type`, `description` and prompt."
+    ),
     "guard.dispatch.nobody": "nobody (it waits on the human or on `mark merge`)",
     "guard.dispatch.status": (
         "{id} is `{status}`, which dispatches {want}, not `{role}`. Run `mark next {id}` and dispatch what\n"
@@ -362,6 +368,11 @@ MESSAGES["zh-CN"].update({
         "或写出工单路径 `{state}/features/<id>/`。派活模板里自带这个锚点。"
     ),
     "guard.dispatch.unstaffed": "本项目没有 `{role}`（见 .mark/config.toml 的 `roles` / `profile`），不能派它。",
+    "guard.dispatch.background": (
+        "`{role}` 是流水线角色：请带 `run_in_background: false` 重新调用 Agent 工具，并在本回合里等它返回。\n"
+        "headless 回合结束后，后台 subagent 最多再活十分钟就会被停掉，工单会带着锁一起停住。\n"
+        "别改其他内容：`subagent_type`、`description` 和 prompt 原样保留。"
+    ),
     "guard.dispatch.nobody": "无人（这一步等 Human 或 `mark merge`）",
     "guard.dispatch.status": (
         "{id} 停在 `{status}`，这一步该派 {want}，不是 `{role}`。先跑 `mark next {id}`，再原样使用\n"

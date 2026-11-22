@@ -224,6 +224,7 @@ def cmd_dispatch(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
     brief.remember(cfg, ctx.id, action.role, prompt)
     out.write(f"subagent_type: {defaults.agent_type(cfg, action.role)}\n")
     out.write(f"description: {ctx.id} {action.scenario}\n")
+    out.write("run_in_background: false\n")  # a headless turn loses background agents after 10 min
     out.write("--- prompt ---\n")
     out.write(prompt)
     return 0

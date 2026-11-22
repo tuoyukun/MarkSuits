@@ -11,9 +11,13 @@ from tests._support import add_origin, add_ticket, add_worktree, hook, make_repo
 ALL_GATES = ["ticket-approved", "design-approved", "plan-approved"]
 
 
-def dispatch(root, role, prompt):
+def dispatch(root, role, prompt, background=False):
+    """`background=False` is what `mark dispatch` prints; None omits the field entirely."""
+    tool_input = {"subagent_type": role, "prompt": prompt}
+    if background is not None:
+        tool_input["run_in_background"] = background
     return hook("pre-dispatch", {"hook_event_name": "PreToolUse", "tool_name": "Agent", "cwd": str(root),
-                                 "tool_input": {"subagent_type": role, "prompt": prompt}})
+                                 "tool_input": tool_input})
 
 
 def anchor(kind_dir, ticket_id):
@@ -92,6 +96,30 @@ class TargetAndGateTest(unittest.TestCase):
         add_ticket(self.root, "bug", "b0001-crash", "developing", gates=["ticket-approved"])
         add_worktree(self.root, "bug", "b0001-crash")
         self.assertEqual(dispatch(self.root, "coder-impl", anchor("bugs", "b0001-crash"))[0], 0)
+
+
+class ForegroundDispatchTest(unittest.TestCase):
+    """A headless turn loses a background agent ten minutes after it ends (ticket 0003)."""
+
+    def setUp(self):
+        self.root = make_repo()
+        add_ticket(self.root, "feature", "0001-a", "developing", gates=ALL_GATES)
+        add_worktree(self.root, "feature", "0001-a")
+        self.prompt = anchor("features", "0001-a")
+
+    def test_pipeline_role_must_say_foreground(self):
+        for background in (None, True):
+            with self.subTest(background=background):
+                code, err = dispatch(self.root, "coder-impl", self.prompt, background=background)
+                self.assertEqual(code, 2)
+                self.assertIn("run_in_background: false", err)
+                self.assertFalse((self.root / ".mark/locks/0001-a.coder-impl.lock").exists())
+
+    def test_pipeline_role_foreground_passes(self):
+        self.assertEqual(dispatch(self.root, "coder-impl", self.prompt)[0], 0)
+
+    def test_non_pipeline_agent_is_not_forced(self):
+        self.assertEqual(dispatch(self.root, "Explore", "look around", background=True)[0], 0)
 
 
 class BranchTest(unittest.TestCase):

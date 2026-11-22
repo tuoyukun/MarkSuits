@@ -18,9 +18,12 @@ already answers in it).
      It creates or reuses the ticket's branch and worktree (a new worktree first runs the
      project's `[worktree] setup`, which can take minutes: give the Bash call a timeout above
      its `setup_timeout`; if setup fails, report it and stop), then prints `subagent_type`,
-     `description` and the prompt. Call the Agent tool with exactly that `subagent_type`
-     and everything after `--- prompt ---` as the prompt, unchanged. Do not summarize,
-     extend or rewrite it, and never substitute `general-purpose` or another type.
+     `description`, `run_in_background: false` and the prompt. Call the Agent tool with exactly
+     that `subagent_type`, `run_in_background: false`, and everything after `--- prompt ---` as
+     the prompt, unchanged. Wait for the agent's result in this same turn. Do not summarize,
+     extend or rewrite the prompt, and never substitute `general-purpose` or another type. A
+     background agent is stopped ten minutes after a headless turn ends: the work is lost and
+     the ticket sits on its lock.
    - **wait**: an agent is still running. Wait for its completion notice. Slow is normal;
      never dispatch a second one.
    - **merge**: the ticket passed testing. Run `mark merge <id>` (see Merging).
@@ -110,7 +113,7 @@ the number of rows not done in this ticket (write 0 if none).
 `mark merge <id>` does the whole merge: merge the latest main into the ticket branch, run
 the project's `[merge] regression` command in the worktree, fast-forward main, push, set
 `passed`, remove the worktree and branch. The regression can take long: run it in the
-background and wait for it, like an agent.
+background and wait for its completion notice.
 
 If it fails, main was not changed. Report the reason to the human in plain words and stop;
 never resolve conflicts, fix tests or merge by hand yourself. `mark next` keeps answering
@@ -150,6 +153,9 @@ human once and offer `/mark:upgrade`; never land an upgrade lane without the hum
    own diagnosis or tell a role how to do its job.
 7. **Stay in the main checkout.** Agents work in the ticket's worktree; their brief has the
    absolute paths. The one exception is your own general-mode lane.
+8. **Role agents run in the foreground** (`run_in_background: false`), and you wait for the
+   result before ending the turn. A headless session stops background agents ten minutes
+   after its turn ends; the work is lost and the ticket stalls on its lock.
 
 ## When a hook blocks (`[BLOCKED] …`)
 
