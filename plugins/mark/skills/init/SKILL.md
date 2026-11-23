@@ -109,8 +109,9 @@ Speak the human's language.
    - New: suggest the first ticket, `/mark:feature` for the project skeleton (framework,
      each module set up in its own directory as the Layout section says, the commands in
      `CLAUDE.md`). Its acceptance criteria describe what works, such as "the home page lists
-     the posts"; the tester writes the end-to-end tests. In the web profiles it has no UI to
-     design, so the human may waive design review with `.mark/gates/<id>.design-approved.waived`; the stack choice is
+     the posts"; the tester writes the end-to-end tests. It has no design deliverable of its
+     own, so open it with `mark claim feature ... --no-design` (or `mark set <id> review-requirement
+     --design none`): approval goes straight to planning, with no designer; the stack choice is
      reviewed at plan review. Its plan creates each module's entry points, so its own merge
      already runs the full regression. Once it lands, set `[worktree] setup` and, if it runs
      servers, `[worktree] ports` (read by the module start scripts and test configs) with

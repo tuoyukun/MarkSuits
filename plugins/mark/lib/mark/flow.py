@@ -20,7 +20,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from . import globs, human, ports, reviews, states, tickets
-from .config import MarkConfig
+from .config import DESIGN_GATE, MarkConfig
 from .i18n import t as _msg
 from .gitutil import current_branch, dirty_paths, git, has_remote, patch_unique, ref_exists, worktrees
 
@@ -427,7 +427,10 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
             return Action("stop", "next.merge_failed", {**base, "reason": failed.get("reason", "")})
         return Action("merge", "next.merge", base)
     if status in _STOP_KEYS:
-        return Action("stop", _STOP_KEYS[status], {**base, "preview": preview_note(ctx), "dir": ctx.rel_dir})
+        key = _STOP_KEYS[status]
+        if ctx.ticket.no_design and status in ("blocked-spec", "blocked-unclear"):
+            key = f"{key}_no_design"  # there is no designer to send it back to
+        return Action("stop", key, {**base, "preview": preview_note(ctx), "dir": ctx.rel_dir})
 
     action = _dispatch(ctx, status)
     first = ("designer-initial", "fix-plan-initial", "coder-plan" if _unstaffed(ctx, "designing") else "")
@@ -585,7 +588,8 @@ def ensure_isolation(ctx: Ctx) -> list[tuple[str, dict]]:
 
 def design_qa_needed(ctx: Ctx) -> bool:
     """Feature has a design and its branch touches the configured UI paths."""
-    if ctx.kind != states.FEATURE or not ctx.cfg.design_qa_paths or ctx.find("design.md") is None:
+    if ctx.kind != states.FEATURE or ctx.ticket.no_design \
+            or not ctx.cfg.design_qa_paths or ctx.find("design.md") is None:
         return False
     remote = has_remote(ctx.main)
     base = f"origin/{ctx.cfg.main_branch}" if remote else ctx.cfg.main_branch
@@ -618,15 +622,23 @@ def _write_status(ctx: Ctx, new: str, note: str | None, extra: dict[str, str | N
 
 
 def _unstaffed(ctx: Ctx, status: str) -> str | None:
-    """The role a status needs when this project has no such role (no designer, say)."""
+    """The role a status needs when it is not available to this ticket: the project has no such
+    role (no designer in `service`, say), or the ticket declares it has no such step
+    (`design: none`)."""
     role = states.ROLE_FOR_STATUS[ctx.kind].get(status)
-    return role if role and role not in ctx.cfg.roles else None
+    if not role:
+        return None
+    if role not in ctx.cfg.roles:
+        return role
+    return role if role == "designer" and ctx.ticket.no_design else None
 
 
 def _move(ctx: Ctx, new: str, note: str | None, extra: dict[str, str | None] | None = None) -> str:
     old = ctx.ticket.status
     if (role := _unstaffed(ctx, new)) and new != old:
-        raise FlowError("flow.no_role", new=new, role=role)
+        if role not in ctx.cfg.roles:
+            raise FlowError("flow.no_role", new=new, role=role)
+        raise FlowError("flow.ticket_no_role", new=new, role=role, id=ctx.id)
     if not states.can_move(ctx.kind, old, new):
         allowed = ", ".join(sorted(states.TRANSITIONS[ctx.kind].get(old, ()))) or "-"
         raise FlowError("flow.illegal", old=old, new=new, allowed=allowed)
@@ -665,13 +677,23 @@ def requirement_problems(path: Path | None) -> list[str]:
 
 
 def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None = None,
-               add_after: list[str] | None = None) -> str:
+               add_after: list[str] | None = None, design: str | None = None) -> str:
     """Orchestrator records an outcome. A status that waits on the human (review gates,
     `blocked-*`, `pending-merge`) is left only through `mark approve` / `mark reject` (human
-    token) or `mark merge` (`passed`); `superseded` stays open to everyone."""
+    token) or `mark merge` (`passed`); `superseded` stays open to everyone.
+
+    `design`: `none` declares this feature has no design deliverable, so the designer is
+    skipped for it; `default` removes the declaration. None leaves the field as it is."""
     if _is_git(ctx):
         _require_main_branch(ctx)
     old = ctx.ticket.status
+    if design is not None:
+        if design not in (tickets.DESIGN_NONE, "default"):
+            raise FlowError("flow.bad_design", value=design)
+        if ctx.kind != states.FEATURE:
+            raise FlowError("flow.design_feature_only", id=ctx.id, kind=ctx.kind)
+        if design == tickets.DESIGN_NONE and new in ("designing", "review-design", "design-qa"):
+            raise FlowError("flow.design_late", id=ctx.id, status=new)
     if new == "voided" and old != new:
         raise FlowError("flow.void_human", id=ctx.id)
     if old in states.HELD and new not in ("superseded", old) and not (old == states.MERGE and new == "passed"):
@@ -708,6 +730,8 @@ def set_status(ctx: Ctx, new: str, note: str | None = None, leftover: str | None
         if unmerged:
             raise FlowError("flow.unmerged", branch=ctx.branch, n=len(unmerged), main=ctx.cfg.main_branch)
     extra = {"leftover": str(leftover)} if leftover is not None else {}
+    if design is not None:
+        extra[tickets.DESIGN_FIELD] = None if design == "default" else design
     if add_after:
         extra["merge-after"] = f"[{', '.join(refs)}]"
     return _move(ctx, new, note, extra)
@@ -735,7 +759,7 @@ def _write_gate(ctx: Ctx, gate: str, by: str = "human") -> Path:
 APPROVE = {
     # status: (gate written, review settled, default next status; None: the human must name one)
     "review-requirement": ("requirement-approved", "requirement", "designing"),
-    "review-design": ("design-approved", "design", "planning"),
+    "review-design": (DESIGN_GATE, "design", "planning"),
     "review-plan": ("plan-approved", "plan", "developing"),
     "blocked-spec": (None, None, "designing"),
     "blocked-plan": (None, None, "planning"),
@@ -947,9 +971,11 @@ def void(ctx: Ctx, reason: str = "") -> str:
     return _move(ctx, "voided", reason or None, {"updater": "human"})
 
 
-def open_ticket(cfg: MarkConfig, kind: str, desc: str, slug: str | None = None) -> tuple[tickets.Ticket, bool]:
-    """Claim a number; approve the opening if a human typed /mark:feature or /mark:fix."""
-    ticket = tickets.claim(cfg, kind, desc, slug=slug)
+def open_ticket(cfg: MarkConfig, kind: str, desc: str, slug: str | None = None,
+                design: str | None = None) -> tuple[tickets.Ticket, bool]:
+    """Claim a number; approve the opening if a human typed /mark:feature or /mark:fix.
+    `design=tickets.DESIGN_NONE` opens a feature with no design deliverable (the board's box)."""
+    ticket = tickets.claim(cfg, kind, desc, slug=slug, design=design)
     verb = "feature" if kind == states.FEATURE else "fix"
     approved = human.consume(cfg, (verb,))
     if approved:

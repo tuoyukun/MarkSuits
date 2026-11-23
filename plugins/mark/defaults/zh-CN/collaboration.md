@@ -28,6 +28,9 @@ bug:     planning → developing → testing → pending-merge → passed
 
 没有 UI 的项目（`profile = "service"`）没有 designer：需求审批通过后直接进入 `planning`，没有设计评审，
 也没有设计验收。
+单张 feature 也可以自己声明 `design: none`（`mark set <编号> <状态> --design none`，或在看板新建工单时勾
+「无设计」）：需求审批通过后直接进入 `planning`，不派 designer，coder-plan 也不需要设计闸门。用
+`--design default` 撤销；项目里其它 UI 工单照旧走 designer。
 
 | 状态 | 谁来做 | 制品 |
 |---|---|---|

@@ -232,6 +232,11 @@ end-to-end test runner.
 | `mobile-fullstack` | mobile app + backend, Maestro | [`habits`](examples/habits/) |
 | `mobile` | mobile app with data on the device | [`tally`](examples/tally/) |
 
+A single feature can also skip the designer: `mark set <id> <status> --design none` (or the
+board's "no design" box when opening it) sends its approved requirement straight to planning,
+with no design review, while the project's other UI tickets keep their designer. Clearing it
+with `--design default` restores the normal flow.
+
 ## Principles
 
 - **Enforced, not suggested.** A rule counts only if a hook blocks it with exit 2.

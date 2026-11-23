@@ -47,6 +47,9 @@ Rules:
 - `DEC-N` records each scope, technical or architecture decision agreed with the human (write
   `none` if there were none). Later roles follow them; changing one goes back to the human
   through `blocked-unclear`.
+- When the ticket has no design deliverable (a data pipeline, a service endpoint, a docs-only
+  feature), say so in the requirement and record it as a `DEC-N`; the orchestrator marks the
+  ticket `design: none`, so it skips the designer while the project's other UI tickets keep it.
 - Open questions say only `none` before `mark set <id> review-requirement`.
 - Ids are never reused or renumbered; a dropped criterion stays, struck through, with the
   reason.

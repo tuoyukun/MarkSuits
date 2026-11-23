@@ -31,17 +31,20 @@ MESSAGES: dict[str, dict[str, str]] = {
         "check.no_leftover": "{rel}: `status: {status}` requires `leftover: <N>` (count of wrap-up items not resolved in this ticket; write 0 if none).",
         "check.bad_leftover": "{rel}: `leftover: {value}` must be a non-negative integer.",
         "check.bad_merge_after": "{rel}: `merge-after: {value}` must look like `[0012, b0007]`.",
+        "check.design_feature_only": "{rel}: `design` applies to features only; this is a {kind}. Remove the field.",
+        "check.bad_design": "{rel}: `design: {value}` is not valid; the only value is `none` (or remove the field).",
         # claim
         "claim.ok": "TICKET-ID: {id}",
         "claim.failed": "Claim failed: {error} (number released, safe to retry).",
         "claim.desc_long": "Description is {n} chars, limit {limit}. Shorten it; details go in the requirement/bug file.",
         "claim.exhausted": "{n} consecutive numbers are taken in {path}; giving up.",
+        "claim.design_feature_only": "Only a feature can open with no design (`--no-design`); a bug's designer is decided by its fix plan.",
         # cli
         "cli.not_project": "Not a Mark project: no .mark/config.toml at or above {cwd}.",
         "cli.config_error": "Config error: {error}",
         "cli.usage": (
             "usage: mark <command> [options]\n"
-            "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
+            "  mark claim <feature|bug> \"<description>\" [--slug <slug>] [--no-design]\n"
             "  mark status [--active | --json | --check]\n"
             "  mark unlock <ticket-id> <role>\n"
             "  mark journeys [<checkout>]"
@@ -68,15 +71,18 @@ MESSAGES: dict[str, dict[str, str]] = {
         "check.no_leftover": "{rel}：`status: {status}` 必须写 `leftover: <N>`（收尾结算中未在本单解决的条数，没有就写 0）。",
         "check.bad_leftover": "{rel}：`leftover: {value}` 必须是非负整数。",
         "check.bad_merge_after": "{rel}：`merge-after: {value}` 格式应为 `[0012, b0007]`。",
+        "check.design_feature_only": "{rel}：`design` 只适用于 feature；这是 {kind}，请删掉该字段。",
+        "check.bad_design": "{rel}：`design: {value}` 不合法；唯一取值是 `none`（或删掉该字段）。",
         "claim.ok": "TICKET-ID: {id}",
         "claim.failed": "立单失败：{error}（号已释放，可原样重试）",
         "claim.desc_long": "描述 {n} 字符，超出上限 {limit}。请缩短，细节写进需求或 bug 文件。",
         "claim.exhausted": "{path} 下连续 {n} 个号都已被占，放弃。",
+        "claim.design_feature_only": "只有 feature 能带 `--no-design` 开单；bug 是否要 designer 由修复方案决定。",
         "cli.not_project": "不是 Mark 项目：{cwd} 及其上级目录都没有 .mark/config.toml。",
         "cli.config_error": "配置错误：{error}",
         "cli.usage": (
             "用法：mark <命令> [选项]\n"
-            "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
+            "  mark claim <feature|bug> \"<描述>\" [--slug <slug>] [--no-design]\n"
             "  mark status [--active | --json | --check]\n"
             "  mark unlock <工单编号> <角色>\n"
             "  mark journeys [<checkout>]"
@@ -463,11 +469,11 @@ _USAGE_EN = (
     "  mark next <id> [--json]                        what happens next for a ticket\n"
     "  mark dispatch <id> [--prev \"<text>\"] [--trigger \"<text>\"] [--retry]\n"
     "                                                 prepare the worktree, print the dispatch prompt\n"
-    "  mark set <id> <status> [--note \"<text>\"] [--leftover N] [--merge-after <ids>] [--no-commit]\n"
+    "  mark set <id> <status> [--note \"<text>\"] [--leftover N] [--merge-after <ids>] [--design none|default] [--no-commit]\n"
     "  mark approve <id> [--to <status>] [--no-commit]  human only (/mark:approve <id> [<status>])\n"
     "  mark reject <id> --item \"<text>\"... [--to planning] [--no-commit]   human only (/mark:reject)\n"
     "  mark void <id> [--note \"<reason>\"] [--no-commit]   human only (the board's Void button)\n"
-    "  mark claim <feature|bug> \"<description>\" [--slug <slug>]\n"
+    "  mark claim <feature|bug> \"<description>\" [--slug <slug>] [--no-design]\n"
     "  mark commit <id> [-m \"<message>\"]             commit + push the ticket's state on main\n"
     "  mark regress <id>                              run the merge regression in the ticket's worktree (tester)\n"
     "  mark merge <id>                                pending-merge -> passed: merge main in, regression, ff-only, push\n"
@@ -490,11 +496,11 @@ _USAGE_ZH = (
     "  mark next <编号> [--json]                      这张工单下一步做什么\n"
     "  mark dispatch <编号> [--prev \"<文本>\"] [--trigger \"<文本>\"] [--retry]\n"
     "                                                 备好 worktree，输出派活 prompt\n"
-    "  mark set <编号> <状态> [--note \"<文本>\"] [--leftover N] [--merge-after <编号>] [--no-commit]\n"
+    "  mark set <编号> <状态> [--note \"<文本>\"] [--leftover N] [--merge-after <编号>] [--design none|default] [--no-commit]\n"
     "  mark approve <编号> [--to <状态>] [--no-commit] 仅限人（/mark:approve <编号> [<状态>]）\n"
     "  mark reject <编号> --item \"<文本>\"... [--to planning] [--no-commit]   仅限人（/mark:reject）\n"
     "  mark void <编号> [--note \"<原因>\"] [--no-commit]   仅限人（看板的「作废」按钮）\n"
-    "  mark claim <feature|bug> \"<描述>\" [--slug <slug>]\n"
+    "  mark claim <feature|bug> \"<描述>\" [--slug <slug>] [--no-design]\n"
     "  mark commit <编号> [-m \"<说明>\"]               在 main 上提交并推送工单状态\n"
     "  mark merge <编号>                              pending-merge -> passed：合入 main、回归、ff-only、推送\n"
     "  mark general new | merge <分支> | drop <分支> [--force]\n"
@@ -636,6 +642,11 @@ MESSAGES["en"].update({
         "{id} is `blocked-spec`: the design or its UI components have a problem. Report it to the human and stop.\n"
         "/mark:approve {id} sends it back to the designer; /mark:approve {id} developing goes on as it is."
     ),
+    "next.blocked_spec_no_design": (
+        "{id} is `blocked-spec`: the plan or the implementation has a problem (this ticket has no design\n"
+        "step). Report it to the human and stop. /mark:approve {id} sends it back to planning;\n"
+        "/mark:approve {id} developing goes on as it is."
+    ),
     "next.blocked_plan": (
         "{id} is `blocked-plan`: the plan has a hole. Report it to the human and stop.\n"
         "/mark:approve {id} sends it back to planning; /mark:approve {id} developing goes on as it is."
@@ -644,6 +655,11 @@ MESSAGES["en"].update({
         "{id} is `blocked-unclear`: the requirement is not clear enough. Clarify with the human and update the\n"
         "requirement/bug file with them, then stop. The human picks where it goes next:\n"
         "/mark:approve {id} <designing | planning | developing>."
+    ),
+    "next.blocked_unclear_no_design": (
+        "{id} is `blocked-unclear`: the requirement is not clear enough. Clarify with the human and update the\n"
+        "requirement/bug file with them, then stop (this ticket has no design step). The human picks where it\n"
+        "goes next: /mark:approve {id} <planning | developing>."
     ),
     "next.done": "{id} is `{status}`. Nothing to do.",
     "next.invalid": "{id}: status `{status}` is not valid. Run `mark status --check`.",
@@ -695,6 +711,20 @@ MESSAGES["en"].update({
     "flow.invalid_status": "The new status.md would be invalid:\n{problems}",
     "flow.illegal": "Illegal move `{old}` -> `{new}`. Allowed from `{old}`: {allowed}.",
     "flow.no_role": "`{new}` needs the {role}, and this project has none (`roles` / `profile` in .mark/config.toml).",
+    "flow.ticket_no_role": (
+        "`{new}` needs the {role}, but ticket {id} declares it has no design (`design: none` in status.md).\n"
+        "To bring the designer back: `mark set {id} <status> --design default`, then route it through `blocked-spec`."
+    ),
+    "flow.bad_design": (
+        "`--design {value}` is not valid. Use `--design none` (this ticket has no design deliverable) or\n"
+        "`--design default` (remove that declaration, back to the normal design flow)."
+    ),
+    "flow.design_feature_only": "{id} is a {kind}; `design` applies to features only.",
+    "flow.design_late": (
+        "`{status}` is a designer status, but {id} is being marked `design: none`.\n"
+        "To skip design from `designing`, stop the designer first: `mark set {id} blocked-spec --design none`,\n"
+        "then the human approves with `/mark:approve {id} planning` (or `developing`)."
+    ),
     "flow.human_gate": (
         "{id} is at `{status}`, which waits on the human. Only /mark:approve or /mark:reject (typed by the\n"
         "human) move it on; `mark merge` lands a `pending-merge` ticket. Report and stop."
@@ -758,6 +788,8 @@ MESSAGES["en"].update({
     "flow.reject_empty": "No comments given. Pass each one as --item \"<text>\".",
     "flow.reject_to": "`--to {to}` is not valid from `{status}`; only pending-merge may go back to planning.",
     "set.done": "{id}: `{old}` -> `{new}`.",
+    "set.no_design": "{id}: marked `design: none` — the designer is skipped, and coder-plan needs no design gate.",
+    "set.design_default": "{id}: `design: none` removed; the normal design flow is back.",
     "set.rework_pass": ("{id}: the human already reviewed this once, so the rework passes without "
                         "another review (`[gates] rework_review = true` to review it): `{old}` -> `{new}`."),
     "approve.ticket": "Opening {id} approved (wrote {gate}).",
@@ -927,6 +959,10 @@ MESSAGES["zh-CN"].update({
         "{id} 是 `blocked-spec`：设计或其 UI 组件有问题。报告 Human 后停下。\n"
         "/mark:approve {id} 退回 designer 返工；/mark:approve {id} developing 按现状继续。"
     ),
+    "next.blocked_spec_no_design": (
+        "{id} 是 `blocked-spec`：方案或实现有问题（本单无设计环节）。报告 Human 后停下。\n"
+        "/mark:approve {id} 退回方案环节；/mark:approve {id} developing 按现状继续。"
+    ),
     "next.blocked_plan": (
         "{id} 是 `blocked-plan`：方案有洞。报告 Human 后停下。\n"
         "/mark:approve {id} 退回出方案的环节；/mark:approve {id} developing 按现状继续。"
@@ -934,6 +970,10 @@ MESSAGES["zh-CN"].update({
     "next.blocked_unclear": (
         "{id} 是 `blocked-unclear`：需求不够清楚。和 Human 澄清，一起更新需求/bug 文件，然后停下。\n"
         "去向由 Human 决定：/mark:approve {id} <designing | planning | developing>。"
+    ),
+    "next.blocked_unclear_no_design": (
+        "{id} 是 `blocked-unclear`：需求不够清楚。和 Human 澄清，一起更新需求/bug 文件，然后停下（本单无设计\n"
+        "环节）。去向由 Human 决定：/mark:approve {id} <planning | developing>。"
     ),
     "next.done": "{id} 已是 `{status}`，无事可做。",
     "next.invalid": "{id}：状态 `{status}` 不合法。请跑 `mark status --check`。",
@@ -984,6 +1024,20 @@ MESSAGES["zh-CN"].update({
     "flow.invalid_status": "新的 status.md 不合规：\n{problems}",
     "flow.illegal": "非法跳转 `{old}` -> `{new}`。从 `{old}` 只能到：{allowed}。",
     "flow.no_role": "`{new}` 需要 {role}，而本项目没有这个角色（见 .mark/config.toml 的 `roles` / `profile`）。",
+    "flow.ticket_no_role": (
+        "`{new}` 需要 {role}，但工单 {id} 声明了本单无设计（status.md 里 `design: none`）。\n"
+        "要恢复 designer：先 `mark set {id} <状态> --design default`，再经 `blocked-spec` 转回。"
+    ),
+    "flow.bad_design": (
+        "`--design {value}` 不合法。用 `--design none`（本单无设计交付物）或 `--design default`\n"
+        "（移除该声明，恢复常规设计流程）。"
+    ),
+    "flow.design_feature_only": "{id} 是 {kind}；`design` 只适用于 feature。",
+    "flow.design_late": (
+        "`{status}` 是需要 designer 的状态，但 {id} 正在被标记 `design: none`。\n"
+        "要从 `designing` 跳过设计：先 `mark set {id} blocked-spec --design none`，\n"
+        "再由人执行 `/mark:approve {id} planning`（或 `developing`）。"
+    ),
     "flow.human_gate": (
         "{id} 停在 `{status}`，这一步等人决定。只有 Human 输入的 /mark:approve 或 /mark:reject 能推动它；\n"
         "`pending-merge` 由 `mark merge` 合入。报告后停下。"
@@ -1043,6 +1097,8 @@ MESSAGES["zh-CN"].update({
     "flow.reject_empty": "没有意见。每条意见用 --item \"<文本>\" 传入。",
     "flow.reject_to": "从 `{status}` 不能 `--to {to}`；只有 pending-merge 可以退回 planning。",
     "set.done": "{id}：`{old}` -> `{new}`。",
+    "set.no_design": "{id}：已标记 `design: none`——跳过 designer，coder-plan 也不再需要设计闸门。",
+    "set.design_default": "{id}：已移除 `design: none`，恢复常规设计流程。",
     "set.rework_pass": "{id}：Human 已审过一次，返工直接放行，不再停下审查（要审查就设 `[gates] rework_review = true`）：`{old}` -> `{new}`。",
     "approve.ticket": "已批准建单 {id}（写入 {gate}）。",
     "approve.done": "已放行 {id}：`{old}` -> `{new}`。",

@@ -30,7 +30,8 @@ DEFAULT_ROLES = ("designer", "coder-plan", "coder-impl", "tester", "fix-plan")
 # Profiles (`profile` in the config, chosen at `mark init`) whose product has no UI: their
 # features have no designer, so they start at planning and have no design review.
 NO_UI_PROFILES = frozenset({"service"})
-DEFAULT_GATES = {"coder-plan": "design-approved", "coder-impl": "plan-approved",
+DESIGN_GATE = "design-approved"
+DEFAULT_GATES = {"coder-plan": DESIGN_GATE, "coder-impl": "plan-approved",
                  "tester": "plan-approved"}
 DEFAULT_OUTPUTS = {"designer": ["design.md", "preview.html"], "coder-plan": ["tech-plan.md"],
                    "fix-plan": ["fix-plan.md"], "coder-impl": ["handoff.md"],
@@ -115,7 +116,7 @@ class MarkConfig:
         """role -> gate name required before dispatch (feature tickets only). A project key
         replaces only that role's default; `""` removes the gate. Without a designer there is
         no design to approve."""
-        default = {k: v for k, v in DEFAULT_GATES.items() if v != "design-approved" or "designer" in self.roles}
+        default = {k: v for k, v in DEFAULT_GATES.items() if v != DESIGN_GATE or "designer" in self.roles}
         merged = {**default, **self._section("gates")}
         return {k: str(v) for k, v in merged.items() if v and k != "rework_review"}
 

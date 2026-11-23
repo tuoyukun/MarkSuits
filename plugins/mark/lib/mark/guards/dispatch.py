@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from .. import brief, states, tickets
-from ..config import DEFAULT_ROLES
+from ..config import DEFAULT_ROLES, DESIGN_GATE
 from ..gitutil import (ahead_of, current_branch, dirty_paths, git, has_remote, is_ancestor,
                        patch_unique, ref_exists, worktrees)
 from . import locks
@@ -68,12 +68,14 @@ REQUIREMENT_GATE = "requirement-approved"
 
 def gate_guard(env: Env) -> str | None:
     """Feature roles need the approved requirement and their own human review gate; the bug
-    chain has none."""
+    chain has none. A ticket that declared `design: none` needs no design gate: there is no
+    design to approve."""
     target = _pipeline_target(env)
     if not isinstance(target, Target) or target.kind == "bug":
         return None
     ticket = tickets.load_ticket(env.cfg, target.kind, target.id)
-    gates = [env.cfg.gates.get(env.dispatch_role)]
+    role_gate = env.cfg.gates.get(env.dispatch_role)
+    gates = [] if ticket.no_design and role_gate == DESIGN_GATE else [role_gate]
     if ticket.get(tickets.REQUIREMENT_GATE_FIELD):
         gates.insert(0, REQUIREMENT_GATE)
     gate = next((g for g in gates if g and not env.has_gate(target.id, g)), None)

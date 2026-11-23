@@ -87,6 +87,14 @@ class CheckTest(unittest.TestCase):
         write_ticket(self.root, "features", "0001-a", STATUS_OK.replace("desc:", "merge-after: 12\ndesc:"))
         self.assertEqual(self.keys(), ["check.bad_merge_after"])
 
+    def test_design_field_is_feature_only(self):
+        write_ticket(self.root, "bugs", "b0001-crash", STATUS_OK.replace("desc:", "design: none\ndesc:"))
+        self.assertEqual(self.keys(), ["check.design_feature_only"])
+
+    def test_bad_design_value(self):
+        write_ticket(self.root, "features", "0001-login", STATUS_OK.replace("desc:", "design: ui\ndesc:"))
+        self.assertEqual(self.keys(), ["check.bad_design"])
+
     def test_all_tickets_sorted_newest_first(self):
         write_ticket(self.root, "features", "0001-old", STATUS_OK)
         write_ticket(self.root, "bugs", "b0001-new", STATUS_OK.replace("2026-01-02", "2026-02-01"))
@@ -125,6 +133,19 @@ class ClaimTest(unittest.TestCase):
         with self.assertRaises(tickets.ClaimError):
             tickets.claim(self.cfg, "feature", "x" * 201)
         self.assertEqual(tickets.used_numbers(self.cfg, "feature"), set())
+
+    def test_feature_can_open_with_no_design(self):
+        t = tickets.claim(self.cfg, "feature", "data pipeline", design="none", today="2026-03-01")
+        self.assertTrue(t.no_design)
+        fields, _ = tickets.parse_status(t.path.read_text(encoding="utf-8"))
+        self.assertEqual(fields["design"], "none")
+        self.assertEqual(fields["status"], "drafting")
+
+    def test_bug_cannot_open_with_no_design(self):
+        with self.assertRaises(tickets.ClaimError) as caught:
+            tickets.claim(self.cfg, "bug", "crash", design="none")
+        self.assertEqual(caught.exception.key, "claim.design_feature_only")
+        self.assertEqual(tickets.used_numbers(self.cfg, "bug"), set())  # refused before reserving
 
     def test_failure_after_reservation_releases_number(self):
         orig = tickets.format_status

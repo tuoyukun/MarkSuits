@@ -77,6 +77,21 @@ class TargetAndGateTest(unittest.TestCase):
         add_worktree(self.root, "feature", "0001-a")
         self.assertEqual(dispatch(self.root, "coder-plan", anchor("features", "0001-a"))[0], 0)
 
+    def test_no_design_ticket_needs_no_design_gate(self):
+        add_ticket(self.root, "feature", "0001-a", "planning",
+                   gates=["ticket-approved", "requirement-approved"],
+                   **{"requirement-gate": "yes", "design": "none"})
+        add_worktree(self.root, "feature", "0001-a")
+        self.assertEqual(dispatch(self.root, "coder-plan", anchor("features", "0001-a"))[0], 0)
+
+    def test_designer_is_not_dispatched_for_a_no_design_ticket(self):
+        add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=["ticket-approved"],
+                   **{"requirement-gate": "yes", "design": "none"})
+        add_worktree(self.root, "feature", "0001-a")
+        code, err = dispatch(self.root, "designer", anchor("features", "0001-a"))
+        self.assertEqual(code, 2)
+        self.assertIn("not `designer`", err)
+
     def test_requirement_gate_required_for_new_tickets(self):
         add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"],
                    **{"requirement-gate": "yes"})

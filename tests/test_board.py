@@ -282,6 +282,14 @@ class DecideTest(unittest.TestCase):
         self.assertIn(waits["0002-b"]["default"], waits["0002-b"]["targets"])
         self.assertEqual(waits["0003-c"], {"kind": "opening"})
 
+    def test_a_no_design_ticket_is_never_sent_to_the_designer(self):
+        add_ticket(self.root, "feature", "0004-d", "blocked-spec", gates=("ticket-approved",), design="none")
+        card = next(t for t in board.snapshot(self.cfg, board.History(self.cfg))["tickets"] if t["id"] == "0004-d")
+        self.assertEqual(card["design"], "none")
+        self.assertEqual(card["wait"]["kind"], "blocked")
+        self.assertNotIn("designing", card["wait"]["targets"])
+        self.assertEqual(card["wait"]["default"], "planning")
+
     def test_without_the_cookie_nothing_is_decided(self):
         code, _, _ = self.post(self.p + "/api/decide", {"ticket": "0001-a", "verb": "approve"})
         self.assertEqual(code, 403)
@@ -534,6 +542,25 @@ class DecideTest(unittest.TestCase):
         start.assert_called_once_with(self.cfg, "feature", tid, "Due dates\nOverdue ones in red.",
                                       when_done=mock.ANY)
         self.no_tokens_left()
+
+    def test_new_feature_can_open_without_design(self):
+        cookie = self.login()
+        with mock.patch.object(board.chat, "start", return_value=(True, "")):
+            code, res, _ = self.post(self.p + "/api/new",
+                                     {"kind": "feature", "text": "Data pipeline", "slug": "pipeline",
+                                      "no_design": True}, cookie=cookie)
+        self.assertEqual((code, res["ok"]), (200, True), res)
+        tid = res["id"]
+        self.assertTrue(flow.load(self.cfg, tid).ticket.no_design)
+        card = next(t for t in board.snapshot(self.cfg, board.History(self.cfg))["tickets"] if t["id"] == tid)
+        self.assertEqual(card["design"], "none")
+        self.no_tokens_left()
+
+    def test_no_design_is_feature_only_on_the_board(self):
+        with mock.patch.object(board.chat, "start", return_value=(True, "")):
+            code, _, _ = self.post(self.p + "/api/new", {"kind": "bug", "text": "Crash", "no_design": True},
+                                   cookie=self.login())
+        self.assertEqual(code, 409)
 
     def test_new_general_ticket_opens_a_lane_and_starts_the_chat(self):
         text = "Tidy the release notes.\nAnd the README."

@@ -29,6 +29,10 @@ bug:     planning → developing → testing → pending-merge → passed
 
 A project without a UI (`profile = "service"`) has no designer: an approved
 requirement goes straight to `planning`, with no design review and no design QA.
+A single feature can say the same for itself with `design: none` (`mark set <id> <status>
+--design none`, or the "no design" box when the board opens it): its approved requirement goes
+straight to `planning`, no designer is dispatched, and coder-plan needs no design gate. Clear it
+with `--design default`; the project's other UI tickets keep their designer.
 
 | Status | Who acts | Artifact |
 |---|---|---|

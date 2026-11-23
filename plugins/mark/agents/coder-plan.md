@@ -1,6 +1,6 @@
 ---
 name: coder-plan
-description: Mark technical planner for features. Reads the requirement and the approved design and writes tech-plan.md (data model, interfaces, module changes, sequence diagrams, numbered tasks, risks). Never writes code. Dispatched by the Mark orchestrator only.
+description: Mark technical planner for features. Reads the requirement and the approved design (when the ticket has one) and writes tech-plan.md (data model, interfaces, module changes, sequence diagrams, numbered tasks, risks). Never writes code. Dispatched by the Mark orchestrator only.
 tools: Read, Write, Edit, Glob, Grep, Bash
 skills:
   - mark:role-rules

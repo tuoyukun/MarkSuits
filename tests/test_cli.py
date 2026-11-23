@@ -91,6 +91,35 @@ class CliTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("立单失败", err)
 
+    def test_claim_no_design_is_a_feature_only_flag(self):
+        self.assertEqual(run(self.root, "claim", "feature", "Data pipeline", "--no-design")[0], 0)
+        data = json.loads(run(self.root, "status", "--json")[1])
+        self.assertEqual(data[0]["design"], "none")
+        code, _, err = run(self.root, "claim", "bug", "Crash", "--no-design")
+        self.assertEqual(code, 1)
+        self.assertIn("只有 feature", err)
+
+    def test_set_marks_and_clears_no_design(self):
+        run(self.root, "claim", "feature", "Data pipeline")
+        d = self.root / ".mark" / "features" / "0001-data-pipeline"
+        (d / "requirement.md").write_text(
+            "## 验收标准\n<!-- mark:ac -->\n- AC-1：能跑\n\n"
+            "## 待确认\n<!-- mark:open-questions -->\n- 无\n", encoding="utf-8")
+        code, out, err = run(self.root, "set", "0001", "review-requirement", "--design", "none")
+        self.assertEqual(code, 0, err)
+        self.assertIn("design: none", (d / "status.md").read_text())
+        self.assertIn("跳过 designer", out)
+        code, out, err = run(self.root, "set", "0001", "review-requirement", "--design", "default")
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("design:", (d / "status.md").read_text())
+        self.assertIn("恢复常规", out)
+
+    def test_set_refuses_an_unknown_design_value(self):
+        run(self.root, "claim", "feature", "Data pipeline")
+        code, _, err = run(self.root, "set", "0001", "drafting", "--design", "ui", "--no-commit")
+        self.assertEqual(code, 1)
+        self.assertIn("--design", err)
+
     def test_pipe_in_note_does_not_break_table(self):
         run(self.root, "claim", "feature", "a | b")
         self.assertIn("a \\| b", run(self.root, "status")[1])

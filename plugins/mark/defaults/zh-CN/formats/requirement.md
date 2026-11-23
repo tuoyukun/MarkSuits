@@ -43,5 +43,7 @@
   能看到的写这条标准，并记成一条 `DEC-N`。
 - `DEC-N` 记录和人谈定的每条范围、技术或架构决策（没有就写「无」）。后续角色照此执行；要改某条，
   经 `blocked-unclear` 回到人那里。
+- 本单没有设计交付物（数据 pipeline、后端接口、纯文档功能）时，在需求里写明并记成一条 `DEC-N`；
+  orchestrator 会把工单标为 `design: none`，该单跳过 designer，项目里其它 UI 工单不受影响。
 - `mark set <id> review-requirement` 之前，待确认只能是「无」。
 - 编号永不复用、不重排；删掉的标准保留并划掉，注明理由。

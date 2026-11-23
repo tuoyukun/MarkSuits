@@ -104,12 +104,13 @@ def _stale_notice(cfg: MarkConfig, out: TextIO) -> None:
 
 
 def cmd_claim(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
-    opts, pos = _parse(args, {"--slug"})
+    opts, pos = _parse(args, {"--slug"}, flags=_FLAGS | {"--no-design"})
     if opts is None or len(pos) != 2 or pos[0] not in states.KINDS or not pos[1].strip():
         err.write(t(cfg.locale, "cli.usage") + "\n")
         return 2
+    design = tickets.DESIGN_NONE if opts.get("--no-design") else None
     try:
-        ticket, approved = flow.open_ticket(cfg, pos[0], pos[1], slug=opts.get("--slug"))
+        ticket, approved = flow.open_ticket(cfg, pos[0], pos[1], slug=opts.get("--slug"), design=design)
     except tickets.ClaimError as exc:
         reason = t(cfg.locale, exc.key, **exc.params)
         err.write(t(cfg.locale, "claim.failed", error=reason) + "\n")
@@ -133,8 +134,8 @@ def cmd_claim(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int
 _FLAGS = {"--json", "--retry", "--no-commit", "--stop", "--serve", "--no-open"}
 
 
-def _parse(args: list[str], valued: set[str], multi: set[str] = frozenset()
-           ) -> tuple[dict | None, list[str]]:
+def _parse(args: list[str], valued: set[str], multi: set[str] = frozenset(),
+           flags: set[str] = _FLAGS) -> tuple[dict | None, list[str]]:
     """Tiny option parser: returns ({opt: value | [values] | True}, positionals); None on error."""
     opts: dict = {}
     pos: list[str] = []
@@ -150,7 +151,7 @@ def _parse(args: list[str], valued: set[str], multi: set[str] = frozenset()
                 opts[a] = args[i + 1]
             i += 2
             continue
-        if a in _FLAGS:
+        if a in flags:
             opts[a] = True
         elif a.startswith("--"):
             return None, pos
@@ -235,16 +236,22 @@ def cmd_dispatch(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> 
 
 
 def cmd_set(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
-    opts, pos = _parse(args, {"--note", "--leftover", "--merge-after"})
+    opts, pos = _parse(args, {"--note", "--leftover", "--merge-after", "--design"})
     if opts is None or len(pos) != 2:
         _say(cfg, err, "cli.usage")
         return 2
     ctx = flow.load(cfg, pos[0])
     after = [r for r in re.split(r"[\s,\[\]]+", opts.get("--merge-after", "")) if r and r != "none"]
     old = flow.set_status(ctx, pos[1], note=opts.get("--note"), leftover=opts.get("--leftover"),
-                          add_after=after)
+                          add_after=after, design=opts.get("--design"))
     _say(cfg, out, "set.done", id=ctx.id, old=old, new=pos[1])
+    if opts.get("--design") == tickets.DESIGN_NONE:
+        _say(cfg, out, "set.no_design", id=ctx.id)
+    elif opts.get("--design") == "default":
+        _say(cfg, out, "set.design_default", id=ctx.id)
     msg = f"{ctx.id}: {old} -> {pos[1]}"
+    if opts.get("--design"):
+        msg += f" (design: {opts['--design']})"
     res = flow.rework_pass(flow.load(cfg, ctx.id))
     if res:
         _say(cfg, out, "set.rework_pass", id=ctx.id, old=res.old, new=res.new)

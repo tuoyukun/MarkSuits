@@ -289,6 +289,84 @@ class NoDesignerTest(unittest.TestCase):
         self.assertIn("status: planning", (self.root / ".mark/features/0001-a/status.md").read_text())
 
 
+class NoDesignTicketTest(unittest.TestCase):
+    """A feature declares `design: none` while the project keeps its designer."""
+
+    def setUp(self):
+        self.root = make_repo()
+
+    def approve_requirement(self, design=None):
+        t = tickets.claim(load_config(self.root), "feature", "data pipeline", design=design)
+        write(self.root / ".mark/gates" / f"{t.id}.ticket-approved", "ok\n")
+        write(t.path.parent / "requirement.md", REQUIREMENT)
+        flow.set_status(ctx_of(self.root, t.id), "review-requirement")
+        human_typed(self.root, f"/mark:approve {t.id[:4]}")
+        return t
+
+    def test_approved_requirement_goes_to_planning(self):
+        t = self.approve_requirement(tickets.DESIGN_NONE)
+        self.assertEqual(flow.approve(ctx_of(self.root, t.id)).new, "planning")
+        a = ctx_next(self.root, t.id)
+        self.assertEqual((a.kind, a.role, a.scenario), ("dispatch", "coder-plan", "coder-plan"))
+
+    def test_requirement_still_goes_to_design_without_the_field(self):
+        t = self.approve_requirement()
+        self.assertEqual(flow.approve(ctx_of(self.root, t.id)).new, "designing")
+
+    def test_no_move_to_a_designer_status(self):
+        add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES, design="none")
+        ctx = ctx_of(self.root, "0001")
+        self.assertNotIn("designing", flow.approve_targets(ctx))
+        with self.assertRaises(flow.FlowError) as caught:
+            flow._move(ctx, "designing", None)
+        self.assertEqual(caught.exception.key, "flow.ticket_no_role")
+
+    def test_blocked_spec_goes_back_to_planning(self):
+        add_ticket(self.root, "feature", "0001-a", "blocked-spec", gates=ALL_GATES, design="none")
+        human_typed(self.root, "/mark:approve 0001")
+        code, _, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("status: planning", (self.root / ".mark/features/0001-a/status.md").read_text())
+
+    def test_set_marks_and_clears_the_field(self):
+        d = add_ticket(self.root, "feature", "0001-a", "drafting", gates=["ticket-approved"])
+        write(d / "requirement.md", REQUIREMENT)
+        code, out, err = run(self.root, "set", "0001", "review-requirement", "--design", "none", "--no-commit")
+        self.assertEqual(code, 0, err)
+        self.assertIn("design: none", (d / "status.md").read_text())
+        self.assertIn("skipped", out)
+        code, out, err = run(self.root, "set", "0001", "review-requirement", "--design", "default", "--no-commit")
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("design:", (d / "status.md").read_text())
+        self.assertIn("normal design flow", out)
+
+    def test_set_refuses_a_designer_status(self):
+        add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"])
+        code, _, err = run(self.root, "set", "0001", "designing", "--design", "none", "--no-commit")
+        self.assertEqual(code, 1)
+        self.assertIn("design: none", err)
+
+    def test_bug_cannot_take_the_field(self):
+        add_ticket(self.root, "bug", "b0001-a", "developing", gates=ALL_GATES)
+        code, _, err = run(self.root, "set", "b0001", "developing", "--design", "none", "--no-commit")
+        self.assertEqual(code, 1)
+        self.assertIn("features only", err)
+
+    def test_blocked_messages_skip_the_designer(self):
+        for status, key in (("blocked-spec", "next.blocked_spec_no_design"),
+                            ("blocked-unclear", "next.blocked_unclear_no_design")):
+            add_ticket(self.root, "feature", f"0001-{status}", status, gates=ALL_GATES, design="none")
+            self.assertEqual(ctx_next(self.root, f"0001-{status}").message, key)
+
+    def test_design_qa_is_not_needed(self):
+        cfg_path = self.root / ".mark" / "config.toml"
+        cfg_path.write_text(cfg_path.read_text() + '\n[design_qa]\npaths = ["frontend/**"]\n')
+        add_ticket(self.root, "feature", "0001-a", "developing", gates=ALL_GATES, design="none")
+        d = self.root / ".mark/features/0001-a"
+        write(d / "design.md", "stale")
+        self.assertFalse(flow.design_qa_needed(ctx_of(self.root, "0001")))
+
+
 DESIGN = ("# d\n\n## Props contract\n<!-- mark:props-contract -->\nList(items)\n\n"
           "## Integration contract\n<!-- mark:integration-contract -->\n1. none\n\n## Design intent\nv1\n")
 

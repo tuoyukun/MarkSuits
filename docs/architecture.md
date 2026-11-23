@@ -103,7 +103,7 @@ text, so templates can be localized freely.
 | status | action | role | gate required |
 |---|---|---|---|
 | drafting | the orchestrator writes `requirement.md` with the human; `mark set … review-requirement` refuses it without an `AC-N` under `<!-- mark:ac -->` or with open questions other than `none` | — | — |
-| review-requirement | stop, wait for human; approve → `designing` (`planning` without a designer), reject → `drafting` | — | — |
+| review-requirement | stop, wait for human; approve → `designing` (`planning` without a designer, or when the ticket declares `design: none`), reject → `drafting` | — | — |
 | designing | design | designer | requirement-approved |
 | review-design | stop, wait for human | — | — |
 | planning | tech plan | coder-plan | requirement-approved, design-approved |
@@ -153,6 +153,15 @@ drops it from the default `roles`, and with it the `design-approved` gate): a ne
 at `planning` (`states.initial`), and no move may enter a status whose role the project lacks
 (`flow.no_role`; `blocked-spec` then goes back to `planning`).
 
+**One ticket without a design** (v0.73) works the same inside an ordinary project: `design: none`
+in `status.md` makes the designer unavailable to that ticket only. Its requirement approval goes
+straight to `planning`, no move may enter `designing` / `review-design` / `design-qa`, `gate_guard`
+skips the `design-approved` gate, and `design_qa_needed` is false. `mark set <id> <status>
+--design none` sets it (`--design default` removes it, and `mark claim feature … --no-design`
+sets it at claim, as the board's "no design" box does); only features take it. A stray `design.md`
+does not bring the designer back. From `designing`, the way out is the designer's `blocked-spec`
+plus `mark set <id> blocked-spec --design none`, then the human approves to `planning`.
+
 Bug chain: fix-plan → coder-impl → tester, no review gates. When part of the fix is in the UI
 directory, fix-plan tags those items `[ui]` and reports `designing`: the designer fixes the
 components (`designer-bugfix`: no design, no preview, no required output), then goes to
@@ -169,9 +178,10 @@ Failure routing is decided by the orchestrator from the tester's `failureType`
   The directory is the index; there is no global board (a shared board conflicts on every
   concurrent change). Id and kind come from the path, never from file content.
 - `status.md` frontmatter: `status`, `owner`, `updated`, `updater`, `desc` (≤200 chars),
-  optional `merge-after: [0012, b0007]`, and `leftover: <N>` from `pending-merge` on.
+  optional `design: none` (a feature with no design deliverable, v0.73), optional
+  `merge-after: [0012, b0007]`, and `leftover: <N>` from `pending-merge` on.
   The note below it is ≤240 chars; process details go in `log.md`.
-- `mark claim <feature|bug> "<desc>" [--slug s]` reserves a number with an `O_EXCL` marker
+- `mark claim <feature|bug> "<desc>" [--slug s] [--no-design]` reserves a number with an `O_EXCL` marker
   file under `.numbers/` (gitignored), so concurrent sessions never share a number. A failure
   after reservation releases the number.
 - `mark status [--active|--json|--check]` renders the view on demand; nothing is stored.
@@ -187,7 +197,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 | group | event / matcher | guards, in order |
 |---|---|---|
 | `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins; a path no rule assigns is the main thread's, except a role's working files in a ticket dir — v0.19; CLI-only files are nobody's, see below) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **budget** (`[[doc_budget]]`, see Doc budget) · **e2e** / **layout** (tester writes, v0.22–v0.40) |
-| `pre-dispatch` | PreToolUse `Agent\|Task` | **staffed** (a built-in role the project lacks, e.g. the designer in `service`, is refused, v0.30) · **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **status** (the role is the one the ticket's status names; gates are never revoked, so a gate alone would start coder-impl while a reworked plan waits for review, v0.30) · **gate** (feature roles need `[gates]`, plus `requirement-approved` when the ticket says `requirement-gate: yes`, v0.33; `<gate>.waived` counts) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **brief** (the prompt is the one `mark dispatch` last printed for that ticket and role, by digest in `locks/<id>.<role>.brief.json`; an edited copy starts no agent, v0.35) · **background** (a role agent must be dispatched with `run_in_background: false`: a headless turn loses a background agent ten minutes after it ends) · **dedup** (one live agent per ticket+role; creates the lock) |
+| `pre-dispatch` | PreToolUse `Agent\|Task` | **staffed** (a built-in role the project lacks, e.g. the designer in `service`, is refused, v0.30) · **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **status** (the role is the one the ticket's status names; gates are never revoked, so a gate alone would start coder-impl while a reworked plan waits for review, v0.30) · **gate** (feature roles need `[gates]`, plus `requirement-approved` when the ticket says `requirement-gate: yes`, v0.33; `<gate>.waived` counts; a ticket with `design: none` needs no `design-approved`, v0.73) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **brief** (the prompt is the one `mark dispatch` last printed for that ticket and role, by digest in `locks/<id>.<role>.brief.json`; an edited copy starts no agent, v0.35) · **background** (a role agent must be dispatched with `run_in_background: false`: a headless turn loses a background agent ten minutes after it ends) · **dedup** (one live agent per ticket+role; creates the lock) |
 | `pre-bash` | PreToolUse `Bash` | nobody starts the Claude Code CLI (`claude`, `claude-code`, also via a path, `npx`, `script`, `sh -c`, `eval` or `$(...)`; a bare mention like `grep claude` is refused too, v0.46.1); nobody touches human tokens; subagents never run state-changing `mark` commands, never commit on main or push to it (from any branch, e.g. `HEAD:main` in a worktree, v0.30); nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `touch`, `sed`/`perl`/`ruby -i`, `cp`, `mv`) follow the scope and worktree rules, and the tester writes test code under the tests directory with Edit/Write only, so the end-to-end rules see it; the main thread's never reach a CLI-only file or a role's artifact in a ticket dir (`verdict.md`, `design-qa.md`… carry anchors the engine trusts, v0.30) (commands split at `&&`, `||`, `;`, `|` and newlines outside quotes; `$VAR` and `cd` are followed through the command's own assignments and the environment; unclear or quoted targets pass) |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock; a foreground agent (`status: completed`) whose stop could not be matched is settled here instead, so no finished agent leaves a bound lock |
 | `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates that agent: restart) |

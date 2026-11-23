@@ -1,5 +1,5 @@
 ---
-description: Start or continue a Mark feature ticket (designer, coder-plan, coder-impl, tester; human review of the requirement, the design and the plan; projects without a UI skip the design). Use when the human asks to build a feature or to continue a feature ticket.
+description: Start or continue a Mark feature ticket (designer, coder-plan, coder-impl, tester; human review of the requirement, the design and the plan; projects without a UI, and tickets marked no-design, skip the design). Use when the human asks to build a feature or to continue a feature ticket.
 argument-hint: <ticket-id | [--discuss] feature description>
 allowed-tools: Bash(mark:*)
 ---
@@ -31,10 +31,17 @@ never enough to start: what you guess wrong here, every later role builds on.
    dependency, storage or external service, changes the data model, needs more than about five
    acceptance criteria, or the request is too thin to tell. Otherwise it is **small**. Tell the
    human which and why in one line; they may overrule you.
+   **Decide the design step with the human in the same breath:** does this ticket have a UI or
+   another design deliverable a person should review (a screen, components, a visual preview)?
+   A data pipeline, a service endpoint, a batch job or a docs-only feature does not. If it has
+   none, the ticket opens with `--no-design`: the designer is skipped for this ticket and the
+   approved requirement goes straight to planning. This is a ticket fact, not a project one;
+   the project's other UI tickets keep their designer.
 3. **Challenge it.** Is it one feature, several, or really a bug? Does it conflict with a
    module boundary or the stack? Is there a clearly simpler way?
 4. **Open the ticket first.** `mark claim feature "<one-line description>" --slug <2-4-word-kebab-slug>`
-   prints `TICKET-ID: <id>`; the ticket starts at `drafting`. Open it before the discussion: the
+   (add `--no-design` when the human confirmed there is no design deliverable) prints
+   `TICKET-ID: <id>`; the ticket starts at `drafting`. Open it before the discussion: the
    human's `/mark:feature` is the approval to open (valid for 2 hours), and the ticket directory
    is the only place the discussion can be written down, so a session end or `/clear` loses
    nothing. If `mark claim` says the opening is not approved, ask the human to run
@@ -67,8 +74,11 @@ never enough to start: what you guess wrong here, every later role builds on.
    project's test environment (the format's rules); settle the ones that cannot with the human
    now, not at testing. Open questions must be `none`: anything still open
    goes back to the human first. Then `mark set <id> review-requirement` (it refuses a
-   requirement without criteria or with open questions).
+   requirement without criteria or with open questions). If the ticket has no design
+   deliverable, `mark set <id> review-requirement --design none` (or `--design default` to
+   undo that); the field is also visible in `status.md` for the human's review.
 7. **Stop for review.** Give the human the path of `requirement.md` and list the `DEC-N` in one
-   line each. They may edit the file, then `/mark:approve <id>` (the design or the plan comes
-   next) or `/mark:reject <id> <comments>` (back to `drafting`: address each comment, then
-   step 6 again).
+   line each. When the ticket is `design: none`, say so in one line: approving it goes straight
+   to planning, with no designer and no design review. They may edit the file, then
+   `/mark:approve <id>` (the design or the plan comes next) or `/mark:reject <id> <comments>`
+   (back to `drafting`: address each comment, then step 6 again).

@@ -64,6 +64,10 @@ already answers in it).
 
 Any role that reports the requirement itself is unclear: `blocked-unclear`. A project without a
 designer (`service`) never moves to `designing`; `blocked-spec` goes back to planning there.
+The same holds for one feature ticket that declares `design: none`: its requirement approval
+goes straight to planning, no designer is dispatched, and coder-plan needs no design gate.
+Set it when the requirement is finished with `mark set <id> review-requirement --design none`
+(`--design default` removes it); the board shows the flag and offers it when opening a feature.
 
 `blocked-*` wait on the human: `mark set` cannot move them on (only `superseded`). The human
 answers with `/mark:approve <id> [<status>] [<answer>]` or `/mark:reject`; report and stop.

@@ -18,6 +18,7 @@ from the path and are never repeated inside the file.
     updated: 2026-01-31
     updater: orchestrator
     desc: one line, <= 200 chars
+    design: none                   (optional: this feature has no design deliverable)
     merge-after: [0012, b0007]     (optional)
     leftover: 0                    (required from pending-merge on)
     ---
@@ -54,8 +55,12 @@ _NUM_FILE_RE = re.compile(r"^(\d{4})$")
 _FIELD_RE = re.compile(r"^([a-z][a-z0-9_-]*):\s*(.*)$")
 _REF_RE = re.compile(rf"^{BUG_PREFIX}?\d{{4}}$")
 
-FIELD_ORDER = ("status", "owner", "updated", "updater", "desc", "merge-after", "leftover")
+FIELD_ORDER = ("status", "owner", "updated", "updater", "desc", "design", "merge-after", "leftover")
 REQUIREMENT_GATE_FIELD = "requirement-gate"
+# A feature that has no design deliverable (a data pipeline, say) declares it in status.md as
+# `design: none`; the workflow then skips the designer for this ticket only.
+DESIGN_FIELD = "design"
+DESIGN_NONE = "none"
 
 
 # --------------------------------------------------------------------------
@@ -134,6 +139,11 @@ class Ticket:
         return self.get("status")
 
     @property
+    def no_design(self) -> bool:
+        """This feature declared it has no design deliverable (`design: none`)."""
+        return self.kind == states.FEATURE and self.get(DESIGN_FIELD) == DESIGN_NONE
+
+    @property
     def side(self) -> str:
         return states.side(self.status) if states.is_valid(self.kind, self.status) else "unknown"
 
@@ -198,6 +208,11 @@ def ticket_problems(ticket: Ticket, rel: str) -> list[Problem]:
             out.append(Problem("check.bad_leftover", {"rel": rel, "value": ticket.get("leftover")}))
     if "merge-after" in ticket.fields and parse_merge_after(ticket.get("merge-after")) is None:
         out.append(Problem("check.bad_merge_after", {"rel": rel, "value": ticket.get("merge-after")}))
+    if DESIGN_FIELD in ticket.fields:
+        if ticket.kind != states.FEATURE:
+            out.append(Problem("check.design_feature_only", {"rel": rel, "kind": ticket.kind}))
+        elif ticket.get(DESIGN_FIELD) != DESIGN_NONE:
+            out.append(Problem("check.bad_design", {"rel": rel, "value": ticket.get(DESIGN_FIELD)}))
     return out
 
 
@@ -266,15 +281,22 @@ def _claim_number(cfg: MarkConfig, kind: str, ticket_hint: str) -> tuple[int, Pa
 
 
 def claim(cfg: MarkConfig, kind: str, desc: str, slug: str | None = None,
-          today: str | None = None) -> Ticket:
+          today: str | None = None, design: str | None = None) -> Ticket:
     """Atomically reserve a number, create the ticket dir and its first status.md.
 
     Order matters: reserve number (O_EXCL) -> pick a free slug within that
     number -> mkdir. If anything fails after the reservation, the marker is
     removed so the number is not burned.
+
+    `design=DESIGN_NONE` marks the feature as having no design deliverable; the
+    workflow then skips the designer for this ticket. Bugs never take it.
     """
     if kind not in states.KINDS:
         raise ValueError(f"kind must be one of {states.KINDS}, got {kind!r}")
+    if design not in (None, DESIGN_NONE):
+        raise ValueError(f"design must be None or {DESIGN_NONE!r}, got {design!r}")
+    if design == DESIGN_NONE and kind != states.FEATURE:
+        raise ClaimError("claim.design_feature_only")
     desc = " ".join(desc.split())
     if len(desc) > DESC_MAX:
         raise ClaimError("claim.desc_long", n=len(desc), limit=DESC_MAX)
@@ -303,6 +325,8 @@ def claim(cfg: MarkConfig, kind: str, desc: str, slug: str | None = None,
         if kind == states.FEATURE:
             # Tickets opened before the requirement review lack this field and skip that gate.
             fields[REQUIREMENT_GATE_FIELD] = "yes"
+            if design == DESIGN_NONE:
+                fields[DESIGN_FIELD] = DESIGN_NONE
         path = base / ticket_id / STATUS_FILENAME
         path.write_text(format_status(fields), encoding="utf-8")
         return Ticket(kind, ticket_id, path, fields)

@@ -30,7 +30,8 @@ project adds it there. The page (`board.html`) is one file with two views:
       POST api/merge {ticket}          `mark merge` a pending-merge ticket in the background (with the cookie)
       POST api/stop {ticket}           stop the ticket's headless session and chat turn (with the cookie)
       POST api/continue {ticket}       start a headless session on a stalled ticket (with the cookie)
-      POST api/new                     open a ticket (or a general lane) and start talking it through (with the cookie)
+      POST api/new                     open a ticket (or a general lane) and start talking it through (with the cookie);
+                                       {kind, text, slug, no_design}: no_design opens a feature with `design: none`
       POST api/chat                    send the next message in a ticket's chat; a turn that ends in an
                                        agent step or pending-merge carries the ticket on by itself (with the cookie)
       POST api/lane {branch, verb}     merge or drop an upgrade lane (`upkeep.py`, with the cookie)
@@ -223,6 +224,8 @@ def waits_on(cfg: MarkConfig, tk: tickets.Ticket) -> dict[str, object] | None:
         return {"kind": "review", **extra}
     targets = flow.approve_targets(ctx)
     default = flow.APPROVE[tk.status][2]
+    if default == "designing" and default not in targets:  # no designer for this ticket
+        default = "planning" if "planning" in targets else ""
     return {"kind": "blocked", "targets": targets, "answer": tk.status == "blocked-unclear",
             "default": default if default in targets else (targets[0] if targets else ""), **extra}
 
@@ -354,11 +357,14 @@ def new_ticket(cfg: MarkConfig, req: dict,
                when_done: Callable[[str], None] | None = None) -> tuple[bool, str, str]:
     """Open a ticket for the human, as their `/mark:feature`, `/mark:fix` or `/mark:general` would,
     and send their text as the first chat message. A General ticket gets its lane cut here first,
-    so the chat has a card to live on. `when_done` is called with the ticket id after the first
+    so the chat has a card to live on. `no_design` opens a feature with `design: none` (the
+    designer is skipped for it). `when_done` is called with the ticket id after the first
     turn ends by itself (`carry_on_chat`). (ok, text, id)."""
     kind, text, slug = req.get("kind"), req.get("text"), req.get("slug") or None
+    no_design = req.get("no_design", False)
     if kind not in (*states.KINDS, GENERAL) or not isinstance(text, str) or not text.strip() \
-            or len(text) > chat.TEXT_MAX or not (slug is None or isinstance(slug, str)):
+            or len(text) > chat.TEXT_MAX or not (slug is None or isinstance(slug, str)) \
+            or not isinstance(no_design, bool) or (no_design and kind != states.FEATURE):
         return False, "bad request", ""
     if kind == GENERAL:
         return _new_lane(cfg, text.strip())
@@ -366,7 +372,8 @@ def new_ticket(cfg: MarkConfig, req: dict,
     verb = "feature" if kind == states.FEATURE else "fix"
     token = human.grant(cfg, verb, "", [], desc, source="board")
     try:
-        ticket, _ = flow.open_ticket(cfg, kind, desc, slug=slug)
+        ticket, _ = flow.open_ticket(cfg, kind, desc, slug=slug,
+                                     design=tickets.DESIGN_NONE if no_design else None)
     except tickets.ClaimError as exc:
         return False, t(cfg.locale, exc.key, **exc.params), ""
     except OSError as exc:

@@ -91,6 +91,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 @keyframes flash{0%{box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 45%,transparent);transform:scale(1.02)}}
 .c1{display:flex;align-items:center;gap:6px;height:18px;color:var(--mute);font-size:12px;min-width:0}
 .c1 .id{font-variant-numeric:tabular-nums;flex:none}
+.c1 .tag{height:16px;padding:0 5px;font-size:10.5px;border-radius:4px;flex:none}
 .who{margin-left:auto;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .who.need{color:var(--human);font-weight:500}
 .who i{width:6px;height:6px;border-radius:50%;background:var(--human);flex:none}
@@ -290,6 +291,8 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .pform{border-top:1px solid var(--line);padding-top:16px;margin-top:4px}
 .pform .crow{margin-top:4px}
 .nmodal .none{color:var(--text2);margin:0 0 14px;font-size:12.5px;line-height:1.55}
+.nmodal label.chk{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--text2);cursor:pointer}
+.nmodal label.chk input{width:14px;height:14px;margin:0;padding:0;border:0;background:none;accent-color:var(--brand);flex:none}
 .nmodal .dout{margin-top:8px}
 .wdir{display:flex;gap:6px;align-items:center}.wdir input{flex:1;min-width:0}.wdir .btn{flex:none}
 .at-home .po,body:not(.at-home) .ho{display:none!important}
@@ -474,6 +477,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
     <div class="mh"><span class="t" data-i="newT"></span><span class="grow"></span><button class="ib" data-nclose><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
     <div class="pad">
       <label for="nKind" data-i="type"></label><select id="nKind"><option value="feature">Feature</option><option value="bug">Bug</option><option value="general">General</option></select>
+      <label class="chk"><input type="checkbox" id="nNoDesign"><span data-i="noDesignHint"></span></label>
       <label for="nText" data-i="newText"></label><textarea id="nText" rows="8"></textarea>
       <label for="nSlug" data-i="newSlug"></label><input id="nSlug" maxlength="40" pattern="[a-z0-9-]*" placeholder="due-dates">
       <button class="btn pri" data-create data-i="create"></button><pre class="dout bad" id="nOut"></pre>
@@ -562,6 +566,7 @@ const I18N={
   "run.busy":"A background session is already running on this ticket.","run.notStalled":"Something is moving this ticket on again.",stalled:"Stalled",stallH:"Stalled",stallHint:"It is the agents' turn, but no session has moved this ticket on for 10 minutes. Continue starts a background session that carries it to the next point where you decide.",stallGo:"Continue","run.no-claude":"`claude` was not found; carry on with /mark:continue {id} in a terminal.",
   needLogin:"Read-only in this window. Run `mark board` (or /mark:board) and decide in the window it opens.",offDecide:"Deciding on the board is off ([board] decide = false).",
   newT:"New ticket",newText:"What to build or fix. The first line becomes the title; Claude reads it all and asks about the gaps.",newSlug:"Short name for the id (optional, a-z 0-9 -)",create:"Open and start talking",
+  design:"Design",noDesign:"No design",noDesignHint:"No design deliverable (skip the designer)",noDesignReview:"This ticket has no design: approving sends it straight to planning.",
   chat:"Discussion",chatPh:"Reply to Claude…",send:"Send",chatEmpty:"No discussion yet. Send a message to start one.",
   askSend:"Send answers",askOther:"Your own answer (optional)",askNone:"Answer at least one question.",
   modelH:"Model",modelHint:"Board sessions (new tickets, carrying on after a decision) run Claude Code on the selected model. Click one to switch. A change applies to sessions started from now on; a running session, and a ticket's ongoing discussion, keep their model.",
@@ -608,6 +613,7 @@ const I18N={
   "run.busy":"这张工单已经有后台会话在跑。","run.notStalled":"这张工单又有会话在推进了。",stalled:"停住了",stallH:"停住了",stallHint:"轮到 agent 处理，但已经 10 分钟没有会话推进这张工单。点「继续」会起一个后台会话，把它推到下一个需要你决定的地方。",stallGo:"继续","run.no-claude":"没找到 `claude` 命令；请在终端用 /mark:continue {id} 继续。",
   needLogin:"此窗口只读。运行 `mark board`（或 /mark:board），在它打开的窗口里处理。",offDecide:"看板处理已关闭（[board] decide = false）。",
   newT:"新建工单",newText:"要做什么或修什么。第一行作为标题；Claude 会读完全部内容，再就缺的地方提问。",newSlug:"编号里的短名（可选，a-z 0-9 -）",create:"创建并开始讨论",
+  design:"设计",noDesign:"无设计",noDesignHint:"本单无设计交付物（跳过 designer）",noDesignReview:"本单无设计：通过后直接进入方案阶段。",
   chat:"讨论",chatPh:"回复 Claude…",send:"发送",chatEmpty:"还没有讨论。发一条消息开始。",
   askSend:"发送回答",askOther:"自己填写（可选）",askNone:"至少回答一个问题。",
   modelH:"模型",modelHint:"看板发起的会话（新建工单、审批后续跑）用选中的模型跑 Claude Code，点一下即可切换。修改只影响之后启动的会话；正在跑的会话、工单里进行中的讨论都保持原模型。",
@@ -792,7 +798,7 @@ function who(t){const r=runOf(t);
   return `<span class="who" title="${esc(t.owner)}">${r&&r.kind==="running"?'<i class="rund"></i>':""}${esc(t.owner)}</span>`}
 function card(t){
   return `<div class="card ${TERMINAL.has(t.status)?"done":""}" tabindex="0" id="c-${esc(t.id)}" data-open="${esc(t.id)}">
-  <div class="c1">${kindIcon(t.kind)}<span class="id">${short(t.id)}</span>${who(t)}</div>
+  <div class="c1">${kindIcon(t.kind)}<span class="id">${short(t.id)}</span>${t.kind==="feature"&&t.design==="none"?`<span class="tag">${tr("noDesign")}</span>`:""}${who(t)}</div>
   <div class="ttl" title="${esc(t.desc||t.id)}">${esc(t.desc||t.id)}</div>
   <div class="c3"><span class="st">${icon(t.status,14)}<span class="lb">${esc(label(t.status))}</span></span><span class="time">${ago(last(t).at)}</span></div></div>`}
 const ICO={board:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="3.5" height="11" rx="1"/><rect x="6.5" y="2.5" width="3.5" height="7" rx="1"/><rect x="11" y="2.5" width="3" height="9" rx="1"/></svg>',
@@ -1015,7 +1021,7 @@ function modal(){
   const t=data.tickets.find(x=>x.id===open.id);if(!t){closeM();return}
   const ov=$("#ov"),files=sortFiles(t.files);
   if(open.tab!=="__hist"&&!(open.tab==="__chat"&&canChat(t))&&!files.some(f=>f.name===open.tab))open.tab="__hist";
-  $("#mh").innerHTML=`${kindIcon(t.kind)}<span class="id">${short(t.id)}</span><span class="t">${esc(t.desc||t.id)}</span><span class="mst">${icon(t.status,14)}${esc(label(t.status))}</span>${isHuman(t)?`<span class="who need"><i></i>${tr("waiting")}</span>`:""}<span class="grow"></span>
+  $("#mh").innerHTML=`${kindIcon(t.kind)}<span class="id">${short(t.id)}</span><span class="t">${esc(t.desc||t.id)}</span><span class="mst">${icon(t.status,14)}${esc(label(t.status))}</span>${t.kind==="feature"&&t.design==="none"?`<span class="tag">${tr("noDesign")}</span>`:""}${isHuman(t)?`<span class="who need"><i></i>${tr("waiting")}</span>`:""}<span class="grow"></span>
    ${data.decide==="on"&&t.kind!=="general"&&!TERMINAL.has(t.status)?`<button class="btn void" data-void>${tr("void")}</button>`:""}
    <button class="ib" title="${tr("sidebar")}" data-act="side"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11"/></svg></button>
    <button class="ib" title="${tr("fullscreen")}" data-act="full"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">${ov.classList.contains("full")?'<path d="M6 2.5V6H2.5M10 2.5V6h3.5M6 13.5V10H2.5M10 13.5V10h3.5"/>':'<path d="M2.5 6V2.5H6M13.5 6V2.5H10M2.5 10v3.5H6M13.5 10v3.5H10"/>'}</svg></button>
@@ -1052,7 +1058,8 @@ function decBlk(t){if(t.upgrade){decKey="";$("#dec").innerHTML=laneBlk(t);return
   const to=w.kind==="blocked"?`${why}<label for="dTo">${tr("target")}</label><select id="dTo">${w.targets.map(s=>`<option value="${esc(s)}"${s===w.default?" selected":""}>${esc(label(s))}</option>`).join("")}</select>
     <textarea id="dAns" rows="3" placeholder="${tr(w.answer?"ansNeed":"ansOpt")}"></textarea>`:"";
   const rej=w.kind==="review"?`<textarea id="dItems" rows="4" placeholder="${tr("items")}"></textarea><button class="btn" data-dec="reject">${tr("reject")}</button>`:"";
-  const plain=`${to}<button class="btn pri" data-dec="approve">${tr(w.kind==="opening"?"approveOpen":"approve")}</button>${rej}`,p=w.proposal;
+  const nd=w.kind==="review"&&t.design==="none"?`<div class="dq">${tr("noDesignReview")}</div>`:"";
+  const plain=`${nd}${to}<button class="btn pri" data-dec="approve">${tr(w.kind==="opening"?"approveOpen":"approve")}</button>${rej}`,p=w.proposal;
   if(!p){$("#dec").innerHTML=`<div class="blk dec"><h5>${tr("decide")}</h5>${plain}${out}</div>`;return}
   const pick=Math.max(0,p.options.findIndex(o=>o.recommended));  // the suggestion comes from Claude; choosing it is the human's click
   const opts=p.options.map((o,i)=>`<label class="dopt"><input type="radio" name="dOpt" value="${i}"${i===pick?" checked":""}><span><b>${esc(o.label)}</b>${o.recommended?`<span class="rec">${tr("rec")}</span>`:""}${o.verb==="reject"?`<span class="go">✕ ${esc(tr("rejectShort"))}</span>`:o.to?`<span class="go">→ ${esc(label(o.to))}</span>`:""}${o.detail?`<small>${esc(o.detail)}</small>`:""}${o.items?.length?`<small>${o.items.map(i=>"· "+esc(i)).join("<br>")}</small>`:""}</span></label>`).join("");
@@ -1161,15 +1168,18 @@ async function modelPost(body,b){if(b)b.disabled=true;
   if(body.action!=="delete")mEdit=null;$("#mOut").textContent="";await load();if(HOME)loadDeps();modelList();toast(esc(tr("saved").replace("{m}",data.model.label)))}
 function modelSave(){modelPost({name:$("#mName").value.trim(),old:mEdit||undefined,provider:$("#mProv").value,model:$("#mModel").value.trim(),
   base_url:$("#mUrl").value.trim(),api_key:$("#mKey").value.trim()},$("[data-msave]"))}
-function newKind(){const g=$("#nKind").value==="general";$("#nSlug").hidden=g;$('label[for="nSlug"]').hidden=g}
+function newKind(){const g=$("#nKind").value==="general",f=$("#nKind").value==="feature";
+  $("#nSlug").hidden=g;$('label[for="nSlug"]').hidden=g;
+  $("#nNoDesign").closest("label").hidden=!f;if(!f)$("#nNoDesign").checked=false}
 function newOpen(){$("#nOut").textContent="";newKind();$("#nv").classList.add("on");$("#nText").focus()}
 function newClose(){$("#nv").classList.remove("on")}
 async function create(){const text=$("#nText").value;if(!text.trim()){$("#nText").focus();return}
   const b=$("[data-create]");b.disabled=true;
-  let r;try{r=await (await fetch("api/new",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#nKind").value,text,slug:$("#nSlug").value.trim()})})).json()}catch{r={ok:false,text:tr("loadFail")}}
+  const noDesign=$("#nKind").value==="feature"&&$("#nNoDesign").checked;
+  let r;try{r=await (await fetch("api/new",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#nKind").value,text,slug:$("#nSlug").value.trim(),no_design:noDesign})})).json()}catch{r={ok:false,text:tr("loadFail")}}
   b.disabled=false;
   if(!r.ok){$("#nOut").textContent=r.text||"";return}
-  $("#nText").value="";$("#nSlug").value="";newClose();
+  $("#nText").value="";$("#nSlug").value="";$("#nNoDesign").checked=false;newClose();
   await load();openM(r.id,"__chat");if(r.text)toast(esc(tr(r.text)))}
 function histTable(t){return `<div class="tw"><table><tr><th>${tr("when")}</th><th>${tr("move")}</th><th>${tr("by")}</th><th>${tr("stay")}</th><th>commit</th></tr>${t.history.map((e,i)=>{const n=t.history[i+1];
   return `<tr><td>${fmt(e.at)}</td><td>${i?esc(label(t.history[i-1].status))+" → ":""}<b>${esc(label(e.status))}</b></td><td>${esc(e.updater||"")}</td><td>${TERMINAL.has(e.status)?"—":dur((n?ts(n.at):Date.now())-ts(e.at))}</td><td>${e.sha?`<code>${esc(e.sha)}</code>`:`<span class="none">${tr("uncommitted")}</span>`}</td></tr>`}).join("")}</table></div>`}
@@ -1179,6 +1189,7 @@ function side(t){
    <div class="prop"><span>${tr("status")}</span><span class="v">${icon(t.status)}${esc(label(t.status))}</span></div>
    <div class="prop"><span>${tr("owner")}</span><span class="v">${av(t.owner)}${esc(t.owner||"—")}</span></div>
    <div class="prop"><span>${tr("type")}</span><span class="v">${kindIcon(t.kind)}${{bug:"Bug",general:"General"}[t.kind]||"Feature"}</span></div>
+   ${t.kind==="feature"&&t.design==="none"?`<div class="prop"><span>${tr("design")}</span><span class="v">${tr("noDesign")}</span></div>`:""}
    <div class="prop"><span>${tr("branch")}</span><span class="v"><code title="${esc(t.branch)}">${esc(t.branch)}</code></span></div>
    ${t.worktree?`<div class="prop"><span>${tr("worktree")}</span><span class="v"><code title="${esc(t.worktree)}">${esc(t.worktree)}</code></span></div>`:""}
    <div class="prop"><span>${tr("created")}</span><span class="v">${fmt(first.at)||"—"}</span></div>
