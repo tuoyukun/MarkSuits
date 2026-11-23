@@ -120,6 +120,26 @@ class NextActionTest(unittest.TestCase):
         a = self.next("0001")
         self.assertEqual((a.kind, a.role, a.scenario), ("dispatch", "designer", "designer-initial"))
 
+    def test_a_missing_gate_is_a_human_stop(self):
+        add_ticket(self.root, "feature", "0001-a", "planning", gates=["ticket-approved"])
+        a = self.next("0001")
+        self.assertEqual((a.kind, a.message, a.role), ("stop", "next.gate", "coder-plan"))
+        self.assertTrue(a.params["gate"].endswith("0001-a.design-approved"))
+
+    def test_the_requirement_gate_is_a_human_stop_too(self):
+        add_ticket(self.root, "feature", "0001-a", "designing", gates=["ticket-approved"],
+                   **{"requirement-gate": "yes"})
+        a = self.next("0001")
+        self.assertEqual((a.kind, a.message, a.role), ("stop", "next.gate", "designer"))
+        self.assertTrue(a.params["gate"].endswith("0001-a.requirement-approved"))
+
+    def test_a_no_design_ticket_has_no_design_gate_stop(self):
+        d = add_ticket(self.root, "feature", "0001-a", "planning",
+                       gates=["ticket-approved", "requirement-approved"],
+                       **{"requirement-gate": "yes", "design": "none"})
+        write(d / "requirement.md", REQUIREMENT)
+        self.assertEqual(self.next("0001").kind, "dispatch")
+
     def test_unapproved_ticket_stops(self):
         add_ticket(self.root, "feature", "0001-a", "designing")
         self.assertEqual(self.next("0001").message, "next.ticket_gate")
@@ -1226,6 +1246,71 @@ class HumanDecisionTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("/mark:approve 0001-a", err)
         self.assertFalse((self.root / ".mark/gates/0001-a.design-approved").exists())
+
+    def test_approve_a_missing_gate_waives_it_without_moving(self):
+        d = add_ticket(self.root, "feature", "0001-a", "planning", gates=["ticket-approved"])
+        human_typed(self.root, "/mark:approve 0001")
+        code, out, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("Waived 0001-a", out)
+        self.assertIn("status: planning", (d / "status.md").read_text())
+        waiver = self.root / ".mark/gates/0001-a.design-approved.waived"
+        self.assertTrue(waiver.is_file())
+        self.assertIn("waived: true", waiver.read_text())
+        self.assertIn("0001-a: waived design-approved", sh(self.root, "git", "log", "-1", "--format=%s"))
+
+    def test_approve_a_missing_gate_requires_a_human(self):
+        add_ticket(self.root, "feature", "0001-a", "planning", gates=["ticket-approved"])
+        code, _, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 1)
+        self.assertIn("/mark:approve 0001-a", err)
+        self.assertFalse((self.root / ".mark/gates/0001-a.design-approved.waived").exists())
+
+    def test_blocked_spec_to_planning_waives_the_design_gate(self):
+        d = add_ticket(self.root, "feature", "0001-a", "blocked-spec",
+                       gates=["ticket-approved", "requirement-approved"])
+        human_typed(self.root, "/mark:approve 0001 planning")
+        code, out, err = run(self.root, "approve", "0001", "--to", "planning")
+        self.assertEqual(code, 0, err)
+        self.assertIn("status: planning", (d / "status.md").read_text())
+        self.assertTrue((self.root / ".mark/gates/0001-a.design-approved.waived").is_file())
+        self.assertIn("design-approved.waived", out)
+
+    def test_blocked_plan_to_developing_waives_the_plan_gate(self):
+        d = add_ticket(self.root, "feature", "0001-a", "blocked-plan",
+                       gates=["ticket-approved", "requirement-approved", "design-approved"])
+        human_typed(self.root, "/mark:approve 0001 developing")
+        code, out, err = run(self.root, "approve", "0001", "--to", "developing")
+        self.assertEqual(code, 0, err)
+        self.assertIn("status: developing", (d / "status.md").read_text())
+        self.assertTrue((self.root / ".mark/gates/0001-a.plan-approved.waived").is_file())
+
+    def test_blocked_unclear_to_developing_waives_the_plan_gate(self):
+        d = add_ticket(self.root, "feature", "0001-a", "blocked-unclear",
+                       gates=["ticket-approved", "requirement-approved", "design-approved"])
+        human_typed(self.root, "/mark:approve 0001 developing use the local model")
+        code, out, err = run(self.root, "approve", "0001", "--to", "developing")
+        self.assertEqual(code, 0, err)
+        self.assertIn("status: developing", (d / "status.md").read_text())
+        self.assertTrue((self.root / ".mark/gates/0001-a.plan-approved.waived").is_file())
+
+    def test_approve_a_missing_plan_gate_in_developing_waives_it(self):
+        d = add_ticket(self.root, "feature", "0001-a", "developing",
+                       gates=["ticket-approved", "design-approved"])
+        human_typed(self.root, "/mark:approve 0001")
+        code, out, err = run(self.root, "approve", "0001")
+        self.assertEqual(code, 0, err)
+        self.assertIn("status: developing", (d / "status.md").read_text())
+        self.assertTrue((self.root / ".mark/gates/0001-a.plan-approved.waived").is_file())
+
+    def test_a_no_design_ticket_needs_no_waiver(self):
+        d = add_ticket(self.root, "feature", "0001-a", "blocked-spec",
+                       gates=["ticket-approved", "requirement-approved"], design="none")
+        human_typed(self.root, "/mark:approve 0001 planning")
+        code, _, err = run(self.root, "approve", "0001", "--to", "planning")
+        self.assertEqual(code, 0, err)
+        self.assertIn("status: planning", (d / "status.md").read_text())
+        self.assertFalse((self.root / ".mark/gates/0001-a.design-approved.waived").exists())
 
     def test_approve_design_settles_rounds_and_writes_gate(self):
         d = add_ticket(self.root, "feature", "0001-a", "review-design", gates=["ticket-approved"])

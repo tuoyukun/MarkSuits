@@ -277,6 +277,13 @@ when the human typed that status (`/mark:approve 0012 developing`); `blocked-unc
 one, plus the human's answer (v0.35), and may also go to `testing` when the answer only changes the
 acceptance: refused without `handoff.md`, or while required design QA has not passed. If the human named a status, `mark approve` without `--to` refuses instead of taking the default (v0.30). So gates are never revoked yet never reused unseen: every way back to work passes the human.
 
+A gate is also a human stop when no status waits on the human. When a blocked decision sends a
+ticket past a review (`blocked-spec` → `planning`, say), the target role's missing gate is
+written as `<id>.<gate>.waived` by the same decision. Any other missing gate makes `mark next`
+return `next.gate` and the board offer the same decision; `mark approve` there records the
+waiver without moving the status. The dispatch guard checks the same `MarkConfig.required_gates`
+list, so the human sees the stop before a dispatch is refused.
+
 **Human tokens.** `mark approve`, `mark reject` and the opening approval in `mark claim` consume a token
 written by the `user-prompt` hook when a person typed the matching command. An approve or reject token
 must name the ticket (12 h TTL); it also records the words after the id, which `approve --to` must

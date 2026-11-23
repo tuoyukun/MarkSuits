@@ -34,13 +34,21 @@ def _cell(text: str) -> str:
     return " ".join(text.split()).replace("|", "\\|")
 
 
+def _ticket_side(cfg: MarkConfig, item: tickets.Ticket) -> str:
+    """A missing dispatch gate is the human's turn, even while the status says an agent's:
+    the board shows a decision there and `mark next` stops there."""
+    if item.side == "agent" and flow.missing_gate(flow.Ctx(cfg, item)):
+        return "human"
+    return item.side
+
+
 def render(cfg: MarkConfig, items: list[tickets.Ticket], active_only: bool = False) -> str:
     loc = cfg.locale
     if not items:
         return t(loc, "status.empty") + "\n"
     groups: dict[str, list[tickets.Ticket]] = {"human": [], "agent": [], "unknown": [], "terminal": []}
     for item in items:
-        groups[item.side].append(item)
+        groups[_ticket_side(cfg, item)].append(item)
 
     leftovers = [int(i.get("leftover")) for i in items if i.get("leftover").isdigit()]
     owed = [n for n in leftovers if n > 0]
@@ -269,6 +277,10 @@ def cmd_set(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     return code
 
 
+def _waived(cfg: MarkConfig, ctx: flow.Ctx, res: flow.Outcome) -> str:
+    return ", ".join(f"{cfg.state_rel}/gates/{ctx.id}.{g}.waived" for g in res.waived)
+
+
 def cmd_approve(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     opts, pos = _parse(args, {"--to"})
     if opts is None or len(pos) != 1:
@@ -279,6 +291,9 @@ def cmd_approve(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> i
     if res.gate == flow.TICKET_GATE:
         _say(cfg, out, "approve.ticket", id=ctx.id, gate=f"{cfg.state_rel}/gates/{ctx.id}.{res.gate}")
         return _commit(cfg, ctx, f"{ctx.id}: opening approved", opts, out)
+    if res.waived and res.old == res.new:
+        _say(cfg, out, "approve.waived_done", id=ctx.id, gates=_waived(cfg, ctx, res))
+        return _commit(cfg, ctx, f"{ctx.id}: waived {', '.join(res.waived)}", opts, out)
     _say(cfg, out, "approve.done", id=ctx.id, old=res.old, new=res.new)
     _approved(cfg, ctx, res, out)
     return _commit(cfg, ctx, f"{ctx.id}: approved {res.old} -> {res.new}", opts, out)
@@ -289,6 +304,8 @@ def _approved(cfg: MarkConfig, ctx: flow.Ctx, res: flow.Outcome, out: TextIO) ->
         _say(cfg, out, "approve.ui_only")
     if res.gate:
         _say(cfg, out, "approve.gate", gate=f"{cfg.state_rel}/gates/{ctx.id}.{res.gate}")
+    if res.waived:
+        _say(cfg, out, "approve.waived", gates=_waived(cfg, ctx, res))
     if res.rounds:
         _say(cfg, out, "approve.rounds", rounds=", ".join(map(str, res.rounds)))
     if res.answer:

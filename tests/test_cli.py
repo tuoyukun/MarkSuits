@@ -42,6 +42,13 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(run(self.root, "status", "--check")[0], 0)
 
+    def test_a_missing_gate_shows_under_waiting_on_you(self):
+        from tests._support import add_ticket
+        add_ticket(self.root, "feature", "0001-a", "planning", gates=["ticket-approved"], commit=False)
+        out = run(self.root, "status")[1]
+        self.assertIn("## 待你介入 (1)", out)
+        self.assertIn("0001-a", out)
+
     def test_active_hides_done(self):
         run(self.root, "claim", "feature", "done thing")
         p = self.root / ".mark" / "features" / "0001-done-thing" / "status.md"

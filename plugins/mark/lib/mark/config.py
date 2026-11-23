@@ -31,6 +31,7 @@ DEFAULT_ROLES = ("designer", "coder-plan", "coder-impl", "tester", "fix-plan")
 # features have no designer, so they start at planning and have no design review.
 NO_UI_PROFILES = frozenset({"service"})
 DESIGN_GATE = "design-approved"
+REQUIREMENT_GATE = "requirement-approved"
 DEFAULT_GATES = {"coder-plan": DESIGN_GATE, "coder-impl": "plan-approved",
                  "tester": "plan-approved"}
 DEFAULT_OUTPUTS = {"designer": ["design.md", "preview.html"], "coder-plan": ["tech-plan.md"],
@@ -119,6 +120,16 @@ class MarkConfig:
         default = {k: v for k, v in DEFAULT_GATES.items() if v != DESIGN_GATE or "designer" in self.roles}
         merged = {**default, **self._section("gates")}
         return {k: str(v) for k, v in merged.items() if v and k != "rework_review"}
+
+    def required_gates(self, role: str, *, no_design: bool = False, requirement: bool = False) -> list[str]:
+        """The gates a feature role must pass before dispatch, in the order to check them.
+        `requirement`: the ticket says its requirement needs review. `no_design`: the ticket
+        declared `design: none`, so there is no design gate to pass. The dispatch guard and
+        `mark next` share this list; a gate must never be visible to only one of them."""
+        role_gate = self.gates.get(role)
+        if no_design and role_gate == DESIGN_GATE:
+            role_gate = None
+        return [g for g in ((REQUIREMENT_GATE if requirement else None), role_gate) if g]
 
     @property
     def rework_review(self) -> bool:

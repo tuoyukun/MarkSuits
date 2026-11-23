@@ -26,7 +26,9 @@ Argument: `$ARGUMENTS`
    - `blocked-spec` → back to `designing`, or `developing` if the human typed it;
    - `blocked-plan` → back to `planning`, or `developing` if the human typed it;
    - `blocked-unclear` → only where the human typed (`designing`, `planning`, `developing`, or
-     `testing` when the answer only changes how a criterion is accepted and the work is built).
+     `testing` when the answer only changes how a criterion is accepted and the work is built);
+   - an agent status whose next role's gate is missing (a blocked decision skipped that
+     review): records `<gate>.waived` and keeps the status; the next step then starts.
    Never add a status the human did not type.
 
    Whatever the human typed after the id (and the status) is their answer. `mark approve` reads it

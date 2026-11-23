@@ -664,6 +664,11 @@ MESSAGES["en"].update({
     "next.done": "{id} is `{status}`. Nothing to do.",
     "next.invalid": "{id}: status `{status}` is not valid. Run `mark status --check`.",
     "next.ticket_gate": "Opening {id} has not been approved by a human. Ask them; they approve with /mark:approve {id}.",
+    "next.gate": (
+        "{id} needs a human decision before `{role}` can start: the ticket has not passed `{gate}`.\n"
+        "Stop and report. The human approves with /mark:approve {id}; the board shows the same decision.\n"
+        "If this review does not apply to the ticket, the human may waive it (the board has that button)."
+    ),
     "next.no_brief": "{id} has no `{file}` yet. Write it with the human before the first dispatch, then `mark commit {id}`.",
     "next.output_failed": (
         "`{role}` stopped on {id} without its required output ({reason}). Re-dispatch once:\n"
@@ -794,6 +799,8 @@ MESSAGES["en"].update({
                         "another review (`[gates] rework_review = true` to review it): `{old}` -> `{new}`."),
     "approve.ticket": "Opening {id} approved (wrote {gate}).",
     "approve.done": "Approved {id}: `{old}` -> `{new}`.",
+    "approve.waived": "No review to pass at this step: recorded as waived: {gates}",
+    "approve.waived_done": "Waived {id}: {gates}. The next step can start now.",
     "approve.ui_only": ("The rework changed only the UI and kept the props and integration contracts, "
                         "so the approved plan stands: planning and implementation are skipped."),
     "approve.gate": "Gate written: {gate}",
@@ -978,6 +985,11 @@ MESSAGES["zh-CN"].update({
     "next.done": "{id} 已是 `{status}`，无事可做。",
     "next.invalid": "{id}：状态 `{status}` 不合法。请跑 `mark status --check`。",
     "next.ticket_gate": "{id} 的建单还没经过人同意。问 Human；同意后由 Human 执行 /mark:approve {id}。",
+    "next.gate": (
+        "{id} 派 `{role}` 之前需要人工决定：这张工单还没有通过 `{gate}`。\n"
+        "停下并汇报。由 Human 执行 /mark:approve {id}；看板上也有同一个决定。\n"
+        "如果这道评审对本单不适用，Human 可以在看板上豁免。"
+    ),
     "next.no_brief": "{id} 还没有 `{file}`。第一次派活前先和 Human 一起写好它，再 `mark commit {id}`。",
     "next.output_failed": (
         "`{role}` 在 {id} 上结束时没留下必交产物（{reason}）。重派一次：\n"
@@ -1102,6 +1114,8 @@ MESSAGES["zh-CN"].update({
     "set.rework_pass": "{id}：Human 已审过一次，返工直接放行，不再停下审查（要审查就设 `[gates] rework_review = true`）：`{old}` -> `{new}`。",
     "approve.ticket": "已批准建单 {id}（写入 {gate}）。",
     "approve.done": "已放行 {id}：`{old}` -> `{new}`。",
+    "approve.waived": "这一步无需评审，已记为豁免：{gates}",
+    "approve.waived_done": "已豁免 {id}：{gates}。下一步现在可以开始。",
     "approve.ui_only": "这轮返工只改了 UI，props 契约和集成契约没变，已批准的方案仍然成立：跳过方案和实现。",
     "approve.gate": "已写闸门：{gate}",
     "approve.rounds": "已结清人审轮次：{rounds}",
@@ -1309,6 +1323,8 @@ MESSAGES["en"].update({
     "wait.moved": "{id}: {old} -> {new}. The human decided (on the board or in the terminal); being woken is not "
         "a new approval. Carry on with the ticket as after /mark:approve or /mark:reject: run `mark rules` if you do not have them, "
         "then `mark next {id}`, and loop to the next human gate.",
+    "wait.gate": "{id}: the human waived `{gate}` while the ticket stays `{status}`. Carry on with `mark next {id}` "
+        "and loop to the next human gate.",
     "wait.not_waiting": "{id} does not wait on the human (status {status}). Run `mark next {id}`.",
     "wait.replaced": "Stopped waiting on {id}: another session waits on it now, or the wait was stopped. Do nothing.",
     "wait.orphaned": "The session that waited on {id} is gone; stopped waiting.",
@@ -1351,6 +1367,7 @@ MESSAGES["zh-CN"].update({
     "board.failed": "看板没有启动成功，见 {log}。",
     "wait.moved": "{id}：{old} -> {new}。人已做出决定（在看板或终端）；被唤醒本身不是新的批准。"
         "按 /mark:approve 或 /mark:reject 之后的方式继续这张工单：手头没有规则就先跑 `mark rules`，然后 `mark next {id}`，一直推进到下一个人工关卡。",
+    "wait.gate": "{id}：Human 豁免了 `{gate}`，工单仍在 `{status}`。运行 `mark next {id}` 继续，一直推进到下一个人工关卡。",
     "wait.not_waiting": "{id} 没有在等人处理（状态 {status}）。运行 `mark next {id}`。",
     "wait.replaced": "已停止等待 {id}：另一个会话正在等它，或等待被停止。什么也不用做。",
     "wait.orphaned": "等待 {id} 的会话已经不在了，停止等待。",

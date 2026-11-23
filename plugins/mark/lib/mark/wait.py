@@ -73,6 +73,10 @@ def run(cfg: MarkConfig, ticket_id: str, poll: float = POLL_SECONDS,
             if now != start:
                 new = now[0] if now else "-"
                 if now and now[0] == start[0]:
+                    kind = start[1].get("kind") if isinstance(start[1], dict) else ""
+                    if kind == "gate":
+                        return "wait.gate", {"id": ticket_id, "status": start[0],
+                                             "gate": start[1].get("gate", "")}
                     new = "opening approved"
                 return "wait.moved", {"id": ticket_id, "old": start[0], "new": new}
             if parent() != ppid:

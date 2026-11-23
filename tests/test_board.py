@@ -329,6 +329,28 @@ class DecideTest(unittest.TestCase):
         self.assertIn("0001-a: approved review-plan -> developing", sh(self.root, "git", "log", "-1", "--format=%s"))
         self.no_tokens_left()
 
+    def test_a_missing_gate_is_a_board_decision(self):
+        add_ticket(self.root, "feature", "0004-d", "planning", gates=("ticket-approved",))
+        card = next(t for t in board.snapshot(self.cfg, board.History(self.cfg))["tickets"]
+                    if t["id"] == "0004-d")
+        self.assertEqual(card["wait"],
+                         {"kind": "gate", "gate": "design-approved", "role": "coder-plan"})
+        self.assertEqual((card["side"], card["stalled"]), ("human", False))
+        self.assertFalse(board.stalled(self.cfg, flow.load(self.cfg, "0004-d").ticket))
+        self.assertEqual(board.summary(self.cfg)["human"], 3)  # 0001-a, 0002-b, and this gate
+
+    def test_approve_a_missing_gate_waives_it_and_starts_the_run(self):
+        add_ticket(self.root, "feature", "0004-d", "planning", gates=("ticket-approved",))
+        code, res, _ = self.post(self.p + "/api/decide", {"ticket": "0004-d", "verb": "approve"},
+                                 cookie=self.login())
+        self.assertEqual(code, 200, res)
+        self.assertEqual(self.status("0004-d"), "planning")
+        self.assertTrue((self.root / ".mark" / "gates" / "0004-d.design-approved.waived").is_file())
+        self.assertIn("Waived 0004-d", res["text"])
+        self.run_start.assert_called_with(self.cfg, "0004-d")
+        self.assertIn("0004-d: waived design-approved", sh(self.root, "git", "log", "-1", "--format=%s"))
+        self.no_tokens_left()
+
     def test_void_from_the_board(self):
         cookie = self.login()
         code, res, _ = self.post(self.p + "/api/void", {"ticket": "0001-a", "reason": "dropped"}, cookie=cookie)
@@ -399,7 +421,8 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(s["kinds"]["bug"], 0)
 
     def test_a_ticket_nothing_moves_on_is_stalled_and_continue_starts_its_runner(self):
-        d = add_ticket(self.root, "feature", "0005-e", "developing", gates=("ticket-approved",))
+        d = add_ticket(self.root, "feature", "0005-e", "developing",
+                       gates=("ticket-approved", "plan-approved"))
         cfg = load_config(self.root)
         tk = lambda: flow.load(cfg, "0005-e").ticket
         snap = lambda: next(t for t in board.snapshot(cfg, board.History(cfg))["tickets"] if t["id"] == "0005-e")
@@ -467,7 +490,8 @@ class DecideTest(unittest.TestCase):
         self.run_start.assert_called_once_with(self.cfg, "0004-d")
 
     def test_a_chat_turn_that_ends_in_an_agent_status_carries_on(self):
-        add_ticket(self.root, "feature", "0008-h", "developing", gates=("ticket-approved",))
+        add_ticket(self.root, "feature", "0008-h", "developing",
+                   gates=("ticket-approved", "plan-approved"))
         self.assertEqual(board.carry_on_chat(self.cfg, "0008-h"), "run.started")
         self.run_start.assert_called_once_with(self.cfg, "0008-h")
 
@@ -642,7 +666,8 @@ class DecideTest(unittest.TestCase):
         self.assertEqual((code, res["text"]), (409, "chat.busy"))
 
     def test_the_board_carries_on_after_a_chat_message(self):
-        add_ticket(self.root, "feature", "0008-h", "developing", gates=("ticket-approved",))
+        add_ticket(self.root, "feature", "0008-h", "developing",
+                   gates=("ticket-approved", "plan-approved"))
         with mock.patch.object(board.chat, "start", return_value=(True, "")) as start:
             code, res, _ = self.post(self.p + "/api/chat", {"ticket": "0008-h", "text": "Go on."},
                                      cookie=self.login())

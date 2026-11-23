@@ -25,7 +25,9 @@ class WaitTest(unittest.TestCase):
         self.root = make_repo()
         add_ticket(self.root, "feature", "0001-a", "review-plan", gates=("ticket-approved",))
         add_ticket(self.root, "feature", "0002-b", "drafting")
-        add_ticket(self.root, "feature", "0003-c", "developing", gates=("ticket-approved",))
+        add_ticket(self.root, "feature", "0003-c", "developing",
+                   gates=("ticket-approved", "plan-approved"))
+        add_ticket(self.root, "feature", "0004-d", "planning", gates=("ticket-approved",))
         self.cfg = load_config(self.root)
 
     def decide(self, body):
@@ -42,6 +44,13 @@ class WaitTest(unittest.TestCase):
         later(0.3, lambda: self.decide({"ticket": "0002-b", "verb": "approve"}))
         key, params = wait.run(self.cfg, "0002-b", poll=0.05)
         self.assertEqual((key, params["new"]), ("wait.moved", "opening approved"))
+
+    def test_waiving_a_missing_gate_ends_the_wait(self):
+        later(0.3, lambda: self.decide({"ticket": "0004-d", "verb": "approve"}))
+        key, params = wait.run(self.cfg, "0004-d", poll=0.05)
+        self.assertEqual((key, params["status"], params["gate"]),
+                         ("wait.gate", "planning", "design-approved"))
+        self.assertTrue((self.root / ".mark/gates/0004-d.design-approved.waived").is_file())
 
     def test_a_ticket_that_does_not_wait_returns_at_once(self):
         self.assertEqual(wait.run(self.cfg, "0003-c", poll=0.05)[0], "wait.not_waiting")

@@ -199,12 +199,14 @@ def snapshot(cfg: MarkConfig, history: History) -> dict[str, object]:
             mtime = _dt.datetime.fromtimestamp(tk.path.stat().st_mtime).astimezone().isoformat(timespec="seconds") if tk.exists else ""
             hist.append({"sha": "", "at": mtime, "status": tk.status, "owner": tk.get("owner"),
                          "updater": tk.get("updater"), "note": tk.note})
+        wait = waits_on(cfg, tk)
         stuck = stalled(cfg, tk)
-        items.append({**tk.as_dict(), "dir": states.KIND_DIRS[tk.kind], "side": "human" if stuck else tk.side,
+        human = stuck or (isinstance(wait, dict) and wait.get("kind") == "gate")
+        items.append({**tk.as_dict(), "dir": states.KIND_DIRS[tk.kind], "side": "human" if human else tk.side,
                       "stalled": stuck, "run": runner.view(cfg, tk.id) if tk.side != "terminal" else None,
                       "branch": cfg.branch_for(tk.kind, tk.id),
                       "worktree": cfg.worktree_for(tk.kind, tk.id) if dirs["worktree"].is_dir() else "",
-                      "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist, "wait": waits_on(cfg, tk),
+                      "files": _files(dirs), "gates": _gates(cfg, tk.id), "history": hist, "wait": wait,
                       "merge": merge_view(cfg, tk)})
     return {"project": cfg.root.name, "locale": cfg.locale, "branch": cfg.main_branch,
             "tickets": items + general_lanes(cfg), "model": model.public(model.store(cfg))}
@@ -217,17 +219,23 @@ def waits_on(cfg: MarkConfig, tk: tickets.Ticket) -> dict[str, object] | None:
     ctx = flow.Ctx(cfg, tk)
     if not ctx.has_gate(flow.TICKET_GATE):
         return {"kind": "opening"}
-    if tk.status not in flow.APPROVE:
-        return None
-    extra = {"proposal": p} if (p := propose.load(cfg, tk.id, tk.status)) else {}
-    if flow.APPROVE[tk.status][0]:
-        return {"kind": "review", **extra}
-    targets = flow.approve_targets(ctx)
-    default = flow.APPROVE[tk.status][2]
-    if default == "designing" and default not in targets:  # no designer for this ticket
-        default = "planning" if "planning" in targets else ""
-    return {"kind": "blocked", "targets": targets, "answer": tk.status == "blocked-unclear",
-            "default": default if default in targets else (targets[0] if targets else ""), **extra}
+    if tk.status in flow.APPROVE:
+        extra = {"proposal": p} if (p := propose.load(cfg, tk.id, tk.status)) else {}
+        if flow.APPROVE[tk.status][0]:
+            return {"kind": "review", **extra}
+        targets = flow.approve_targets(ctx)
+        default = flow.APPROVE[tk.status][2]
+        if default == "designing" and default not in targets:  # no designer for this ticket
+            default = "planning" if "planning" in targets else ""
+        return {"kind": "blocked", "targets": targets, "answer": tk.status == "blocked-unclear",
+                "default": default if default in targets else (targets[0] if targets else ""), **extra}
+    gate = flow.missing_gate(ctx)
+    if gate:
+        # The next role's gate was skipped (e.g. a blocked ticket sent straight to planning):
+        # it is a human decision like a review gate, not an agent turn.
+        return {"kind": "gate", "gate": gate,
+                "role": states.ROLE_FOR_STATUS.get(tk.kind, {}).get(tk.status, "")}
+    return None
 
 
 def general_lanes(cfg: MarkConfig) -> list[dict[str, object]]:
@@ -534,13 +542,16 @@ STALL_SECONDS = 600  # a terminal session pauses between steps; the board says "
 def stalled(cfg: MarkConfig, tk: tickets.Ticket) -> bool:
     """It is the agents' turn, yet nothing moves the ticket on: no headless session, chat turn,
     role or merge, and nothing it touched changed for STALL_SECONDS. Drafting waits on the
-    human's chat reply and pending-merge has its Merge button, so neither stalls."""
+    human's chat reply, pending-merge has its Merge button, and a missing gate waits on the
+    human's decision, so none of them stalls."""
     if tk.side != "agent" or tk.status in (states.DRAFTING, states.MERGE):
         return False
     ctx = flow.Ctx(cfg, tk)
     if not ctx.has_gate(flow.TICKET_GATE) or runner.running(cfg, tk.id) or chat.running(cfg, tk.id) \
             or flow.running_roles(ctx):
         return False
+    if flow.missing_gate(ctx):
+        return False  # the human decides what this gate is; Continue would only hit it again
     times = [tk.path.stat().st_mtime] if tk.exists else []
     prefixes = (f"{tk.id}.", f"chat-{tk.id}.", f"run-{tk.id}-", f"runner-{tk.id}.")
     try:
@@ -562,8 +573,9 @@ def carry_on_stalled(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
 
 
 # Kinds after which a board decision starts a headless session: opening and drafting need
-# the human in the conversation, while a rejected merge goes back to the agents.
-RUN_AFTER = ("review", "blocked", "merge")
+# the human in the conversation, while a rejected merge goes back to the agents and a waived
+# gate lets the next step start.
+RUN_AFTER = ("review", "blocked", "merge", "gate")
 
 
 def carry_on(cfg: MarkConfig, ticket: str, before: dict | None, had_waiter: bool) -> str:
@@ -615,10 +627,13 @@ def summary(cfg: MarkConfig) -> dict[str, object]:
     live = [tk for tk in tks if tk.side != "terminal"]
     mtimes = {tk.id: tk.path.stat().st_mtime for tk in tks if tk.exists}
     times = list(mtimes.values())
+    gate_waits = sum(1 for tk in live
+                     if isinstance(w := waits_on(cfg, tk), dict) and w.get("kind") == "gate")
     stuck = sum(stalled(cfg, tk) for tk in live)
     week = _dt.datetime.now().timestamp() - 7 * 86400
     return {"name": cfg.root.name, "locale": cfg.locale, "total": len(tks),
-            "human": sum(tk.side == "human" for tk in tks) + stuck, "agent": sum(tk.side == "agent" for tk in tks) - stuck,
+            "human": sum(tk.side == "human" for tk in tks) + gate_waits + stuck,
+            "agent": sum(tk.side == "agent" for tk in tks) - gate_waits - stuck,
             "done": len(tks) - len(live),
             # a finished ticket's status file is last written when it finishes
             "done7": sum(mtimes.get(tk.id, 0) > week for tk in tks if tk.side == "terminal"),

@@ -432,6 +432,13 @@ def next_action(ctx: Ctx, retry: bool = False) -> Action:
             key = f"{key}_no_design"  # there is no designer to send it back to
         return Action("stop", key, {**base, "preview": preview_note(ctx), "dir": ctx.rel_dir})
 
+    role = states.ROLE_FOR_STATUS[kind].get(status)
+    if role and (gate := missing_gate(ctx, role)):
+        # A gate only the dispatch hook used to see: stop here, so the human gets a decision
+        # instead of a refused dispatch. The board renders it; `mark approve` waives it.
+        path = ctx.gate_path(gate).relative_to(ctx.main).as_posix()
+        return Action("stop", "next.gate", {**base, "role": role, "gate": path}, role=role)
+
     action = _dispatch(ctx, status)
     first = ("designer-initial", "fix-plan-initial", "coder-plan" if _unstaffed(ctx, "designing") else "")
     if action.scenario in first:
@@ -633,6 +640,24 @@ def _unstaffed(ctx: Ctx, status: str) -> str | None:
     return role if role == "designer" and ctx.ticket.no_design else None
 
 
+def required_gates(ctx: Ctx, role: str) -> list[str]:
+    """The dispatch gates for `role` on this ticket (feature tickets only)."""
+    if ctx.kind != states.FEATURE:
+        return []
+    return ctx.cfg.required_gates(role, no_design=ctx.ticket.no_design,
+                                  requirement=bool(ctx.ticket.get(tickets.REQUIREMENT_GATE_FIELD)))
+
+
+def missing_gate(ctx: Ctx, role: str | None = None) -> str | None:
+    """The first dispatch gate the ticket has not passed, or None. `role` defaults to the role
+    the ticket's status dispatches. A missing gate is the human's turn, not the agents': `mark
+    next` stops there and the board offers to waive it, before the dispatch hook has to refuse."""
+    role = role or states.ROLE_FOR_STATUS[ctx.kind].get(ctx.ticket.status)
+    if not role:
+        return None
+    return next((g for g in required_gates(ctx, role) if not ctx.has_gate(g)), None)
+
+
 def _move(ctx: Ctx, new: str, note: str | None, extra: dict[str, str | None] | None = None) -> str:
     old = ctx.ticket.status
     if (role := _unstaffed(ctx, new)) and new != old:
@@ -756,6 +781,18 @@ def _write_gate(ctx: Ctx, gate: str, by: str = "human") -> Path:
     return path
 
 
+def _waive_gate(ctx: Ctx, gate: str, by: str = "human") -> Path:
+    """Record that this ticket has nothing to review at `gate`. `has_gate` and the dispatch
+    guard accept `<id>.<gate>.waived`; the human's decision is what makes it a waiver."""
+    path = ctx.gate_path(gate)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path = path.with_name(path.name + ".waived")
+    stamp = _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
+    path.write_text(f"approved_at: {stamp}\napproved_by: {by}\ngate: {gate}\nwaived: true\n",
+                    encoding="utf-8")
+    return path
+
+
 APPROVE = {
     # status: (gate written, review settled, default next status; None: the human must name one)
     "review-requirement": ("requirement-approved", "requirement", "designing"),
@@ -777,6 +814,7 @@ class Outcome:
     review: str | None = None
     ui_only: bool = False
     answer: str = ""
+    waived: list[str] = field(default_factory=list)
 
 
 HUMAN_RESULT = "human"
@@ -857,7 +895,17 @@ def approve(ctx: Ctx, to: str | None = None) -> Outcome:
         _write_gate(ctx, TICKET_GATE)
         return Outcome(status, status, gate=TICKET_GATE)
     if status not in APPROVE:
-        raise FlowError("flow.approve_nothing", status=status, id=ctx.id)
+        # An agent status whose next role's gate is missing: the human is authorizing the
+        # skipped review, not moving the ticket. Record it as waived and keep the status;
+        # the board shows this as a decision too (`board.waits_on`).
+        gate = missing_gate(ctx)
+        if gate is None:
+            raise FlowError("flow.approve_nothing", status=status, id=ctx.id)
+        if to:
+            raise FlowError("flow.approve_to", id=ctx.id, status=status, to=to, allowed="-")
+        _require_human(ctx, "approve")
+        _waive_gate(ctx, gate)
+        return Outcome(status, status, waived=[gate])
     gate, review, new = APPROVE[status]
     if new and _unstaffed(ctx, new):
         new = "planning"  # no designer: the plan comes next, or is redone instead
@@ -908,6 +956,18 @@ def _pass(ctx: Ctx, status: str, new: str, extra: dict[str, str | None], answer:
         out.rounds = reviews.settle(ctx.review_path(review), ctx.cfg.locale)
     if gate:
         _write_gate(ctx, gate, by)
+    if status.startswith("blocked-") and ctx.kind == states.FEATURE:
+        role = states.ROLE_FOR_STATUS[ctx.kind].get(new)
+        if role:
+            # The human sent a blocked ticket past a review: that review is skipped for this
+            # ticket, so record the target role's gate as waived. Without it the next dispatch
+            # would hit the guard after the human already decided. The requirement gate is
+            # never waived here: it has its own review.
+            waived = [g for g in ctx.cfg.required_gates(role, no_design=ctx.ticket.no_design)
+                      if not ctx.has_gate(g)]
+            for g in waived:
+                _waive_gate(ctx, g, by)
+            out.waived.extend(waived)
     _move(ctx, new, None, extra)
     if answer:
         _record_answer(ctx, status, note, answer)

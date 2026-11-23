@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from .. import brief, states, tickets
-from ..config import DEFAULT_ROLES, DESIGN_GATE
+from ..config import DEFAULT_ROLES
 from ..gitutil import (ahead_of, current_branch, dirty_paths, git, has_remote, is_ancestor,
                        patch_unique, ref_exists, worktrees)
 from . import locks
@@ -63,22 +63,17 @@ def status_guard(env: Env) -> str | None:
                  want=want or env.t("guard.dispatch.nobody"))
 
 
-REQUIREMENT_GATE = "requirement-approved"
-
-
 def gate_guard(env: Env) -> str | None:
     """Feature roles need the approved requirement and their own human review gate; the bug
-    chain has none. A ticket that declared `design: none` needs no design gate: there is no
-    design to approve."""
+    chain has none. `MarkConfig.required_gates` is the same list `mark next` stops on, so a
+    missing gate becomes a human stop on the board instead of a surprise here."""
     target = _pipeline_target(env)
     if not isinstance(target, Target) or target.kind == "bug":
         return None
     ticket = tickets.load_ticket(env.cfg, target.kind, target.id)
-    role_gate = env.cfg.gates.get(env.dispatch_role)
-    gates = [] if ticket.no_design and role_gate == DESIGN_GATE else [role_gate]
-    if ticket.get(tickets.REQUIREMENT_GATE_FIELD):
-        gates.insert(0, REQUIREMENT_GATE)
-    gate = next((g for g in gates if g and not env.has_gate(target.id, g)), None)
+    gates = env.cfg.required_gates(env.dispatch_role, no_design=ticket.no_design,
+                                   requirement=bool(ticket.get(tickets.REQUIREMENT_GATE_FIELD)))
+    gate = next((g for g in gates if not env.has_gate(target.id, g)), None)
     if not gate:
         return None
     rel = env.gate_path(target.id, gate).relative_to(env.main).as_posix()

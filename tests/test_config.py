@@ -86,6 +86,14 @@ class WorkflowDefaultsTest(unittest.TestCase):
     def test_empty_list_requires_nothing(self):
         self.assertEqual(self.cfg('[outputs]\ntester = []\n').outputs["tester"], [])
 
+    def test_required_gates_share_the_design_skip(self):
+        cfg = self.cfg("")
+        self.assertEqual(cfg.required_gates("coder-plan", requirement=True),
+                         ["requirement-approved", "design-approved"])
+        self.assertEqual(cfg.required_gates("coder-plan", requirement=True, no_design=True),
+                         ["requirement-approved"])
+        self.assertEqual(cfg.required_gates("coder-impl"), ["plan-approved"])
+
     def test_service_profile_has_no_designer_and_no_design_gate(self):
         cfg = self.cfg('profile = "service"\n[paths]\nstate_dir = ".mark"\nservice = "api/"\ntests = "e2e"\n')
         self.assertNotIn("designer", cfg.roles)

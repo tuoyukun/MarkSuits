@@ -559,6 +559,7 @@ const I18N={
   hatch:"Striped: waiting on you",noneInView:"No tickets in this stretch. Drag or zoom out.",durHint:"Each bar starts at its own ticket's start: how long it took and where the time went.",
   median:"Median time",humanShare:"of the time waiting on you",avg:"avg",titleCol:"Title",today:"Today",yesterday:"Yesterday",nTickets:"{n} tickets",nTicket:"1 ticket",ago:{s:"just now",m:"{n} min ago",h:"{n} h ago",d:"{n} d ago"},min:"min",waiting:"Waiting on you",
   decide:"Your decision",approve:"Approve",approveOpen:"Approve opening",reject:"Reject with comments",items:"Comments, one per line",target:"Send to",
+  gateMissing:"This ticket's next step is `{role}`, but the ticket has not passed `{gate}`. Waiving records that this review does not apply; the step starts immediately.",gateWaive:"Waive this review",
   ansNeed:"Your answer (required)",ansOpt:"Answer or note (optional)",canDecide:"you can decide here",rec:"Recommended",rejectShort:"Reject",other:"Other…",pick:"Decide",note:"Note to add (optional)",noteNeed:"Note (required for this choice)",lastReport:"Last session report",
   runH:"Headless session",running:"running",runBlocked:"needs approval",runFailed:"failed",runDone:"stopped at the next gate",stop:"Stop",
   runBlockedHint:"A command needed your approval. Continue in a terminal with /mark:continue {id}, or allow the command in .claude/settings.json.",
@@ -606,6 +607,7 @@ const I18N={
   hatch:"斜纹 = 等你",noneInView:"这段时间没有工单，拖动或缩小看看",durHint:"每张单从它自己的开始时间算起：用了多久、时间花在哪个阶段。",
   median:"中位耗时",humanShare:"时间花在等你",avg:"平均",titleCol:"标题",today:"今天",yesterday:"昨天",nTickets:"{n} 张",nTicket:"1 张",ago:{s:"刚刚",m:"{n} 分钟前",h:"{n} 小时前",d:"{n} 天前"},min:" 分钟",waiting:"等你处理",
   decide:"你的决定",approve:"通过",approveOpen:"批准开单",reject:"驳回并附意见",items:"意见，每行一条",target:"转到",
+  gateMissing:"这一步要派 `{role}`，但工单还没通过 `{gate}`。豁免表示这道评审对本单不适用，下一步会立即开始。",gateWaive:"豁免这道评审",
   ansNeed:"你的答复（必填）",ansOpt:"答复或备注（可选）",canDecide:"可在此处理",rec:"推荐",rejectShort:"驳回",other:"其他…",pick:"按此决定",note:"补充说明（可选）",noteNeed:"补充说明（此选项必填）",lastReport:"上次运行报告",
   runH:"后台会话",running:"运行中",runBlocked:"需要授权",runFailed:"失败",runDone:"已停在下一个关卡",stop:"停止",
   runBlockedHint:"有条命令需要你授权。在终端里用 /mark:continue {id} 继续，或在 .claude/settings.json 里放行该命令。",
@@ -1059,7 +1061,8 @@ function decBlk(t){if(t.upgrade){decKey="";$("#dec").innerHTML=laneBlk(t);return
     <textarea id="dAns" rows="3" placeholder="${tr(w.answer?"ansNeed":"ansOpt")}"></textarea>`:"";
   const rej=w.kind==="review"?`<textarea id="dItems" rows="4" placeholder="${tr("items")}"></textarea><button class="btn" data-dec="reject">${tr("reject")}</button>`:"";
   const nd=w.kind==="review"&&t.design==="none"?`<div class="dq">${tr("noDesignReview")}</div>`:"";
-  const plain=`${nd}${to}<button class="btn pri" data-dec="approve">${tr(w.kind==="opening"?"approveOpen":"approve")}</button>${rej}`,p=w.proposal;
+  const gate=w.kind==="gate"?`<div class="dq">${esc(tr("gateMissing").replace("{role}",w.role||"-").replace("{gate}",w.gate||"-"))}</div>`:"";
+  const plain=`${gate}${nd}${to}<button class="btn pri" data-dec="approve">${tr(w.kind==="gate"?"gateWaive":w.kind==="opening"?"approveOpen":"approve")}</button>${rej}`,p=w.proposal;
   if(!p){$("#dec").innerHTML=`<div class="blk dec"><h5>${tr("decide")}</h5>${plain}${out}</div>`;return}
   const pick=Math.max(0,p.options.findIndex(o=>o.recommended));  // the suggestion comes from Claude; choosing it is the human's click
   const opts=p.options.map((o,i)=>`<label class="dopt"><input type="radio" name="dOpt" value="${i}"${i===pick?" checked":""}><span><b>${esc(o.label)}</b>${o.recommended?`<span class="rec">${tr("rec")}</span>`:""}${o.verb==="reject"?`<span class="go">✕ ${esc(tr("rejectShort"))}</span>`:o.to?`<span class="go">→ ${esc(label(o.to))}</span>`:""}${o.detail?`<small>${esc(o.detail)}</small>`:""}${o.items?.length?`<small>${o.items.map(i=>"· "+esc(i)).join("<br>")}</small>`:""}</span></label>`).join("");
