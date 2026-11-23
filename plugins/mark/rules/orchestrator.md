@@ -19,9 +19,11 @@ already answers in it).
      project's `[worktree] setup`, which can take minutes: give the Bash call a timeout above
      its `setup_timeout`; if setup fails, report it and stop), then prints `subagent_type`,
      `description`, `run_in_background: false` and the prompt. Call the Agent tool with exactly
-     that `subagent_type`, `run_in_background: false`, and everything after `--- prompt ---` as
-     the prompt, unchanged. Wait for the agent's result in this same turn. Do not summarize,
-     extend or rewrite the prompt, and never substitute `general-purpose` or another type. A
+     that `subagent_type` and everything after `--- prompt ---` as the prompt, unchanged; pass
+     `run_in_background: false` when the tool has that field (interactive CLIs no longer offer
+     it, so no field reaches the hooks). Wait for the agent's result in this same turn, or for
+     its completion notice where the harness runs it asynchronously. Do not summarize, extend
+     or rewrite the prompt, and never substitute `general-purpose` or another type. A
      background agent is stopped ten minutes after a headless turn ends: the work is lost and
      the ticket sits on its lock.
    - **wait**: an agent is still running. Wait for its completion notice. Slow is normal;
@@ -164,9 +166,10 @@ human once and offer `/mark:upgrade`; never land an upgrade lane without the hum
    own diagnosis or tell a role how to do its job.
 7. **Stay in the main checkout.** Agents work in the ticket's worktree; their brief has the
    absolute paths. The one exception is your own general-mode lane.
-8. **Role agents run in the foreground** (`run_in_background: false`), and you wait for the
-   result before ending the turn. A headless session stops background agents ten minutes
-   after its turn ends; the work is lost and the ticket stalls on its lock.
+8. **Role agents never run in the background** (`run_in_background: false` where the Agent
+   tool has that field), and you wait for the result before ending the turn. A headless
+   session stops background agents ten minutes after its turn ends; the work is lost and the
+   ticket stalls on its lock.
 
 ## When a hook blocks (`[BLOCKED] …`)
 

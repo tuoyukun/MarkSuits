@@ -130,16 +130,19 @@ class ForegroundDispatchTest(unittest.TestCase):
         add_worktree(self.root, "feature", "0001-a")
         self.prompt = anchor("features", "0001-a")
 
-    def test_pipeline_role_must_say_foreground(self):
-        for background in (None, True):
-            with self.subTest(background=background):
-                code, err = dispatch(self.root, "coder-impl", self.prompt, background=background)
-                self.assertEqual(code, 2)
-                self.assertIn("run_in_background: false", err)
-                self.assertFalse((self.root / ".mark/locks/0001-a.coder-impl.lock").exists())
+    def test_background_is_refused(self):
+        code, err = dispatch(self.root, "coder-impl", self.prompt, background=True)
+        self.assertEqual(code, 2)
+        self.assertIn("run_in_background: false", err)
+        self.assertFalse((self.root / ".mark/locks/0001-a.coder-impl.lock").exists())
 
-    def test_pipeline_role_foreground_passes(self):
-        self.assertEqual(dispatch(self.root, "coder-impl", self.prompt)[0], 0)
+    def test_foreground_passes(self):
+        self.assertEqual(dispatch(self.root, "coder-impl", self.prompt, background=False)[0], 0)
+
+    def test_missing_field_passes(self):
+        # Claude Code 2.1.330's interactive Agent tool has no `run_in_background`, so the field
+        # never reaches the hook. Requiring it blocked every interactive dispatch.
+        self.assertEqual(dispatch(self.root, "coder-impl", self.prompt, background=None)[0], 0)
 
     def test_non_pipeline_agent_is_not_forced(self):
         self.assertEqual(dispatch(self.root, "Explore", "look around", background=True)[0], 0)

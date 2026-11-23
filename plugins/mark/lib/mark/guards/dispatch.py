@@ -19,14 +19,15 @@ def staffed_guard(env: Env) -> str | None:
 
 
 def background_guard(env: Env) -> str | None:
-    """A pipeline role runs in the foreground: the turn that dispatched it must wait for its
-    result. A background subagent is stopped ten minutes after a headless turn ends, and the
-    ticket then sits on its lock until a human notices."""
+    """A pipeline role may not be dispatched into the background: a headless turn stops a
+    background agent ten minutes after it ends, and the ticket then sits on its lock. An
+    absent field is accepted: interactive CLIs (Claude Code 2.1.330+) do not offer
+    `run_in_background` at all, so requiring it blocked every dispatch there."""
     if env.dispatch_role not in env.cfg.roles:
         return None
-    if env.tool_input.get("run_in_background") is False:
-        return None
-    return env.t("guard.dispatch.background", role=env.dispatch_role)
+    if env.tool_input.get("run_in_background") is True:
+        return env.t("guard.dispatch.background", role=env.dispatch_role)
+    return None
 
 
 def _pipeline_target(env: Env) -> Target | str | None:

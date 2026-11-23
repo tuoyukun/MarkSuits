@@ -22,10 +22,11 @@ Argument: `$ARGUMENTS`
    apply it before dispatching: if it changes a criterion or a decision, update the `AC-N` or
    add the `DEC-N` in `requirement.md` on main and `mark commit <id> -m "<what changed>"` — the
    same as `/mark:approve` step 4.
-3. Run every agent and `mark merge` in the **foreground**: call the Agent tool with
-   `run_in_background: false` and wait for each to finish before the next step. A headless
-   session ends when you stop, and anything still running in the background is stopped ten
-   minutes later.
+3. Run every agent and `mark merge` in the **foreground**: pass `run_in_background: false`
+   when the Agent tool has that field, and wait for each to finish before the next step (where
+   the harness runs it asynchronously, wait for its completion notice). A headless session
+   ends when you stop, and anything still running in the background is stopped ten minutes
+   later.
 4. Do not start `mark wait` at the gate: the board shows the ticket waiting, and the next
    decision starts a new session.
 5. If a command is refused for lack of permission, do not try another way: report which
