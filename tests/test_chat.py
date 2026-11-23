@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -49,6 +50,9 @@ class ChatTest(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, env)
         patcher.start()
         self.addCleanup(patcher.stop)
+        for var in ("ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"):  # the test's own env, not this terminal's
+            if var in os.environ:
+                self.addCleanup(os.environ.__setitem__, var, os.environ.pop(var))
         self.addCleanup(chat.stop, self.cfg, "0001-a")
 
     def turn(self, text, mode="reply"):
@@ -133,6 +137,42 @@ class ChatTest(unittest.TestCase):
     def test_no_claude(self):
         with mock.patch("mark.runner.find_claude", return_value=None):
             self.assertEqual(chat.start(self.cfg, "feature", "0001-a", "hi"), (False, "no-claude"))
+
+    def test_a_clean_turn_calls_when_done(self):
+        done = threading.Event()
+        os.environ["FAKE_CLAUDE"] = "reply"
+        self.assertEqual(chat.start(self.cfg, "feature", "0001-a", "Due dates.", when_done=done.set), (True, ""))
+        self.assertTrue(done.wait(10))
+
+    def test_a_carried_ticket_is_told_the_board_carries_on(self):
+        done = threading.Event()
+        os.environ["FAKE_CLAUDE"] = "reply"
+        self.assertEqual(chat.start(self.cfg, "feature", "0001-a", "Due dates.", when_done=done.set), (True, ""))
+        self.assertTrue(done.wait(10))
+        argv = [json.loads(line) for line in self.calls.read_text().splitlines()][-1]["argv"]
+        note = argv[argv.index("--append-system-prompt") + 1]
+        self.assertIn("carries the ticket on", note)
+
+    def test_a_failed_or_stopped_turn_carries_nothing_on(self):
+        done = threading.Event()
+        os.environ["FAKE_CLAUDE"] = "die"
+        self.assertEqual(chat.start(self.cfg, "feature", "0001-a", "Due dates.", when_done=done.set), (True, ""))
+        self.wait_dead()
+        self.assertFalse(done.is_set())  # a failed start is not a finished turn
+
+        done = threading.Event()
+        os.environ["FAKE_CLAUDE"] = "sleep"
+        self.assertTrue(chat.start(self.cfg, "feature", "0001-a", "Due dates.", when_done=done.set)[0])
+        time.sleep(0.2)  # let the fake reach its sleep
+        self.assertTrue(chat.stop(self.cfg, "0001-a"))
+        self.wait_dead()
+        self.assertFalse(done.is_set())  # the human stopped it: the board does not carry on
+
+    def wait_dead(self):
+        deadline = time.monotonic() + 10
+        while chat.running(self.cfg, "0001-a") and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertFalse(chat.running(self.cfg, "0001-a"))
 
 
 if __name__ == "__main__":

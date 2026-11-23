@@ -11,7 +11,8 @@ reads its documents on the board, decides there, and Mark carries on to the next
 the human typing in a terminal**.
 
 Out of scope at the time: opening tickets, editing documents, merging, `/mark:general` from the
-board. Opening tickets and chat came in v0.50, merging in v0.67, general tickets in v0.71.
+board. Opening tickets and chat came in v0.50, merging in v0.67, general tickets in v0.71, and
+a finished chat turn carrying the ticket on like the runner in v0.72.
 `/mark:approve` and `/mark:reject` in the terminal stay as they are; whichever comes first wins.
 
 ## 2. What the experiments showed
@@ -106,6 +107,9 @@ targeted attack); the architecture doc says so.
 - `/mark:continue <id>` (new skill, features and bugs): loop to the next human gate or a stop, as
   `/mark:approve` step 5 does, with agents and `mark merge` in the **foreground**
   (`claude -p` kills background agents).
+- It also applies the decision's answer to `requirement.md` (`AC-N`/`DEC-N`) before dispatching,
+  the step `/mark:approve` step 4 takes; `mark next` prints the answer while it is still the
+  newest result (`flow.human_answer`).
 - One runner per project: `<state>/locks/runner.json` `{pid, ticket, log, started}`.
 - Log: `<state>/locks/run-<id>-<time>.jsonl` (`locks/` is gitignored).
 - On exit, read the last `result` event:
@@ -117,7 +121,9 @@ targeted attack); the architecture doc says so.
 
 - **Decision panel** in the ticket modal, only while the ticket waits on the human:
   - `review-*`: approve / reject (add and remove comment items);
-  - `blocked-*`: target status (from `approve_targets`) and an answer;
+  - `blocked-*`: target status (from `approve_targets`) and an answer; without a saved
+    proposal, the stop note from `status.md` and the last headless run's report come first, so
+    the decision stays legible even when `mark propose` was not used;
   - opening not approved: approve opening.
 - **Run panel**: the running session (ticket, start time), a trimmed live log (agent dispatches,
   `mark` commands, results), a stop button (`POST /api/stop`, with the secret; SIGTERM to the
@@ -137,7 +143,7 @@ targeted attack); the architecture doc says so.
 ```toml
 [board]
 decide = true            # decide on the board; false keeps it read-only
-run = "auto"             # "auto": start a headless session when no waiter; "off": decide only
+run = "auto"             # "auto": carry a ticket on (after a decision or a chat turn); "off": decide only
 permission_mode = "auto" # for the headless session
 ```
 

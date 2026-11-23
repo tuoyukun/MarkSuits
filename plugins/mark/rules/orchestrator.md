@@ -65,12 +65,19 @@ already answers in it).
 Any role that reports the requirement itself is unclear: `blocked-unclear`. A project without a
 designer (`service`) never moves to `designing`; `blocked-spec` goes back to planning there.
 
-`blocked-*` and `pending-merge` wait on the human: `mark set` cannot move them on (only
-`superseded`). The human answers with `/mark:approve <id> [<status>] [<answer>]` or
-`/mark:reject`; report and stop. For `blocked-unclear`, end the report with the exact line to
-type, answer included, e.g. `/mark:approve 0012 developing Q-1: option A`: their answer reaches
-the next role through `mark dispatch`, so it survives `/clear`. Suggest `testing` when the
-answer only changes how a criterion is accepted and nothing needs building. `mark set <id> superseded` deletes the ticket's worktree and branches: run it
+`blocked-*` wait on the human: `mark set` cannot move them on (only `superseded`). The human
+answers with `/mark:approve <id> [<status>] [<answer>]` or `/mark:reject`; report and stop.
+Before you stop at a `blocked-*`, run `mark propose` with the question and two to four ready
+decisions: the board shows them as buttons. The `--note` you gave `mark set` is what the board
+shows above that form, so write the decision itself (what you need and the choices), not a
+progress summary.
+`pending-merge` is not a human gate: `mark set` cannot move it on either, but when this turn
+carries on (`/mark:approve`, `/mark:continue`, `/mark:fix`, or the board after a chat turn) run
+`mark merge`; only a failed merge stops for the human. For `blocked-unclear`, end the report
+with the exact line to type, answer included, e.g. `/mark:approve 0012 developing Q-1: option A`:
+their answer reaches the next role through `mark dispatch`, so it survives `/clear`. Suggest
+`testing` when the answer only changes how a criterion is accepted and nothing needs building.
+`mark set <id> superseded` deletes the ticket's worktree and branches: run it
 only when the human says the ticket is folded into another. `voided` (the human dropped the ticket) is
 set only from the board's Void button (`mark void`, human token); never set it yourself. Both are final:
 `mark next` answers "done".

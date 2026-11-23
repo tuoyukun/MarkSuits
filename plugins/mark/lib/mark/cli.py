@@ -188,12 +188,16 @@ def cmd_next(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
         return 2
     ctx = flow.load(cfg, pos[0])
     action = flow.next_action(ctx, retry=bool(opts.get("--retry")))
+    answer = flow.human_answer(ctx)
     if opts.get("--json"):
-        data = {"id": ctx.id, "kind": ctx.kind, "status": ctx.ticket.status, **action.as_dict(),
+        data = {"id": ctx.id, "kind": ctx.kind, "status": ctx.ticket.status, "answer": answer,
+                **action.as_dict(),
                 "text": t(cfg.locale, action.message, **action.params) + propose.hint(ctx)}
         out.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     else:
         _say(cfg, out, action.message, **action.params)
+        if action.kind == "dispatch" and answer:
+            _say(cfg, out, "next.answer", answer=answer)
         if hint := propose.hint(ctx):
             out.write(hint.lstrip("\n") + "\n")
         _stale_notice(cfg, out)
@@ -253,6 +257,8 @@ def cmd_set(cfg: MarkConfig, args: list[str], out: TextIO, err: TextIO) -> int:
     if pos[1] == "superseded":
         for key, params in merge.discard(ctx):
             _say(cfg, out, key, **params)
+    if hint := propose.hint(flow.load(cfg, ctx.id)):
+        out.write(hint.lstrip("\n") + "\n")  # the stop is recorded: say how to propose before stopping
     return code
 
 

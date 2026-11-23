@@ -31,7 +31,8 @@ project adds it there. The page (`board.html`) is one file with two views:
       POST api/stop {ticket}           stop the ticket's headless session and chat turn (with the cookie)
       POST api/continue {ticket}       start a headless session on a stalled ticket (with the cookie)
       POST api/new                     open a ticket (or a general lane) and start talking it through (with the cookie)
-      POST api/chat                    send the next message in a ticket's chat (with the cookie)
+      POST api/chat                    send the next message in a ticket's chat; a turn that ends in an
+                                       agent step or pending-merge carries the ticket on by itself (with the cookie)
       POST api/lane {branch, verb}     merge or drop an upgrade lane (`upkeep.py`, with the cookie)
 
 Deciding: the server holds a random session secret in memory only. It opens the browser itself
@@ -59,12 +60,14 @@ import threading
 import time
 import urllib.request
 import webbrowser
+from collections.abc import Callable
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import chat, deps, flow, general, home, human, merge, model, propose, runner, scaffold, states, tickets, upkeep, wizard
+from . import (ask, chat, deps, flow, general, home, human, merge, model, propose,
+               runner, scaffold, states, tickets, upkeep, wizard)
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .gitutil import git, ref_exists, worktrees
 from .i18n import t
@@ -347,10 +350,12 @@ def general_note(branch: str, wt: Path) -> str:
     )
 
 
-def new_ticket(cfg: MarkConfig, req: dict) -> tuple[bool, str, str]:
+def new_ticket(cfg: MarkConfig, req: dict,
+               when_done: Callable[[str], None] | None = None) -> tuple[bool, str, str]:
     """Open a ticket for the human, as their `/mark:feature`, `/mark:fix` or `/mark:general` would,
     and send their text as the first chat message. A General ticket gets its lane cut here first,
-    so the chat has a card to live on. (ok, text, id)."""
+    so the chat has a card to live on. `when_done` is called with the ticket id after the first
+    turn ends by itself (`carry_on_chat`). (ok, text, id)."""
     kind, text, slug = req.get("kind"), req.get("text"), req.get("slug") or None
     if kind not in (*states.KINDS, GENERAL) or not isinstance(text, str) or not text.strip() \
             or len(text) > chat.TEXT_MAX or not (slug is None or isinstance(slug, str)):
@@ -368,7 +373,8 @@ def new_ticket(cfg: MarkConfig, req: dict) -> tuple[bool, str, str]:
         return False, str(exc), ""
     finally:
         token.unlink(missing_ok=True)
-    started, why = chat.start(cfg, kind, ticket.id, text.strip())
+    started, why = chat.start(cfg, kind, ticket.id, text.strip(),
+                              when_done=(lambda: when_done(ticket.id)) if when_done else None)
     return True, "" if started else f"chat.{why}", ticket.id
 
 
@@ -386,8 +392,10 @@ def _new_lane(cfg: MarkConfig, text: str) -> tuple[bool, str, str]:
     return True, "" if started else f"chat.{why}", lane_id
 
 
-def send(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
-    """The human's next chat message on a ticket (or general lane): (started, why not)."""
+def send(cfg: MarkConfig, req: dict, when_done: Callable[[str], None] | None = None) -> tuple[bool, str]:
+    """The human's next chat message on a ticket (or general lane): (started, why not).
+    `when_done` carries a ticket on after a turn that ends by itself; a general lane never
+    does (its merge is the human's)."""
     ticket, text = req.get("ticket"), req.get("text")
     kind = _known(cfg, ticket)
     if kind is None or not isinstance(text, str) or not text.strip() or len(text) > chat.TEXT_MAX:
@@ -401,7 +409,8 @@ def send(cfg: MarkConfig, req: dict) -> tuple[bool, str]:
         started, why = chat.start(cfg, kind, ticket, text, first=f"/mark:general {text}",
                                   note=general_note(branch, wt))
     else:
-        started, why = chat.start(cfg, kind, ticket, text)
+        started, why = chat.start(cfg, kind, ticket, text,
+                                  when_done=(lambda: when_done(ticket)) if when_done else None)
     return started, "" if started else f"chat.{why}"
 
 
@@ -564,6 +573,33 @@ def carry_on(cfg: MarkConfig, ticket: str, before: dict | None, had_waiter: bool
         return "run.terminal"
     started, why = runner.start(cfg, ticket)
     return "run.started" if started else f"run.{why}"
+
+
+def carry_on_chat(cfg: MarkConfig, ticket_id: str) -> str:
+    """After a board chat turn ended by itself: advance the ticket the way Mark does on its own.
+
+    The chat's skill does one step per message, while the headless runner loops to the next
+    human gate — and `pending-merge` is not a gate. So the board carries on when `mark next` says
+    the agents' turn: `mark merge` at `pending-merge` (the Merge button's process), the runner
+    (`/mark:continue`) for a dispatch or a record. A human gate, `drafting`, a pending `mark ask`
+    form, another live session, or `[board] run = "off"` leaves the ticket alone."""
+    if not cfg.board_run:
+        return "run.terminal"
+    if ask.load(cfg, ticket_id):  # the turn ended with questions: the human's answer comes next
+        return "chat.ask"
+    if chat.running(cfg, ticket_id) or runner.running(cfg, ticket_id):
+        return "run.session"
+    try:
+        action = flow.next_action(flow.Ctx(cfg, flow.load(cfg, ticket_id).ticket))
+    except flow.FlowError:
+        return "run.terminal"
+    if action.kind == "merge":
+        started, why = start_merge(cfg, {"ticket": ticket_id})
+        return "run.started" if started else (why or "run.terminal")
+    if action.kind in ("dispatch", "record"):
+        started, why = runner.start(cfg, ticket_id)
+        return "run.started" if started else f"run.{why}"
+    return "run.terminal"
 
 
 def summary(cfg: MarkConfig) -> dict[str, object]:
@@ -856,6 +892,9 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 self._json(404, {"ok": False, "text": "not found"})
 
         def _post_project(self, cfg: MarkConfig, path: str, body: dict) -> None:
+            def after_turn(ticket: str) -> None:
+                with board.lock:  # the turn ended; the next step starts as an ordinary request would
+                    carry_on_chat(cfg, ticket)
             if path == "/api/decide":
                 from . import wait  # wait imports this module
                 tid = body.get("ticket")
@@ -891,11 +930,11 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                     ok, text, tid = new_ticket(cfg, body)
                 else:
                     with board.lock:
-                        ok, text, tid = new_ticket(cfg, body)
+                        ok, text, tid = new_ticket(cfg, body, when_done=after_turn)
                 self._json(200 if ok else 409, {"ok": ok, "text": text, "id": tid})
             elif path == "/api/chat":
                 with board.lock:
-                    ok, text = send(cfg, body)
+                    ok, text = send(cfg, body, when_done=after_turn)
                 self._json(200 if ok else 409, {"ok": ok, "text": text})
             elif path == "/api/lane":
                 ok, text = upkeep.lane_action(cfg, body, general_lanes, board.touch)

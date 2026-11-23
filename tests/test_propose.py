@@ -22,6 +22,7 @@ class ProposeTest(unittest.TestCase):
         add_ticket(self.root, "feature", "0001-a", "review-plan", gates=("ticket-approved",))
         add_ticket(self.root, "feature", "0002-b", "blocked-unclear", gates=("ticket-approved",))
         add_ticket(self.root, "feature", "0003-c", "developing", gates=("ticket-approved",))
+        add_ticket(self.root, "feature", "0004-d", "designing", gates=("ticket-approved",))
         self.cfg = load_config(self.root)
 
     def run_cli(self, *argv, stdin=""):
@@ -91,6 +92,17 @@ class ProposeTest(unittest.TestCase):
         _, out = self.run_cli("next", "0001-a")
         self.assertIn('"verb": "reject"', out)
         _, out = self.run_cli("next", "0003-c")
+        self.assertNotIn("mark propose", out)
+
+    def test_set_at_a_human_stop_tells_how_to_propose(self):
+        # The orchestrator often ends its turn right after `mark set`: the stop it just recorded
+        # must carry the propose hint, without a second `mark next`.
+        code, out = self.run_cli("set", "0004-d", "blocked-unclear", "--note", "which way?", "--no-commit")
+        self.assertEqual(code, 0, out)
+        self.assertIn("mark propose 0004-d <<'EOF'", out)
+        self.assertIn('"to": "<status>"', out)
+        code, out = self.run_cli("set", "0003-c", "testing", "--no-commit")
+        self.assertEqual(code, 0, out)
         self.assertNotIn("mark propose", out)
 
     def test_board_shows_the_proposal_with_the_wait(self):

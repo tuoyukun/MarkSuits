@@ -1236,6 +1236,18 @@ class HumanDecisionTest(unittest.TestCase):
         self.assertIn("which simulator?", prev)
         self.assertTrue(prev.endswith("Q-1: use the iPhone 18 Pro\nand drop the Duo"))
 
+    def test_the_human_answer_is_exposed_until_a_role_finishes(self):
+        add_ticket(self.root, "feature", "0001-a", "blocked-unclear", gates=ALL_GATES)
+        human_typed(self.root, "/mark:approve 0001 planning Q-1: use A")
+        self.assertEqual(run(self.root, "approve", "0001", "--to", "planning")[0], 0)
+        # The raw answer, not the wrapper `previous_conclusion` hands the next role.
+        self.assertEqual(flow.human_answer(ctx_of(self.root, "0001")), "Q-1: use A")
+        self.assertEqual(json.loads(run(self.root, "next", "0001", "--json")[1])["answer"], "Q-1: use A")
+        self.assertIn("Q-1: use A", run(self.root, "next", "0001")[1])
+        write(self.root / ".mark/locks/0001-a.coder-plan.result.json",
+              json.dumps({"at": time.time() + 1, "conclusion": "plan done"}))
+        self.assertEqual(flow.human_answer(ctx_of(self.root, "0001")), "")
+
     def test_review_gate_comment_is_handed_over_too(self):
         add_ticket(self.root, "feature", "0001-a", "review-plan", gates=["ticket-approved", "design-approved"])
         human_typed(self.root, "/mark:approve 0001 keep T-3 small")

@@ -458,6 +458,39 @@ class DecideTest(unittest.TestCase):
         self.assertEqual((self.status("0004-d"), res["note"]), ("failed-impl", "run.started"))
         self.run_start.assert_called_once_with(self.cfg, "0004-d")
 
+    def test_a_chat_turn_that_ends_in_an_agent_status_carries_on(self):
+        add_ticket(self.root, "feature", "0008-h", "developing", gates=("ticket-approved",))
+        self.assertEqual(board.carry_on_chat(self.cfg, "0008-h"), "run.started")
+        self.run_start.assert_called_once_with(self.cfg, "0008-h")
+
+    def test_a_chat_turn_that_ends_at_pending_merge_merges(self):
+        add_ticket(self.root, "feature", "0008-h", "pending-merge", gates=("ticket-approved",), leftover="0")
+        with mock.patch.object(board, "start_merge", return_value=(True, "")) as merge:
+            self.assertEqual(board.carry_on_chat(self.cfg, "0008-h"), "run.started")
+        merge.assert_called_once_with(self.cfg, {"ticket": "0008-h"})
+        self.run_start.assert_not_called()
+
+    def test_a_chat_turn_that_waits_on_the_human_or_a_form_carries_nothing_on(self):
+        self.assertEqual(board.carry_on_chat(self.cfg, "0001-a"), "run.terminal")  # review-plan
+        add_ticket(self.root, "feature", "0008-h", "developing", gates=("ticket-approved",))
+        with mock.patch.object(board.chat, "running", return_value=1):
+            self.assertEqual(board.carry_on_chat(self.cfg, "0008-h"), "run.session")
+        ask_path = self.cfg.state_dir / "locks" / "ask-0008-h.json"
+        ask_path.parent.mkdir(parents=True, exist_ok=True)
+        ask_path.write_text(json.dumps({"questions": []}))
+        self.assertEqual(board.carry_on_chat(self.cfg, "0008-h"), "chat.ask")
+        ask_path.unlink()
+        with mock.patch.object(board.runner, "running", return_value={"pid": 1}):
+            self.assertEqual(board.carry_on_chat(self.cfg, "0008-h"), "run.session")
+        self.run_start.assert_not_called()
+
+    def test_carrying_a_chat_turn_on_respects_run_off(self):
+        add_ticket(self.root, "feature", "0008-h", "developing", gates=("ticket-approved",))
+        cfg_path = self.root / ".mark" / "config.toml"
+        cfg_path.write_text(cfg_path.read_text(encoding="utf-8") + '\n[board]\nrun = "off"\n', encoding="utf-8")
+        self.assertEqual(board.carry_on_chat(load_config(self.root), "0008-h"), "run.terminal")
+        self.run_start.assert_not_called()
+
     def test_reject_records_each_line_as_an_item(self):
         code, res, _ = self.post(self.p + "/api/decide", {"ticket": "0001-a", "verb": "reject", "items": ["too big", "split it"]},
                                  cookie=self.login())
@@ -498,7 +531,8 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(self.status(tid), "drafting")
         self.assertTrue((self.root / ".mark" / "gates" / f"{tid}.ticket-approved").is_file())
         self.assertEqual(flow.load(self.cfg, tid).ticket.get("desc"), "Due dates")
-        start.assert_called_once_with(self.cfg, "feature", tid, "Due dates\nOverdue ones in red.")
+        start.assert_called_once_with(self.cfg, "feature", tid, "Due dates\nOverdue ones in red.",
+                                      when_done=mock.ANY)
         self.no_tokens_left()
 
     def test_new_general_ticket_opens_a_lane_and_starts_the_chat(self):
@@ -516,6 +550,7 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(kwargs["first"], f"/mark:general {text}")
         self.assertIn(f"chore/{lane}", kwargs["note"])
         self.assertIn(str(wt), kwargs["note"])
+        self.assertNotIn("when_done", kwargs)  # a general lane lands only on the human's word
         card = next(t for t in board.snapshot(self.cfg, board.History(self.cfg))["tickets"] if t["id"] == lane)
         self.assertEqual((card["kind"], card["status"]), ("general", "developing"))
         self.no_tokens_left()
@@ -532,6 +567,7 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(args, (self.cfg, "general", lane, "Add a note."))
         self.assertEqual(kwargs["first"], "/mark:general Add a note.")
         self.assertIn(branch, kwargs["note"])
+        self.assertNotIn("when_done", kwargs)
         self.assertEqual(json.loads(self._get(self.p + f"/api/chat/{lane}")),
                          {"running": False, "messages": [], "ask": None, "model": ""})
         with mock.patch.object(board.chat, "stop", return_value=True) as stop:
@@ -558,7 +594,7 @@ class DecideTest(unittest.TestCase):
             start.assert_not_called()
             code, res, _ = self.post(self.p + "/api/chat", {"ticket": "0003-c", "text": " ISO dates. "}, cookie=cookie)
             self.assertEqual(code, 200, res)
-            start.assert_called_once_with(self.cfg, "feature", "0003-c", "ISO dates.")
+            start.assert_called_once_with(self.cfg, "feature", "0003-c", "ISO dates.", when_done=mock.ANY)
         self.assertEqual(len(tickets.ticket_dirs(self.cfg, "feature")), 3)  # nothing was claimed
         self.no_tokens_left()
 
@@ -577,6 +613,25 @@ class DecideTest(unittest.TestCase):
         with mock.patch.object(board.chat, "start", return_value=(False, "busy")):
             code, res, _ = self.post(self.p + "/api/chat", {"ticket": "0003-c", "text": "hi"}, cookie=self.login())
         self.assertEqual((code, res["text"]), (409, "chat.busy"))
+
+    def test_the_board_carries_on_after_a_chat_message(self):
+        add_ticket(self.root, "feature", "0008-h", "developing", gates=("ticket-approved",))
+        with mock.patch.object(board.chat, "start", return_value=(True, "")) as start:
+            code, res, _ = self.post(self.p + "/api/chat", {"ticket": "0008-h", "text": "Go on."},
+                                     cookie=self.login())
+        self.assertEqual(code, 200, res)
+        start.call_args.kwargs["when_done"]()
+        self.run_start.assert_called_once_with(self.cfg, "0008-h")
+
+    def test_the_board_merges_after_a_chat_message_at_pending_merge(self):
+        add_ticket(self.root, "feature", "0008-h", "pending-merge", gates=("ticket-approved",), leftover="0")
+        with mock.patch.object(board.chat, "start", return_value=(True, "")) as start, \
+                mock.patch.object(board, "start_merge", return_value=(True, "")) as merge:
+            code, res, _ = self.post(self.p + "/api/chat", {"ticket": "0008-h", "text": "Go on."},
+                                     cookie=self.login())
+            self.assertEqual(code, 200, res)
+            start.call_args.kwargs["when_done"]()
+        merge.assert_called_once_with(self.cfg, {"ticket": "0008-h"})
 
     def test_the_chat_view_and_stop(self):
         self.assertEqual(json.loads(self._get(self.p + "/api/chat/0003-c")), {"running": False, "messages": [], "ask": None, "model": ""})

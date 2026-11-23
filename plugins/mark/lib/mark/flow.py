@@ -221,18 +221,41 @@ def last_result(ctx: Ctx, role: str) -> dict | None:
     return data
 
 
-def previous_conclusion(ctx: Ctx) -> str | None:
-    """Final report of the ticket's most recently finished agent, any role: None if no agent
-    has finished yet, "" if the newest one left no report."""
-    best: tuple[float, str | None] = (0.0, None)
+def _latest_result(ctx: Ctx) -> dict | None:
+    """The newest result file recorded for the ticket, any role, or None."""
+    best: tuple[float, dict] = (0.0, {})
     for path in _locks(ctx).glob(f"{ctx.id}.*.result.json"):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if isinstance(data, dict) and float(data.get("at", 0)) > best[0]:
-            best = (float(data.get("at", 0)), str(data.get("conclusion") or data.get("reason") or ""))
-    return best[1]
+        if not isinstance(data, dict):
+            continue
+        try:
+            at = float(data.get("at", 0))
+        except (TypeError, ValueError):
+            continue
+        if at > best[0]:
+            best = (at, data)
+    return best[1] or None
+
+
+def previous_conclusion(ctx: Ctx) -> str | None:
+    """Final report of the ticket's most recently finished agent, any role: None if no agent
+    has finished yet, "" if the newest one left no report."""
+    data = _latest_result(ctx)
+    if data is None:
+        return None
+    return str(data.get("conclusion") or data.get("reason") or "")
+
+
+def human_answer(ctx: Ctx) -> str:
+    """The human's answer from the latest decision, while it is still the newest result:
+    "" once a role has finished (its dispatch was already handed the answer)."""
+    data = _latest_result(ctx)
+    if not data or data.get("agent_id") != HUMAN_RESULT:
+        return ""
+    return str(data.get("answer") or "")
 
 
 # --------------------------------------------------------------------------
@@ -750,8 +773,8 @@ def _record_answer(ctx: Ctx, status: str, note: str, answer: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     prev = _msg(ctx.cfg.locale, "approve.prev", status=status, note=note or "-", answer=answer)
     path.write_text(json.dumps({"agent_id": HUMAN_RESULT, "result": "ANSWERED", "reason": "human answer",
-                                "conclusion": prev, "at": time.time()}, ensure_ascii=False) + "\n",
-                    encoding="utf-8")
+                                "answer": answer, "conclusion": prev, "at": time.time()},
+                               ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 REWORK_BASE = "rework-base"

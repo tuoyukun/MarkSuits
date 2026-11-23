@@ -15,6 +15,10 @@ A turn is unattended (`CLAUDE_CODE_SESSION_ATTENDED=0`): nothing typed here coun
 command, and the human decides gates with the board's buttons. `mark wait` is refused in such a
 session (`guards.bash.wait_guard`), so a turn ends when the session needs the human.
 
+`when_done` runs after a turn that ended by itself (exit 0, not stopped from the board): the
+board uses it to carry the ticket on the way `/mark:continue` would, so a chat-driven ticket is
+never left one agent step behind (`board.carry_on_chat`).
+
 `claude -p` has no AskUserQuestion, so the note tells the session to put choice questions through
 `mark ask` (`ask.py`); the board shows them as a form and the answers come back as a message.
 """
@@ -26,6 +30,7 @@ import signal
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from . import ask, model, runner, states
@@ -50,6 +55,11 @@ BOARD_NOTE = (
     "option. If the heredoc is refused, write the JSON to a file and run `mark ask <ticket-id> <file>`. "
     "Ask open questions as plain text."
 )
+CARRY_NOTE = (
+    "\nWhen your turn ends in an agent step or at `pending-merge`, the board carries the ticket on "
+    "by itself: a pending merge runs `mark merge` without a click. Say what happens next and end; "
+    "only a failed merge needs the human."
+)
 
 
 def log_path(cfg: MarkConfig, ticket_id: str) -> Path:
@@ -58,6 +68,10 @@ def log_path(cfg: MarkConfig, ticket_id: str) -> Path:
 
 def state_path(cfg: MarkConfig, ticket_id: str) -> Path:
     return cfg.state_dir / "locks" / f"chat-{ticket_id}.json"
+
+
+def stop_path(cfg: MarkConfig, ticket_id: str) -> Path:
+    return cfg.state_dir / "locks" / f"chat-{ticket_id}.stopped"
 
 
 def running(cfg: MarkConfig, ticket_id: str) -> int | None:
@@ -138,17 +152,23 @@ def title(cfg: MarkConfig, ticket_id: str) -> str:
 
 
 def start(cfg: MarkConfig, kind: str, ticket_id: str, text: str, claude: str | None = None,
-          first: str | None = None, note: str = BOARD_NOTE) -> tuple[bool, str]:
+          first: str | None = None, note: str = BOARD_NOTE,
+          when_done: Callable[[], None] | None = None) -> tuple[bool, str]:
     """Send one message: (started, why not). Never two turns on a ticket, nor a turn on a ticket
     the headless runner is carrying on. `first` replaces the opening prompt and `note` the system
-    note (the new-project wizard, `wizard.py`, which has no ticket)."""
+    note (the new-project wizard, `wizard.py`, which has no ticket). `when_done` runs after a turn
+    that ended by itself (`board.carry_on_chat`); a turn stopped by the board or one that exited
+    nonzero runs nothing."""
     if running(cfg, ticket_id) or runner.running(cfg, ticket_id):
         return False, "busy"
     claude = claude or runner.find_claude()
     if not claude:
         return False, "no-claude"
+    if when_done is not None and cfg.board_run:
+        note += CARRY_NOTE  # only a ticket the board carries on is told so
     sid = session(cfg, ticket_id)
     ask.clear(cfg, ticket_id)  # the human answered (or moved on): the form belonged to the last turn
+    stop_path(cfg, ticket_id).unlink(missing_ok=True)  # a stop belonged to the last turn too
     log = log_path(cfg, ticket_id)
     log.parent.mkdir(parents=True, exist_ok=True)
     pinned = settings(cfg, ticket_id, sid is not None)
@@ -166,7 +186,16 @@ def start(cfg: MarkConfig, kind: str, ticket_id: str, text: str, claude: str | N
         proc.stdin.close()
     except OSError:
         pass  # it died at once; the log says why
-    threading.Thread(target=proc.wait, daemon=True).start()  # reap it, so a finished turn reads as dead
+
+    def reap() -> None:
+        code = proc.wait()
+        stopped = stop_path(cfg, ticket_id)
+        if stopped.exists():  # the human pressed Stop (or voided the ticket): it carries nothing on
+            stopped.unlink(missing_ok=True)
+            return
+        if when_done is not None and code == 0:  # not a failed start either
+            when_done()
+    threading.Thread(target=reap, daemon=True).start()  # reap it, so a finished turn reads as dead
     return True, ""
 
 
@@ -174,6 +203,7 @@ def stop(cfg: MarkConfig, ticket_id: str) -> bool:
     pid = running(cfg, ticket_id)
     if pid is None:
         return False
+    stop_path(cfg, ticket_id).write_text(str(time.time()))  # before the signal: the reaper reads it
     try:
         os.killpg(pid, signal.SIGTERM)
     except OSError:

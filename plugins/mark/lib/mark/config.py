@@ -132,8 +132,8 @@ class MarkConfig:
 
     @property
     def board_run(self) -> bool:
-        """`[board] run`: "auto" (default) starts a headless session to carry on after a board
-        decision when no session waits on the ticket; "off" only decides."""
+        """`[board] run`: "auto" (default) carries a ticket on after a board decision or a chat
+        turn that ends by itself when no session runs on it; "off" only decides."""
         return self._section("board").get("run", "auto") != "off"
 
     @property

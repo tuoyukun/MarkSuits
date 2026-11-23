@@ -1279,6 +1279,7 @@ MESSAGES["en"].update({
         "  EOF\n"
         "It is only a suggestion: if it is not saved, do not retry; stop as above."
     ),
+    "next.answer": "The human's answer at the last stop (apply it before dispatching): {answer}",
     "propose.saved": "{id}: {n} choice(s) saved; the board shows them. Dropped (not a legal choice here): {dropped}.",
     "propose.ignored": "{id}: no choices saved ({why}). That is fine: the human decides with the plain form. Do not retry.",
     "ask.saved": "{id}: {n} question(s) saved ({dropped} dropped); the board shows them as a form. End your turn now.",
@@ -1319,6 +1320,7 @@ MESSAGES["zh-CN"].update({
         "  EOF\n"
         "这只是建议：没保存也不要重试，照上面停下。"
     ),
+    "next.answer": "Human 在上一步停下时的答复（派活前先落实）：{answer}",
     "propose.saved": "{id}：已保存 {n} 个选项，看板会显示。被丢弃（此处不合法）：{dropped}。",
     "propose.ignored": "{id}：没有保存选项（{why}）。没关系，Human 会用普通表单决定。不要重试。",
     "ask.saved": "{id}：已保存 {n} 个问题（丢弃 {dropped} 个），看板会以表单显示。现在结束本回合。",

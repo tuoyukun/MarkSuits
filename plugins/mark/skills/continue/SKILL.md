@@ -17,6 +17,11 @@ Argument: `$ARGUMENTS`
    already recorded; this command carries no approval of its own. If `mark next` asks for a
    human decision, report it and stop. `pending-merge` is not a human decision: when `mark next`
    says merge, run `mark merge <id>` yourself; never ask the human to merge.
+
+   When `mark next` is about to dispatch and prints the human's answer from the last stop,
+   apply it before dispatching: if it changes a criterion or a decision, update the `AC-N` or
+   add the `DEC-N` in `requirement.md` on main and `mark commit <id> -m "<what changed>"` — the
+   same as `/mark:approve` step 4.
 3. Run every agent and `mark merge` in the **foreground**: call the Agent tool with
    `run_in_background: false` and wait for each to finish before the next step. A headless
    session ends when you stop, and anything still running in the background is stopped ten

@@ -265,6 +265,7 @@ kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border
 .top .btn,.tbar .btn{margin:0;white-space:nowrap}
 .tbar .btn{height:26px;padding:0 10px}
 .dq{font-size:13px;color:var(--text);margin:0 0 8px}
+.dctx{margin:0 0 8px}.dctx summary{cursor:pointer;font-size:12px;color:var(--mute)}.dctx pre{max-height:200px;overflow:auto;margin:6px 0 0;white-space:pre-wrap}
 .dec .dopt{display:flex;color:var(--text);font-size:12.5px;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:6px;padding:7px 9px;margin:0 0 6px;cursor:pointer}
 .dec .dopt:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
 .dec .dopt input{width:auto;margin:3px 0 0;flex:none}
@@ -554,7 +555,7 @@ const I18N={
   hatch:"Striped: waiting on you",noneInView:"No tickets in this stretch. Drag or zoom out.",durHint:"Each bar starts at its own ticket's start: how long it took and where the time went.",
   median:"Median time",humanShare:"of the time waiting on you",avg:"avg",titleCol:"Title",today:"Today",yesterday:"Yesterday",nTickets:"{n} tickets",nTicket:"1 ticket",ago:{s:"just now",m:"{n} min ago",h:"{n} h ago",d:"{n} d ago"},min:"min",waiting:"Waiting on you",
   decide:"Your decision",approve:"Approve",approveOpen:"Approve opening",reject:"Reject with comments",items:"Comments, one per line",target:"Send to",
-  ansNeed:"Your answer (required)",ansOpt:"Answer or note (optional)",canDecide:"you can decide here",rec:"Recommended",rejectShort:"Reject",other:"Other…",pick:"Decide",note:"Note to add (optional)",noteNeed:"Note (required for this choice)",
+  ansNeed:"Your answer (required)",ansOpt:"Answer or note (optional)",canDecide:"you can decide here",rec:"Recommended",rejectShort:"Reject",other:"Other…",pick:"Decide",note:"Note to add (optional)",noteNeed:"Note (required for this choice)",lastReport:"Last session report",
   runH:"Headless session",running:"running",runBlocked:"needs approval",runFailed:"failed",runDone:"stopped at the next gate",stop:"Stop",
   runBlockedHint:"A command needed your approval. Continue in a terminal with /mark:continue {id}, or allow the command in .claude/settings.json.",
   "run.session":"Your open Claude session picks this up.","run.started":"Started a headless session to carry on.","run.terminal":"Say \"continue\" in your Claude session to carry on.",
@@ -600,7 +601,7 @@ const I18N={
   hatch:"斜纹 = 等你",noneInView:"这段时间没有工单，拖动或缩小看看",durHint:"每张单从它自己的开始时间算起：用了多久、时间花在哪个阶段。",
   median:"中位耗时",humanShare:"时间花在等你",avg:"平均",titleCol:"标题",today:"今天",yesterday:"昨天",nTickets:"{n} 张",nTicket:"1 张",ago:{s:"刚刚",m:"{n} 分钟前",h:"{n} 小时前",d:"{n} 天前"},min:" 分钟",waiting:"等你处理",
   decide:"你的决定",approve:"通过",approveOpen:"批准开单",reject:"驳回并附意见",items:"意见，每行一条",target:"转到",
-  ansNeed:"你的答复（必填）",ansOpt:"答复或备注（可选）",canDecide:"可在此处理",rec:"推荐",rejectShort:"驳回",other:"其他…",pick:"按此决定",note:"补充说明（可选）",noteNeed:"补充说明（此选项必填）",
+  ansNeed:"你的答复（必填）",ansOpt:"答复或备注（可选）",canDecide:"可在此处理",rec:"推荐",rejectShort:"驳回",other:"其他…",pick:"按此决定",note:"补充说明（可选）",noteNeed:"补充说明（此选项必填）",lastReport:"上次运行报告",
   runH:"后台会话",running:"运行中",runBlocked:"需要授权",runFailed:"失败",runDone:"已停在下一个关卡",stop:"停止",
   runBlockedHint:"有条命令需要你授权。在终端里用 /mark:continue {id} 继续，或在 .claude/settings.json 里放行该命令。",
   "run.session":"你开着的 Claude 会话会接着干。","run.started":"已启动一个后台会话接着干。","run.terminal":"在 Claude 会话里说一声\"继续\"即可接着干。",
@@ -1040,13 +1041,15 @@ let decKey="",decMsg=null;
 function decBlk(t){if(t.upgrade){decKey="";$("#dec").innerHTML=laneBlk(t);return}
   if(t.merge){const key="merge:"+JSON.stringify(t.merge);if(key===decKey)return;decKey=key;$("#dec").innerHTML=mergeBlk(t);return}
   if(t.stalled){decKey="";$("#dec").innerHTML=stallBlk(t);return}
-  const w=t.wait,msg=decMsg&&decMsg.id===t.id?decMsg:null,key=JSON.stringify([t.id,t.status,w,data.decide]);
+  const w=t.wait,msg=decMsg&&decMsg.id===t.id?decMsg:null,key=JSON.stringify([t.id,t.status,w,data.decide,t.note,t.run?.text]);
   if(key===decKey)return;decKey=key;
   const out=msg?`<pre class="dout ${msg.ok?"":"bad"}">${esc(msg.text)}</pre>`:"";
   if(!w){$("#dec").innerHTML=out?`<div class="blk dec">${out}</div>`:"";return}
   if(data.decide==="off"){$("#dec").innerHTML=`<div class="blk"><h5>${tr("decide")}</h5><div class="none">${tr("offDecide")}</div></div>`;return}
   if(data.decide!=="on"){$("#dec").innerHTML=`<div class="blk"><h5>${tr("decide")}</h5><div class="none">${esc(tr("needLogin"))}</div>${out}</div>`;return}
-  const to=w.kind==="blocked"?`<label for="dTo">${tr("target")}</label><select id="dTo">${w.targets.map(s=>`<option value="${esc(s)}"${s===w.default?" selected":""}>${esc(label(s))}</option>`).join("")}</select>
+  // A blocked stop without a proposal still says what it is asking: the note `mark set` wrote, and the last report.
+  const why=w.kind==="blocked"?`${t.note?`<div class="dq">${esc(t.note)}</div>`:""}${t.run?.text?`<details class="dctx"><summary>${tr("lastReport")}</summary><pre class="dout">${esc(t.run.text)}</pre></details>`:""}`:"";
+  const to=w.kind==="blocked"?`${why}<label for="dTo">${tr("target")}</label><select id="dTo">${w.targets.map(s=>`<option value="${esc(s)}"${s===w.default?" selected":""}>${esc(label(s))}</option>`).join("")}</select>
     <textarea id="dAns" rows="3" placeholder="${tr(w.answer?"ansNeed":"ansOpt")}"></textarea>`:"";
   const rej=w.kind==="review"?`<textarea id="dItems" rows="4" placeholder="${tr("items")}"></textarea><button class="btn" data-dec="reject">${tr("reject")}</button>`:"";
   const plain=`${to}<button class="btn pri" data-dec="approve">${tr(w.kind==="opening"?"approveOpen":"approve")}</button>${rej}`,p=w.proposal;
@@ -1076,7 +1079,7 @@ async function postDecision(t,body){
   decMsg={id:t.id,ok:!!r.ok,text:(r.text||"")+(r.note?"\n\n"+tr(r.note).replace("{id}",t.id):"")};
   if(r.ok)decKey="";  // the ticket moved: a fresh form (or none) when the board reloads
   else document.querySelectorAll("[data-dec]").forEach(b=>b.disabled=false);
-  const out=$("#dec pre.dout");if(out){out.className="dout "+(r.ok?"":"bad");out.textContent=decMsg.text}
+  const out=$("#dec .blk > pre.dout");if(out){out.className="dout "+(r.ok?"":"bad");out.textContent=decMsg.text}
   else $("#dec .blk")?.insertAdjacentHTML("beforeend",`<pre class="dout ${r.ok?"":"bad"}">${esc(decMsg.text)}</pre>`);
   load();
 }

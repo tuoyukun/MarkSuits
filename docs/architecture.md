@@ -520,7 +520,10 @@ background thread: the regression, then the fast-forward; a failure stays on the
 
 **Deciding (v0.47).** A ticket that waits on the human (opening not approved, `review-*`,
 `blocked-*`) gets a decision panel in its modal: approve; reject with one comment per line; for
-a blocked ticket, a target status (`flow.approve_targets`) and an answer. `POST /api/decide`
+a blocked ticket, a target status (`flow.approve_targets`) and an answer. Without a saved
+proposal, a blocked ticket's panel first shows the stop note from `status.md` and the last
+headless run's report (collapsed), so the question stays legible even when the orchestrator did
+not propose. `POST /api/decide`
 writes a token like the prompt hook's (`"source": "board"`), runs `mark approve|reject` in the
 server process (same checks, gate, commit, push) and deletes the token whether or not the CLI
 accepted it, so a refusal leaves nothing a later command could use. The CLI's output goes back
@@ -554,7 +557,10 @@ checkout (`lib/mark/runner.py`), its own process group, without the parent sessi
 before): `<state>/locks/runner-<id>.json` `{pid, ticket, log, started}`, so tickets move on side
 by side: each has its own worktree, main commits retry on git locks, merges queue on the merge
 lock, simulators on the device lock. `/mark:continue` loops like `/mark:approve` with agents and `mark merge` in the
-foreground (a `-p` session ends background work when it exits) and never starts `mark wait`. The
+foreground (a `-p` session ends background work when it exits) and never starts `mark wait`. `mark
+next` prints the human's answer from the decision while it is still the newest result
+(`flow.human_answer`), and the skill applies it to `requirement.md` (`AC-N`/`DEC-N`) before
+dispatching, the same step `/mark:approve` takes. The
 log is `<state>/locks/run-<id>-<time>.jsonl`; the board shows the commands and agents it ran, and
 from the last `result` event how it ended: `permission_denials` (the commands that needed
 approval), `is_error`, or a clean stop. The page's stop button sends SIGTERM to the group
@@ -584,6 +590,15 @@ the log is `<state>/locks/chat-<id>.jsonl` (the human's lines plus each turn's s
 pid `chat-<id>.json`; `GET /api/chat/<id>` turns it into messages, and `POST /api/stop {ticket}`
 ends a turn. Turns are unattended, so nothing typed in the chat is a human command.
 
+**Carrying on after a chat turn (v0.72).** A chat message's turn is one step of its skill, so it
+used to stop one step short of where Mark carries a ticket on its own (at `pending-merge` the
+Merge button was the only way on). When a turn exits cleanly, `board.carry_on_chat` reads
+`mark next`: `merge` starts the same detached `mark merge` the Merge button runs; `dispatch` or
+`record` starts the headless `/mark:continue` runner; anything else leaves the ticket alone (a
+human gate, `drafting`, a pending `mark ask` form, a live chat or runner, `[board] run = "off"`).
+A turn stopped from the board (or voided) carries nothing on, and neither does one that exits
+nonzero. A chat-driven ticket therefore reaches the same point as one Mark carries on by itself.
+
 Live runs showed that a `-p` session does not exit while a background task runs, so a
 `mark wait` started at a gate kept the turn alive forever. `wait_guard` (pre-bash) refuses
 `mark wait` in any unattended session (`CLAUDE_CODE_SESSION_ATTENDED=0`); the runner benefits too.
@@ -591,7 +606,9 @@ Live runs showed that a `-p` session does not exit while a background task runs,
 **Suggested choices (v0.52).** At a stop that waits on the human (`review-*`, `blocked-*`),
 `mark next` tells the orchestrator to pipe its options into `mark propose <id>` (a heredoc of
 JSON: a question and two to four options, each a ready decision — approve with a `to` and an
-`answer`, or reject with `items`; at most one `recommended`). In a terminal it asks with the same
+`answer`, or reject with `items`; at most one `recommended`). `mark set` prints the same hint
+once the status it wrote waits on the human: the orchestrator often ends its turn right after
+recording the stop, without a second `mark next`. In a terminal it asks with the same
 options. `lib/mark/propose.py` keeps only what is legal at that stop (targets from
 `approve_targets`, rejecting only at a review, a rejection only with comments) and saves it as
 `<state>/locks/propose-<id>.json` with the status it was made for; any status write deletes it.
