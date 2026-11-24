@@ -161,8 +161,8 @@ stops for your review, a bug runs its chain.
 
 **Consult** in a project's sidebar is free talk about the project: ask how a module or a design
 decision works, with no ticket and no code changes. Claude reads the repository in a disposable
-copy at HEAD and may run git, tests or builds there; your checkout is never touched. Each visit
-is a new conversation, so its context never carries over.
+copy at HEAD and may run git, tests or builds there; your checkout is never touched. The
+conversation is kept when you leave the view; **New conversation** starts another from zero.
 
 ![Tickets grouped by status, with what waits on you](docs/images/board-en.png)
 

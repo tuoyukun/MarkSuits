@@ -575,7 +575,7 @@ const I18N={
   newT:"New ticket",newText:"What to build or fix. The first line becomes the title; Claude reads it all and asks about the gaps.",newSlug:"Short name for the id (optional, a-z 0-9 -)",create:"Open and start talking",
   design:"Design",noDesign:"No design",noDesignHint:"No design deliverable (skip the designer)",noDesignReview:"This ticket has no design: approving sends it straight to planning.",
   chat:"Discussion",chatPh:"Reply to Claude…",send:"Send",chatEmpty:"No discussion yet. Send a message to start one.",
-  consult:"Consult",consultPh:"Ask Claude about this project…",consultEmpty:"No conversation yet. Ask about the architecture, a module or a design decision. No ticket, no code changes.",consultNew:"New conversation",consultSandbox:"Read-only sandbox · a copy at HEAD · a new conversation each time you enter",consultNoSandbox:"Sandbox unavailable: Bash is off; Claude can read the repository only.",consultDirty:"the main checkout has uncommitted changes; the sandbox is at HEAD and does not include them",consultContext:"context {n}",
+  consult:"Consult",consultPh:"Ask Claude about this project…",consultEmpty:"No conversation yet. Ask about the architecture, a module or a design decision. No ticket, no code changes.",consultNew:"New conversation",consultSandbox:"Read-only sandbox · a copy at HEAD · the conversation is kept until you start a new one",consultNoSandbox:"Sandbox unavailable: Bash is off; Claude can read the repository only.",consultDirty:"the main checkout has uncommitted changes; the sandbox is at HEAD and does not include them",consultContext:"context {n}",
   askSend:"Send answers",askOther:"Your own answer (optional)",askNone:"Answer at least one question.",
   modelH:"Model",modelHint:"Board sessions (new tickets, carrying on after a decision) run Claude Code on the selected model. Click one to switch. A change applies to sessions started from now on; a running session, and a ticket's ongoing discussion, keep their model.",
   provider:"Provider",provCustom:"Anthropic-compatible endpoint (DeepSeek …)",modelName:"Model (alias such as opus, or a full name)",presetDs:"Fill in DeepSeek",
@@ -624,7 +624,7 @@ const I18N={
   newT:"新建工单",newText:"要做什么或修什么。第一行作为标题；Claude 会读完全部内容，再就缺的地方提问。",newSlug:"编号里的短名（可选，a-z 0-9 -）",create:"创建并开始讨论",
   design:"设计",noDesign:"无设计",noDesignHint:"本单无设计交付物（跳过 designer）",noDesignReview:"本单无设计：通过后直接进入方案阶段。",
   chat:"讨论",chatPh:"回复 Claude…",send:"发送",chatEmpty:"还没有讨论。发一条消息开始。",
-  consult:"咨询",consultPh:"问 Claude 关于这个项目的问题…",consultEmpty:"还没有对话。可以问架构、某个模块、某个设计取舍；不建工单，也不改代码。",consultNew:"新会话",consultSandbox:"只读沙箱 · 基于 HEAD 的副本 · 每次进入都是新会话",consultNoSandbox:"沙箱不可用：Bash 已关闭，Claude 只能读仓库。",consultDirty:"主检出有未提交改动；沙箱基于 HEAD，不包含它们",consultContext:"上下文 {n}",
+  consult:"咨询",consultPh:"问 Claude 关于这个项目的问题…",consultEmpty:"还没有对话。可以问架构、某个模块、某个设计取舍；不建工单，也不改代码。",consultNew:"新会话",consultSandbox:"只读沙箱 · 基于 HEAD 的副本 · 对话会保留，点「新会话」才重新开始",consultNoSandbox:"沙箱不可用：Bash 已关闭，Claude 只能读仓库。",consultDirty:"主检出有未提交改动；沙箱基于 HEAD，不包含它们",consultContext:"上下文 {n}",
   askSend:"发送回答",askOther:"自己填写（可选）",askNone:"至少回答一个问题。",
   modelH:"模型",modelHint:"看板发起的会话（新建工单、审批后续跑）用选中的模型跑 Claude Code，点一下即可切换。修改只影响之后启动的会话；正在跑的会话、工单里进行中的讨论都保持原模型。",
   provider:"提供方",provCustom:"Anthropic 兼容端点（DeepSeek 等）",modelName:"模型（opus 这类别名，或完整名称）",presetDs:"填入 DeepSeek",
@@ -1195,7 +1195,14 @@ async function consultLoad(){
 const ctxSize=n=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1000?(n/1000).toFixed(n>=10000?0:1)+"k":String(n);
 async function consultEnter(){
   consultKey="";
-  if(data.decide==="on"){try{await fetch("api/consult/reset",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})}catch{}}
+  if(data.decide==="on"){try{await fetch("api/consult/prepare",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})}catch{}}
+  render();
+}
+async function consultNew(){
+  consultKey="";
+  if(data.decide!=="on")return;
+  try{await fetch("api/consult/reset",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})}catch{}
+  if($("#cText"))$("#cText").value="";
   render();
 }
 async function consultSend(){const ta=$("#cText"),text=ta?.value;if(!ta||!text?.trim())return;
@@ -1302,7 +1309,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-nclose]")||e.target===$("#nv")){newClose();return}
   if(e.target.closest("[data-create]")){create();return}
   if(e.target.closest("[data-send]")){if(view==="consult")consultSend();else chatSend();return}
-  if(e.target.closest("[data-cnew]")){consultEnter();return}
+  if(e.target.closest("[data-cnew]")){consultNew();return}
   if(e.target.closest("[data-asksend]")){askSend();return}
   if(e.target.closest("[data-cstop]")){if(view==="consult"){fetch("api/consult/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(()=>{consultKey="";consultLoad()});return}
     fetch(HOME?`/api/wizard/${wiz}/stop`:"api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(HOME?{}:{ticket:open.id})}).then(load);return}

@@ -27,7 +27,8 @@ project adds it there. The page (`board.html`) is one file with two views:
       api/chat/<ticket>                a ticket's chat (`chat.py`)
       api/consult                      the project's free, read-only consult (`consult.py`)
       POST api/consult                 send the next consult message (with the cookie)
-      POST api/consult/reset           start a fresh visit and sandbox (with the cookie)
+      POST api/consult/prepare         keep the conversation, cutting its sandbox only if missing (with the cookie)
+      POST api/consult/reset           start a new conversation and sandbox (with the cookie)
       POST api/consult/stop            stop the consult turn (with the cookie)
       POST api/decide                  approve or reject, with the cookie
       POST api/void {ticket, reason}   void an unfinished ticket for the human (with the cookie)
@@ -966,6 +967,10 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 with board.lock:
                     ok, text = consult.send(cfg, body.get("text"))
                 self._json(200 if ok else 409, {"ok": ok, "text": text})
+            elif path == "/api/consult/prepare":
+                with board.lock:
+                    prepared = consult.prepare(cfg)
+                self._json(200, {"ok": True, **prepared})
             elif path == "/api/consult/reset":
                 with board.lock:
                     started = consult.reset(cfg)

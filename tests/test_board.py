@@ -215,14 +215,15 @@ class ServerTest(unittest.TestCase):
         view = json.loads(body)
         self.assertEqual(view["messages"], [])
         self.assertFalse(view["sandbox"])
-        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
-        c.request("POST", self.p + "/api/consult/reset", body="{}",
-                  headers={"Host": f"127.0.0.1:{self.port}", "Content-Type": "application/json",
-                           "Origin": f"http://127.0.0.1:{self.port}"})
-        r = c.getresponse()
-        r.read()
-        c.close()
-        self.assertEqual(r.status, 403)
+        for path in ("/api/consult/prepare", "/api/consult/reset"):
+            c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+            c.request("POST", self.p + path, body="{}",
+                      headers={"Host": f"127.0.0.1:{self.port}", "Content-Type": "application/json",
+                               "Origin": f"http://127.0.0.1:{self.port}"})
+            r = c.getresponse()
+            r.read()
+            c.close()
+            self.assertEqual(r.status, 403)
 
     def test_events_push_a_new_version(self):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
@@ -720,7 +721,11 @@ class DecideTest(unittest.TestCase):
     def test_consult_starts_a_visit_and_sends_messages(self):
         cookie = self.login()
         self.addCleanup(consult.discard, self.cfg)
-        code, res, _ = self.post(self.p + "/api/consult/reset", {}, cookie=cookie)
+        code, res, _ = self.post(self.p + "/api/consult/prepare", {}, cookie=cookie)  # enter the view
+        self.assertEqual((code, res["sandbox"]), (200, True))
+        code, res, _ = self.post(self.p + "/api/consult/prepare", {}, cookie=cookie)  # enter again
+        self.assertEqual((code, res["sandbox"]), (200, True))
+        code, res, _ = self.post(self.p + "/api/consult/reset", {}, cookie=cookie)  # new conversation
         self.assertEqual((code, res["sandbox"]), (200, True))
         self.assertTrue(consult.worktree(self.cfg).is_dir())
         view = json.loads(self._get(self.p + "/api/consult"))

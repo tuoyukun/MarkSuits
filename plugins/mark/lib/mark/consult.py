@@ -1,10 +1,11 @@
 """Board consult: free talk with Claude about a project, read-only, in a disposable worktree.
 
-Unlike a ticket's chat (`chat.py`), a consult opens no ticket and changes no project state. Each
-visit is a conversation of its own: the board resets it on entry (`reset`), which stops any turn,
-drops the old log and model pin, and cuts a fresh detached worktree at the main checkout's HEAD.
-Every message is one headless `claude -p` turn, resuming the visit's session, so the discussion
-carries on within a visit; the next visit starts from zero.
+Unlike a ticket's chat (`chat.py`), a consult opens no ticket and changes no project state. The
+board keeps one conversation: entering the view keeps it and its sandbox (`prepare`), and **New
+conversation** (`reset`) stops any turn, drops the old log and model pin, and cuts a fresh
+detached worktree at the main checkout's HEAD. Every message is one headless `claude -p` turn,
+resuming that conversation's session; only the latest conversation is kept, so context does not
+accumulate across conversations.
 
 The session gets Read/Grep/Glob/Bash and no edits or subagents: Bash runs with the worktree as
 its cwd, so tests and builds are possible while the real checkout never changes. MCP servers are
@@ -109,14 +110,26 @@ def discard(cfg: MarkConfig) -> None:
     ask.clear(cfg, ID)
 
 
-def reset(cfg: MarkConfig) -> dict[str, object]:
-    """Start a new visit: a new conversation and a fresh sandbox cut from HEAD.
-    Returns {"sandbox": whether Bash is available, "dirty": main has uncommitted changes}."""
-    discard(cfg)
-    data = {"sandbox": _cut(cfg), "dirty": _dirty(cfg)}
+def _write_meta(cfg: MarkConfig, data: dict[str, object]) -> None:
     meta = _meta_path(cfg)
     meta.parent.mkdir(parents=True, exist_ok=True)
     meta.write_text(json.dumps(data) + "\n")
+
+
+def reset(cfg: MarkConfig) -> dict[str, object]:
+    """Start a new conversation: a fresh sandbox cut from HEAD and no conversation.
+    Returns {"sandbox": whether Bash is available, "dirty": main has uncommitted changes}."""
+    discard(cfg)
+    data = {"sandbox": _cut(cfg), "dirty": _dirty(cfg)}
+    _write_meta(cfg, data)
+    return data
+
+
+def prepare(cfg: MarkConfig) -> dict[str, object]:
+    """Entering the view: keep the conversation, its log and model pin, and its sandbox; cut the
+    worktree again only when it is gone. Never stops a turn. Returns the same data as `reset`."""
+    data = {"sandbox": worktree(cfg).is_dir() or _cut(cfg), "dirty": _dirty(cfg)}
+    _write_meta(cfg, data)
     return data
 
 

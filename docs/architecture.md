@@ -516,11 +516,13 @@ exists the project is registered and the wizard links to its board. No tool call
 wizard's first turns run before the directory is a Mark project, so Mark's hooks are silent there.
 
 **Consult (v0.75).** A project's sidebar has **Consult**: free talk about the project with Claude,
-with no ticket. Entering the view starts a visit (`POST api/consult/reset`,
-`lib/mark/consult.py`): it stops any turn, drops the previous log and model pin, and cuts a
-detached worktree at HEAD in `<state>/locks/consult-wt/`. Each message is one headless turn
-(`chat.py` under the consult id) resuming that visit's session, so the discussion carries on; the
-next entry starts from zero, so context never accumulates across visits. The session gets
+with no ticket. The board keeps one conversation: entering the view (`POST api/consult/prepare`,
+`lib/mark/consult.py`) stops and drops nothing — it keeps the log, the model pin and the sandbox,
+cutting the detached worktree in `<state>/locks/consult-wt/` only when it is missing — while **New
+conversation** (`POST api/consult/reset`) stops any turn, drops the log and model pin, and cuts a
+fresh worktree at HEAD. Each message is one headless turn (`chat.py` under the consult id)
+resuming the conversation's session, so the discussion carries on; only the latest conversation is
+kept, so context does not accumulate across conversations. The session gets
 `Read,Grep,Glob,Bash` and no edits, subagents or MCP (`--strict-mcp-config` with an empty config);
 Bash runs with the worktree as cwd, so tests and builds are possible while the real checkout is
 untouched. `guards.bash.consult_guard` (marker `MARK_CONSULT_ROOT`) refuses writes outside the

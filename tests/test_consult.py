@@ -1,4 +1,5 @@
-"""Board consult: free talk, read-only, in a disposable worktree; a new session per visit."""
+"""Board consult: free talk, read-only, in a disposable worktree; one conversation, kept until a
+new one starts."""
 from __future__ import annotations
 
 import json
@@ -86,6 +87,37 @@ class ConsultTest(unittest.TestCase):
         call = self.turn("And then?")
         self.assertEqual(self.opts(call, "--resume"), "s-1")
         self.assertEqual(call["stdin"], "And then?")
+
+    def test_entering_again_keeps_the_conversation_and_the_sandbox(self):
+        consult.reset(self.cfg)
+        self.turn("First question.")
+        log = chat.log_path(self.cfg, consult.ID).read_text()
+        pinned = chat.settings_path(self.cfg, consult.ID).read_text()
+        wt = consult.worktree(self.cfg)
+        (wt / "scratch.txt").write_text("x")
+        self.assertTrue(consult.prepare(self.cfg)["sandbox"])
+        self.assertEqual(chat.log_path(self.cfg, consult.ID).read_text(), log)
+        self.assertEqual(chat.settings_path(self.cfg, consult.ID).read_text(), pinned)
+        self.assertEqual((wt / "scratch.txt").read_text(), "x")  # the same sandbox, not a new one
+        call = self.turn("And then?")
+        self.assertEqual(self.opts(call, "--resume"), "s-1")
+
+    def test_prepare_cuts_the_first_sandbox_and_leaves_the_conversation_empty(self):
+        self.assertTrue(consult.prepare(self.cfg)["sandbox"])
+        self.assertTrue(consult.worktree(self.cfg).is_dir())
+        self.assertFalse(chat.log_path(self.cfg, consult.ID).exists())
+        call = self.turn("How does the flow work?")
+        self.assertNotIn("--resume", call["argv"])
+
+    def test_prepare_recuts_a_missing_sandbox_and_keeps_the_conversation(self):
+        consult.reset(self.cfg)
+        self.turn("First question.")
+        consult._remove(self.cfg)  # the sandbox is gone; the conversation is not
+        self.assertFalse(consult.worktree(self.cfg).exists())
+        self.assertTrue(consult.prepare(self.cfg)["sandbox"])
+        self.assertTrue(consult.worktree(self.cfg).is_dir())
+        call = self.turn("And then?")
+        self.assertEqual(self.opts(call, "--resume"), "s-1")
 
     def test_reset_drops_the_conversation_the_model_and_the_sandbox(self):
         consult.reset(self.cfg)
