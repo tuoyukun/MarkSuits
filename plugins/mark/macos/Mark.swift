@@ -1,6 +1,6 @@
 // Mark menu bar app: runs the board server (`mark board --serve`) while it runs, shows how many
 // gates wait on the human, and offers Open / Check for Updates / Preferences / About / Quit. Once a day (or on
-// Check for Updates, which reports the result) it updates the Claude
+// Check for Updates, which shows the run and reports the result) it updates the Claude
 // plugin (`mark app update`); when that moved, it rebuilds itself from the new plugin and restarts
 // the board (SIGHUP: in place, logins kept) once no session runs. Built by `mark app install` (lib/mark/app.py), which writes
 // Info.plist with MarkCLI (the launcher, ~/.local/bin/mark) and MarkApp (this binary, for the
@@ -89,6 +89,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var quitting = false
     var restartPending = false  // the plugin updated: restart the board once nothing runs
     var checking = false
+    var busy = false            // a check asked for from the menu is running: spinner, menu held
+    var reportWhenDone = false  // the running check was asked for from the menu: show its answer
+    var waiting: Int?           // gates waiting on the human, as last polled
+    var checkItem: NSMenuItem?
     var port: Int?
     var prefs: NSWindow?
     var loginBox: NSButton?
@@ -104,8 +108,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image?.accessibilityDescription = "Mark"
         item.button?.imagePosition = .imageLeading
         let menu = NSMenu()
+        menu.autoenablesItems = false  // the update holds every item but Quit itself
         menu.addItem(withTitle: "Open", action: #selector(open), keyEquivalent: "o")
-        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkNow), keyEquivalent: "")
+        checkItem = menu.addItem(withTitle: "Check for Updates…", action: #selector(checkNow), keyEquivalent: "")
         menu.addItem(withTitle: "Preferences…", action: #selector(showPrefs), keyEquivalent: ",")
         menu.addItem(withTitle: "About Mark", action: #selector(showAbout), keyEquivalent: "")
         menu.addItem(.separator())
@@ -119,24 +124,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Timer.scheduledTimer(withTimeInterval: 24 * 3600, repeats: true) { [weak self] _ in self?.checkUpdate() }
     }
 
-    @objc func checkNow() { checkUpdate(report: true) }
+    @objc func checkNow() {
+        reportWhenDone = true
+        if checking {  // the daily check is already running: hold the menu and report its answer
+            beginBusy("Checking for Updates…")
+            return
+        }
+        checkUpdate()
+    }
 
-    /// Runs on the main thread; `report` shows what `mark app update` said.
-    func checkUpdate(report: Bool = false) {
+    /// Runs on the main thread. A check asked for from the menu (also one that joins the daily
+    /// check) is shown: a spinner in the menu bar, the menu's actions held, the stage in the
+    /// Check item and the tooltip. The daily check itself stays quiet.
+    func checkUpdate() {
         guard !checking else { return }
         checking = true
+        let manual = reportWhenDone
+        if manual { beginBusy("Checking for Updates…") }
         DispatchQueue.global(qos: .utility).async {
             let before = markVersionNow()
+            DispatchQueue.main.async { self.stage("Updating the plugin…") }
             let pipe = Pipe()
             _ = mark(["app", "update"], output: pipe)
             let said = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let after = markVersionNow()
             let moved = !after.isEmpty && after != before
-            if moved { _ = mark(["app", "install", "--no-open"]) }  // the rebuilt app takes over at its next launch
+            if moved {  // the rebuilt app takes over at its next launch
+                DispatchQueue.main.async { self.stage("Rebuilding Mark…") }
+                _ = mark(["app", "install", "--no-open"])
+            }
             DispatchQueue.main.async {
                 self.checking = false
                 if moved { self.restartPending = true }
+                let report = self.reportWhenDone
+                self.reportWhenDone = false
+                if self.busy { self.endBusy() }
                 guard report else { return }
                 let alert = NSAlert()
                 alert.messageText = moved ? "Mark updated to \(after)" : "Check for Updates"
@@ -146,6 +169,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 alert.runModal()
             }
         }
+    }
+
+    // MARK: Update progress
+
+    /// The spinner replaces the count until `endBusy`; every action but Quit is disabled, and
+    /// `stage` keeps the Check item's title and the tooltip on what the update is doing.
+    func beginBusy(_ text: String) {
+        busy = true
+        stage(text)
+        for mi in item.menu?.items ?? [] where mi.action != nil && mi.action != #selector(quit) {
+            mi.isEnabled = false
+        }
+        item.button?.title = ""
+        let spin = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: text)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 14, weight: .regular))
+        spin?.isTemplate = true
+        item.button?.image = spin
+        item.button?.wantsLayer = true
+        let turn = CABasicAnimation(keyPath: "transform.rotation.z")
+        turn.fromValue = 0.0
+        turn.toValue = -2 * Double.pi
+        turn.duration = 1
+        turn.repeatCount = .infinity
+        item.button?.layer?.add(turn, forKey: "busy")
+    }
+
+    func stage(_ text: String) {
+        guard busy else { return }
+        checkItem?.title = text
+        item.button?.toolTip = "Mark: \(text)"
+    }
+
+    func endBusy() {
+        busy = false
+        item.button?.layer?.removeAnimation(forKey: "busy")
+        item.button?.image = logo(16, template: true)
+        item.button?.image?.isTemplate = true
+        item.button?.image?.accessibilityDescription = "Mark"
+        checkItem?.title = "Check for Updates…"
+        for mi in item.menu?.items ?? [] where mi.action != nil { mi.isEnabled = true }
+        show(waiting)
     }
 
     func startBoard() {
@@ -185,6 +249,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func show(_ human: Int?) {
+        waiting = human
+        guard !busy else { return }  // the update's spinner and stage own the button until it ends
         item.button?.title = (human ?? 0) > 0 ? " \(human!)" : ""
         item.button?.toolTip = human == nil ? "Mark: board starting…"
             : human! > 0 ? "Mark: \(human!) waiting on you" : "Mark: nothing waits on you"

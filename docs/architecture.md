@@ -834,7 +834,10 @@ covers init's checks and the existing-project cases; `tests/test_upgrade.py` cov
   LaunchAgent. Once a day the app runs `mark app update` (marketplace update + `claude plugin
   update`, since Claude Code auto-updates a third-party plugin only when the user turns that on);
   when `mark --version` moved, it runs the new plugin's `mark app install --no-open` and restarts
-  the board once no project has a running session (open pages sign in again). `claude` is looked
+  the board once no project has a running session (open pages sign in again). **Check for
+  Updates…** shows that run: the status item turns into a spinner, the Check item and the tooltip
+  name the stage (updating the plugin, rebuilding the app), and every menu action but Quit is
+  disabled until the result alert appears. The daily check stays quiet. `claude` is looked
   up on PATH, then `~/.local/bin`, `~/.claude/local` (a login item's PATH is bare). The Homebrew
   formula of v0.59 is gone: two installs of the same code drifted apart.
 - Setup checks (v0.61, `lib/mark/deps.py`): the home page asks `/api/deps` for what this machine
