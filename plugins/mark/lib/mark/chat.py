@@ -128,9 +128,11 @@ def settings(cfg: MarkConfig, ticket_id: str, resuming: bool) -> dict:
     return data
 
 
-def command(cfg: MarkConfig, sid: str | None, claude: str, extra: list[str] = (), note: str = BOARD_NOTE) -> list[str]:
+def command(cfg: MarkConfig, sid: str | None, claude: str, extra: list[str] = (), note: str = BOARD_NOTE,
+            mode: str | None = None) -> list[str]:
     return [claude, "-p", *(["--resume", sid] if sid else []), "--append-system-prompt", note,
-            "--permission-mode", cfg.board_permission_mode, *extra, "--output-format", "stream-json", "--verbose"]
+            "--permission-mode", mode or cfg.board_permission_mode, *extra,
+            "--output-format", "stream-json", "--verbose"]
 
 
 def prompt(kind: str, ticket_id: str, text: str, first: bool) -> str:
@@ -153,12 +155,15 @@ def title(cfg: MarkConfig, ticket_id: str) -> str:
 
 def start(cfg: MarkConfig, kind: str, ticket_id: str, text: str, claude: str | None = None,
           first: str | None = None, note: str = BOARD_NOTE,
-          when_done: Callable[[], None] | None = None) -> tuple[bool, str]:
+          when_done: Callable[[], None] | None = None, cwd: Path | None = None,
+          args: list[str] = (), mode: str | None = None,
+          env_extra: dict[str, str] | None = None) -> tuple[bool, str]:
     """Send one message: (started, why not). Never two turns on a ticket, nor a turn on a ticket
     the headless runner is carrying on. `first` replaces the opening prompt and `note` the system
     note (the new-project wizard, `wizard.py`, which has no ticket). `when_done` runs after a turn
     that ended by itself (`board.carry_on_chat`); a turn stopped by the board or one that exited
-    nonzero runs nothing."""
+    nonzero runs nothing. `cwd`, `args`, `mode` and `env_extra` are for the board consult
+    (`consult.py`): its own directory, tool set, permission mode and sandbox marker."""
     if running(cfg, ticket_id) or runner.running(cfg, ticket_id):
         return False, "busy"
     claude = claude or runner.find_claude()
@@ -173,10 +178,13 @@ def start(cfg: MarkConfig, kind: str, ticket_id: str, text: str, claude: str | N
     log.parent.mkdir(parents=True, exist_ok=True)
     pinned = settings(cfg, ticket_id, sid is not None)
     extra, env = model.launch(pinned, runner.clean_env())
+    if env_extra:
+        env = {**env, **env_extra}
     with open(log, "a", encoding="utf-8") as fh:
         fh.write(json.dumps({"type": "human", "text": text, "at": time.time()}, ensure_ascii=False) + "\n")
     with open(log, "ab") as fh:
-        proc = subprocess.Popen(command(cfg, sid, claude, extra, note), cwd=cfg.root, env=env,
+        proc = subprocess.Popen(command(cfg, sid, claude, [*extra, *args], note, mode),
+                                cwd=cwd or cfg.root, env=env,
                                 stdin=subprocess.PIPE, stdout=fh, stderr=subprocess.STDOUT,
                                 start_new_session=True)  # its own group: stop ends what it started too
     state_path(cfg, ticket_id).write_text(json.dumps({"pid": proc.pid, "started": time.time()}) + "\n")

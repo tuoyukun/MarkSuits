@@ -17,7 +17,7 @@ from unittest import mock
 
 from tests._support import add_ticket, add_worktree, fresh_home, make_repo, sh, status_text
 
-from mark import board, cli, flow, home, human, reviews, runner, tickets, wait
+from mark import board, chat, cli, consult, flow, home, human, reviews, runner, tickets, wait
 from mark.config import load_config
 
 
@@ -208,6 +208,21 @@ class ServerTest(unittest.TestCase):
 
     def test_other_hosts_are_refused(self):  # DNS rebinding
         self.assertEqual(self.get(self.p + "/api/board", host="evil.example")[0], 403)
+
+    def test_consult_is_readable_but_needs_the_cookie_to_start(self):
+        code, body = self.get(self.p + "/api/consult")
+        self.assertEqual(code, 200)
+        view = json.loads(body)
+        self.assertEqual(view["messages"], [])
+        self.assertFalse(view["sandbox"])
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request("POST", self.p + "/api/consult/reset", body="{}",
+                  headers={"Host": f"127.0.0.1:{self.port}", "Content-Type": "application/json",
+                           "Origin": f"http://127.0.0.1:{self.port}"})
+        r = c.getresponse()
+        r.read()
+        c.close()
+        self.assertEqual(r.status, 403)
 
     def test_events_push_a_new_version(self):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
@@ -701,6 +716,26 @@ class DecideTest(unittest.TestCase):
         code, _, _ = self.post(self.p + "/api/decide", {"ticket": "0001-a", "verb": "approve"}, cookie=self.login())
         self.assertEqual(code, 403)
         self.assertEqual(self.status("0001-a"), "review-plan")
+
+    def test_consult_starts_a_visit_and_sends_messages(self):
+        cookie = self.login()
+        self.addCleanup(consult.discard, self.cfg)
+        code, res, _ = self.post(self.p + "/api/consult/reset", {}, cookie=cookie)
+        self.assertEqual((code, res["sandbox"]), (200, True))
+        self.assertTrue(consult.worktree(self.cfg).is_dir())
+        view = json.loads(self._get(self.p + "/api/consult"))
+        self.assertEqual((view["messages"], view["sandbox"], view["running"]), ([], True, False))
+        with mock.patch.object(chat, "start", return_value=(True, "")) as start:
+            code, res, _ = self.post(self.p + "/api/consult", {"text": "How does it work?"}, cookie=cookie)
+        self.assertEqual((code, res["ok"]), (200, True))
+        start.assert_called_once()
+        self.assertEqual(start.call_args.args[:4], (self.cfg, "", consult.ID, "How does it work?"))
+        with mock.patch.object(chat, "stop", return_value=True) as stop:
+            code, res, _ = self.post(self.p + "/api/consult/stop", {}, cookie=cookie)
+        self.assertEqual((code, res["ok"]), (200, True))
+        stop.assert_called_once_with(self.cfg, consult.ID)
+        code, res, _ = self.post(self.p + "/api/consult", {"text": "   "}, cookie=cookie)
+        self.assertEqual((code, res["ok"]), (409, False))
 
 
 class PortsTest(unittest.TestCase):

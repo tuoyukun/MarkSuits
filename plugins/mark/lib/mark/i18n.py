@@ -289,6 +289,23 @@ MESSAGES["en"].update({
         "Do not check out `{branch}` in the main checkout; every session shares it. Use a worktree:\n"
         "  git worktree add \"{wt}\" \"{branch}\""
     ),
+    "guard.consult.write": (
+        "A board consult session may write only inside its disposable sandbox (`{root}`).\n"
+        "`{path}` is outside it. The real checkout is read-only here: do not touch it.\n"
+        "If the change matters, describe it and suggest a ticket; the human opens it."
+    ),
+    "guard.consult.git": (
+        "A board consult session runs git read-only: no commit, push, tag, branch, checkout, reset,\n"
+        "clean, fetch, worktree or config change. Use `git log/show/diff/status/blame/rev-parse` instead."
+    ),
+    "guard.consult.mark": (
+        "A board consult session does not run `mark`: no tickets, no state changes, no dispatches.\n"
+        "If the answer needs a change, suggest a ticket; the human opens it."
+    ),
+    "guard.consult.no_sandbox": (
+        "The consult sandbox is gone, so Bash is refused. Start a new conversation on the board\n"
+        "(it cuts a fresh sandbox) and try again."
+    ),
     "cli.unlock.ok": "Released lock {id}.{role}.",
     "cli.unlock.none": "No lock {id}.{role}.",
     "cli.format.unknown": "No artifact format `{name}`.",
@@ -450,6 +467,20 @@ MESSAGES["zh-CN"].update({
     "guard.bash.discard_dirty": "强制删除 `{wt}` 会丢掉未提交的改动。先提交并推送；如果 Human 确实要丢弃，请 Human 自己执行这条命令。",
     "guard.bash.discard_unpushed": "强制删除 `{ref}` 会丢掉 {n} 个既不在任何远端、也不在 main 上的提交。先推送；如果 Human 确实要丢弃，请 Human 自己执行这条命令。",
     "guard.bash.checkout_main": "不要在主仓里检出 `{branch}`，主仓是所有会话共用的。请用 worktree：\n  git worktree add \"{wt}\" \"{branch}\"",
+    "guard.consult.write": (
+        "看板咨询会话只能写它自己的一次性沙箱（`{root}`）。\n"
+        "`{path}` 在沙箱之外。这里的真实仓库是只读的，不要碰它。\n"
+        "如果这处改动确实重要，用文字说明并建议开一张工单，由 Human 来开。"
+    ),
+    "guard.consult.git": (
+        "看板咨询会话的 git 是只读的：不能 commit、push、tag、branch、checkout、reset、clean、fetch、worktree 或改 config。\n"
+        "请用 `git log/show/diff/status/blame/rev-parse` 这类只读命令。"
+    ),
+    "guard.consult.mark": (
+        "看板咨询会话不运行 `mark`：不建工单、不改状态、不派活。\n"
+        "如果答案需要改动，建议开一张工单，由 Human 来开。"
+    ),
+    "guard.consult.no_sandbox": "咨询沙箱不存在了，Bash 被拒绝。请在看板上开一个新会话（会重新建沙箱）再试。",
     "cli.unlock.ok": "已释放锁 {id}.{role}。",
     "cli.unlock.none": "没有锁 {id}.{role}。",
     "cli.format.unknown": "没有制品格式 `{name}`。",

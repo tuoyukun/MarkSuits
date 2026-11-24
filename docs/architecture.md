@@ -198,7 +198,7 @@ All hooks go through one entry, `hooks/mark_hook.py <group>`; guards are pure fu
 |---|---|---|
 | `pre-write` | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **scope** (engine rules, then `[[write_rules]]`, first match wins; a path no rule assigns is the main thread's, except a role's working files in a ticket dir — v0.19; CLI-only files are nobody's, see below) · **worktree** (roles never write in the main checkout; the main checkout only takes ticket dirs, gates, locks and `main_writable`) · **ticket** (no artifact without `<id>.ticket-approved`) · **budget** (`[[doc_budget]]`, see Doc budget) · **e2e** / **layout** (tester writes, v0.22–v0.40) |
 | `pre-dispatch` | PreToolUse `Agent\|Task` | **staffed** (a built-in role the project lacks, e.g. the designer in `service`, is refused, v0.30) · **target** (exactly one existing ticket, via `mark:ticket` anchor or ticket path) · **status** (the role is the one the ticket's status names; gates are never revoked, so a gate alone would start coder-impl while a reworked plan waits for review, v0.30) · **gate** (feature roles need `[gates]`, plus `requirement-approved` when the ticket says `requirement-gate: yes`, v0.33; `<gate>.waived` counts; a ticket with `design: none` needs no `design-approved`, v0.73) · **branch** (worktree on `<kind>/<id>`, cut from main unless `base-branch` is declared, pushed to origin) · **status-commit** (ticket state committed and main pushed) · **brief** (the prompt is the one `mark dispatch` last printed for that ticket and role, by digest in `locks/<id>.<role>.brief.json`; an edited copy starts no agent, v0.35) · **background** (a role agent may not be dispatched with `run_in_background: true`: a headless turn loses a background agent ten minutes after it ends; an absent field passes, since interactive CLIs no longer offer it, v0.74.1) · **dedup** (one live agent per ticket+role; creates the lock) |
-| `pre-bash` | PreToolUse `Bash` | nobody starts the Claude Code CLI (`claude`, `claude-code`, also via a path, `npx`, `script`, `sh -c`, `eval` or `$(...)`; a bare mention like `grep claude` is refused too, v0.46.1); nobody touches human tokens; subagents never run state-changing `mark` commands, never commit on main or push to it (from any branch, e.g. `HEAD:main` in a worktree, v0.30); nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `touch`, `sed`/`perl`/`ruby -i`, `cp`, `mv`) follow the scope and worktree rules, and the tester writes test code under the tests directory with Edit/Write only, so the end-to-end rules see it; the main thread's never reach a CLI-only file or a role's artifact in a ticket dir (`verdict.md`, `design-qa.md`… carry anchors the engine trusts, v0.30) (commands split at `&&`, `||`, `;`, `|` and newlines outside quotes; `$VAR` and `cd` are followed through the command's own assignments and the environment; unclear or quoted targets pass) |
+| `pre-bash` | PreToolUse `Bash` | **consult** (a board consult session, marked `MARK_CONSULT_ROOT`, writes only inside its disposable worktree, runs git read-only and never `mark`, v0.75) · nobody starts the Claude Code CLI (`claude`, `claude-code`, also via a path, `npx`, `script`, `sh -c`, `eval` or `$(...)`; a bare mention like `grep claude` is refused too, v0.46.1); nobody touches human tokens; subagents never run state-changing `mark` commands, never commit on main or push to it (from any branch, e.g. `HEAD:main` in a worktree, v0.30); nobody checks out a ticket branch in the main checkout; nobody force-removes a worktree or branch holding uncommitted or unpushed work; subagent shell writes (`>`, `>>`, `tee`, `touch`, `sed`/`perl`/`ruby -i`, `cp`, `mv`) follow the scope and worktree rules, and the tester writes test code under the tests directory with Edit/Write only, so the end-to-end rules see it; the main thread's never reach a CLI-only file or a role's artifact in a ticket dir (`verdict.md`, `design-qa.md`… carry anchors the engine trusts, v0.30) (commands split at `&&`, `||`, `;`, `|` and newlines outside quotes; `$VAR` and `cd` are followed through the command's own assignments and the environment; unclear or quoted targets pass) |
 | `post-dispatch` | PostToolUse `Agent\|Task` | binds the agent id to the lock; a foreground agent (`status: completed`) whose stop could not be matched is settled here instead, so no finished agent leaves a bound lock |
 | `dispatch-failed` | PostToolUseFailure `Agent\|Task` | the agent never started: drops its unbound lock and tells Claude why (an unknown agent type means the session predates that agent: restart) |
 | `post-write` | PostToolUse writes | reminds to commit ticket state on main (feedback only) |
@@ -464,8 +464,8 @@ leaves it to the human.
 
 `mark board` (`lib/mark/board.py`, page `lib/mark/board.html`) serves a board on
 127.0.0.1: tickets by stage, a history view (a pan-and-zoom timeline, and per-ticket durations), and per ticket a modal with every document,
-the gates and the moves. It adds no state; its one write path is the human's decision (below).
-Its sources are the ones above:
+the gates and the moves. Its only durable write is the human's decision (below); a consult visit
+(v0.75) adds only a gitignored worktree and log, dropped on reset. Its sources are the ones above:
 
 - **Status**: each main-checkout `status.md`.
 - **History**: `git log -p -U0` of the status files on main. Every commit that sets `status:` is
@@ -514,6 +514,21 @@ human confirms in the chat; it runs `mark init` and fills in CLAUDE.md. Once `.m
 exists the project is registered and the wizard links to its board. No tool call may write under
 `MARK_HOME` (`guards.write.home_block`, Edit/Write and shell writes alike). Residual: the
 wizard's first turns run before the directory is a Mark project, so Mark's hooks are silent there.
+
+**Consult (v0.75).** A project's sidebar has **Consult**: free talk about the project with Claude,
+with no ticket. Entering the view starts a visit (`POST api/consult/reset`,
+`lib/mark/consult.py`): it stops any turn, drops the previous log and model pin, and cuts a
+detached worktree at HEAD in `<state>/locks/consult-wt/`. Each message is one headless turn
+(`chat.py` under the consult id) resuming that visit's session, so the discussion carries on; the
+next entry starts from zero, so context never accumulates across visits. The session gets
+`Read,Grep,Glob,Bash` and no edits, subagents or MCP (`--strict-mcp-config` with an empty config);
+Bash runs with the worktree as cwd, so tests and builds are possible while the real checkout is
+untouched. `guards.bash.consult_guard` (marker `MARK_CONSULT_ROOT`) refuses writes outside the
+worktree, git writes and `mark`; the prompt says read-only too. This is a guardrail, not a kernel
+sandbox: a determined interpreter escape can leave the worktree. A repository with no HEAD falls
+back to the main checkout with `Read,Grep,Glob` only (`dontAsk`), and the view says Bash is off.
+The view shows the last turn's input tokens so the human can see the transcript grow and start a
+new conversation.
 
 **Columns (v0.64).** Every stage column is expanded by default, empty or not, on a darker
 background that fills the visible height; cards scroll inside the column, so the columns line up

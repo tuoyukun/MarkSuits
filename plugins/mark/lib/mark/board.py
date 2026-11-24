@@ -25,6 +25,10 @@ project adds it there. The page (`board.html`) is one file with two views:
       events                           server-sent events for this project only
       f/<features|bugs>/<id>/<main|worktree>/<path>   a file from the ticket dir
       api/chat/<ticket>                a ticket's chat (`chat.py`)
+      api/consult                      the project's free, read-only consult (`consult.py`)
+      POST api/consult                 send the next consult message (with the cookie)
+      POST api/consult/reset           start a fresh visit and sandbox (with the cookie)
+      POST api/consult/stop            stop the consult turn (with the cookie)
       POST api/decide                  approve or reject, with the cookie
       POST api/void {ticket, reason}   void an unfinished ticket for the human (with the cookie)
       POST api/merge {ticket}          `mark merge` a pending-merge ticket in the background (with the cookie)
@@ -67,7 +71,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import (ask, chat, deps, flow, general, home, human, merge, model, propose,
+from . import (ask, chat, consult, deps, flow, general, home, human, merge, model, propose,
                runner, scaffold, states, tickets, upkeep, wizard)
 from .config import ConfigError, MarkConfig, find_project_root, load_config
 from .gitutil import git, ref_exists, worktrees
@@ -958,6 +962,16 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                 with board.lock:
                     ok, text = send(cfg, body, when_done=after_turn)
                 self._json(200 if ok else 409, {"ok": ok, "text": text})
+            elif path == "/api/consult":
+                with board.lock:
+                    ok, text = consult.send(cfg, body.get("text"))
+                self._json(200 if ok else 409, {"ok": ok, "text": text})
+            elif path == "/api/consult/reset":
+                with board.lock:
+                    started = consult.reset(cfg)
+                self._json(200, {"ok": True, **started})
+            elif path == "/api/consult/stop":
+                self._json(200, {"ok": consult.stop(cfg)})
             elif path == "/api/lane":
                 ok, text = upkeep.lane_action(cfg, body, general_lanes, board.touch)
                 self._json(200 if ok else 409, {"ok": ok, "text": text})
@@ -992,6 +1006,8 @@ def make_handler(board: Board) -> type[BaseHTTPRequestHandler]:
                     self._send(404, b"not found", "text/plain")
             elif path == "/api/board":
                 self._json(200, {**snapshot(proj.cfg, proj.history), "decide": mode, "update": board.updater.view()})
+            elif path == "/api/consult":
+                self._json(200, consult.view(proj.cfg))
             elif path.startswith("/api/chat/"):
                 tid = unquote(path[len("/api/chat/"):])
                 if _known(proj.cfg, tid) is None:

@@ -272,6 +272,105 @@ def shell_write_guard(env: Env) -> str | None:
     return None
 
 
+# --------------------------------------------------------------------------
+# Consult sessions (the board's read-only free talk): full Bash, but only inside a
+# disposable worktree. `consult.py` marks the process with MARK_CONSULT_ROOT.
+# --------------------------------------------------------------------------
+
+CONSULT_ROOT_ENV = "MARK_CONSULT_ROOT"
+GIT_READ = frozenset({
+    "log", "show", "diff", "diff-tree", "diff-index", "diff-files", "status", "blame",
+    "rev-parse", "rev-list", "ls-files", "ls-tree", "grep", "shortlog", "describe",
+    "cat-file", "for-each-ref", "show-ref", "merge-base", "name-rev", "whatchanged",
+    "help", "version", "count-objects", "check-ignore", "check-attr", "check-ref-format",
+    "var", "cherry", "range-diff", "verify-commit", "verify-tag", "fsck",
+})
+_GIT_WRITE_OPTIONS = ("--output", "--ext-diff")
+
+
+def _written(here: Path | None, segment: str, words: list[str], values: dict[str, str]) -> list[Path]:
+    """Paths this simple command would write, as far as static parsing can tell. Wider than
+    `_shell_targets`: destructive commands count too, because a consult may use them."""
+    def full(word: str) -> Path | None:
+        path = expand(word, values)
+        if path is None or (here is None and not os.path.isabs(path)):
+            return None
+        return Path(os.path.realpath(path if here is None else os.path.join(here, path)))
+
+    raw: list[str] = list(_REDIRECT.findall(_QUOTED.sub("''", segment)))
+    cmd = os.path.basename(words[0]) if words else ""
+    args = [w for w in words[1:] if not w.startswith("-")]
+    if cmd in ("tee", "touch", "rm", "rmdir", "mkdir", "truncate", "unlink", "shred",
+               "mkfifo", "mknod", "install", "ln"):
+        raw += args
+    elif cmd in ("chmod", "chown"):
+        raw += args[1:]  # the mode/owner is not a path
+    elif cmd in ("cp", "mv") and len(args) >= 2:
+        *srcs, dest = args
+        dest_dir = (f := full(dest)) is not None and f.is_dir()
+        raw += [os.path.join(dest, os.path.basename(s)) for s in srcs] if dest_dir else [dest]
+        if cmd == "mv":
+            raw += srcs
+    elif cmd in ("sed", "perl", "ruby") and any(
+            w == "--in-place" or w.startswith("--in-place=")
+            or re.match(r"^-[a-zA-Z0-9]*i", w) for w in words[1:]):
+        raw += [a for a in args if (f := full(a)) and f.is_file()]
+    elif cmd == "dd":
+        raw += [w.split("=", 1)[1] for w in words[1:] if w.startswith("of=")]
+    elif cmd == "find" and any(w in ("-delete", "-exec", "-execdir", "-ok", "-okdir",
+                                     "-fprint", "-fprintf", "-fls") for w in words[1:]):
+        raw += args[:1]  # the search root; -exec's own command is beyond static parsing
+    elif cmd == "curl":
+        raw += [words[i + 2] for i, w in enumerate(words[1:])
+                if w in ("-o", "--output") and i + 2 < len(words)]
+        raw += [w.split("=", 1)[1] for w in words[1:] if w.startswith("--output=")]
+    elif cmd == "wget":
+        raw += [words[i + 2] for i, w in enumerate(words[1:])
+                if w in ("-O", "--output-document") and i + 2 < len(words)]
+        raw += [w.split("=", 1)[1] for w in words[1:] if w.startswith("--output-document=")]
+    return [p for w in raw if w and not w.startswith("/dev/") and (p := full(w)) is not None]
+
+
+def _git_args(words: list[str]) -> list[str] | None:
+    """git's arguments after its global options, or None if this is not a git call."""
+    if not words or os.path.basename(words[0]) != "git":
+        return None
+    args = words[1:]
+    while args and args[0].startswith("-"):
+        if args[0] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace") and len(args) > 1:
+            args = args[2:]
+        else:
+            args = args[1:]
+    return args
+
+
+def consult_guard(env: Env) -> str | None:
+    """A board consult session (`consult.py`) writes only inside its disposable worktree, changes
+    no git or ticket state, and never runs `mark`. The real checkout is read-only for it."""
+    root = os.environ.get(CONSULT_ROOT_ENV)
+    if not root:
+        return None
+    sandbox = Path(os.path.realpath(root))
+    if not sandbox.is_dir():
+        return env.t("guard.consult.no_sandbox")
+    command = str(env.tool_input.get("command") or "")
+    for here, segment, words, values in _commands(command, env.cwd):
+        if not words:
+            continue
+        name = os.path.basename(words[0])
+        if name == "mark":
+            return env.t("guard.consult.mark")
+        if name == "git":
+            args = _git_args(words) or []
+            if args and (args[0] not in GIT_READ
+                         or any(a.startswith(_GIT_WRITE_OPTIONS) for a in args[1:])):
+                return env.t("guard.consult.git")
+        for path in _written(here, segment, words, values):
+            if path != sandbox and not path.is_relative_to(sandbox):
+                return env.t("guard.consult.write", root=str(sandbox), path=str(path))
+    return None
+
+
 # `mark` subcommands that change ticket state. Subagents report outcomes in
 # their result; the orchestrator records them.
 MARK_WRITES = frozenset({"set", "approve", "reject", "void", "claim", "commit", "dispatch", "unlock", "merge", "propose", "ask",
@@ -342,4 +441,4 @@ def wait_guard(env: Env) -> str | None:
     return None
 
 
-PRE_BASH = [claude_guard, mark_guard, wait_guard, git_guard, shell_write_guard]
+PRE_BASH = [consult_guard, claude_guard, mark_guard, wait_guard, git_guard, shell_write_guard]
